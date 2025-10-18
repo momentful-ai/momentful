@@ -95,14 +95,14 @@ export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-xl max-w-md w-full animate-scale-in shadow-2xl">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-900">Export {assetType === 'video' ? 'Video' : 'Image'}</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-all hover:rotate-90 duration-200"
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>
@@ -120,9 +120,9 @@ export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }
                 <button
                   key={f.id}
                   onClick={() => setFormat(f.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     format === f.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -147,9 +147,9 @@ export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }
                 <button
                   key={q.id}
                   onClick={() => setQuality(q.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     quality === q.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -172,7 +172,7 @@ export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
           >
             {isExporting ? (
               <>

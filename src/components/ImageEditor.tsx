@@ -80,13 +80,13 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
 
   return (
-    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col animate-fade-in">
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-slate-300 hover:text-white transition-all hover:scale-105"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Project</span>
@@ -97,14 +97,14 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
+              className="px-4 py-2 text-slate-300 hover:text-white transition-all hover:scale-105"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!showComparison}
-              className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
             >
               Save to Project
             </button>
@@ -116,15 +116,15 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         <div className="flex-1 bg-slate-800 p-6 overflow-y-auto">
           <div className="max-w-5xl mx-auto">
             {!showComparison ? (
-              <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center">
+              <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in">
                 <img
                   src={getAssetUrl(asset.storage_path)}
                   alt={asset.file_name}
-                  className="w-full h-full object-contain rounded-xl"
+                  className="w-full h-full object-contain rounded-xl transition-transform hover:scale-105"
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6 animate-fade-in">
                 <div>
                   <div className="mb-2 text-sm font-medium text-slate-400">
                     Original
@@ -169,9 +169,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                 <button
                   key={model.id}
                   onClick={() => setSelectedModel(model.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     selectedModel === model.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -247,7 +247,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                   {versions.map((version, index) => (
                     <div
                       key={index}
-                      className="bg-slate-50 rounded-lg p-3 text-xs"
+                      className="bg-slate-50 rounded-lg p-3 text-xs animate-slide-up hover:bg-slate-100 transition-colors"
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-slate-900">
@@ -272,7 +272,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
             <button
               onClick={handleGenerate}
               disabled={!prompt.trim() || isGenerating}
-              className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
             >
               {isGenerating ? (
                 <>

@@ -115,7 +115,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
           </p>
           <button
             onClick={createProject}
-            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
           >
             <Plus className="w-5 h-5" />
             Create Your First Project
@@ -160,7 +160,7 @@ function ProjectCard({ project, onClick, onDelete }: { project: Project; onClick
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
+      className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all hover:scale-105 group cursor-pointer animate-fade-in"
     >
       <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 relative">
         {project.thumbnail_url ? (
@@ -181,7 +181,7 @@ function ProjectCard({ project, onClick, onDelete }: { project: Project; onClick
                 e.stopPropagation();
                 setShowMenu(!showMenu);
               }}
-              className="p-2 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-colors"
+              className="p-2 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-all hover:scale-110"
             >
               <MoreVertical className="w-4 h-4 text-slate-700" />
             </button>

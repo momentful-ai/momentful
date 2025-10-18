@@ -77,7 +77,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
       <div className="mb-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-all hover:scale-105"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Projects
@@ -92,14 +92,14 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowVideoGenerator(true)}
-              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-sm hover:shadow-lg hover:scale-105 active:scale-95"
             >
               <Video className="w-5 h-5" />
               Generate Video
             </button>
             <button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-sm hover:shadow-lg hover:scale-105 active:scale-95"
             >
               <Upload className="w-5 h-5" />
               Upload Media
@@ -135,7 +135,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
             <div className="flex gap-1 border border-slate-200 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-all hover:scale-110 ${
                   viewMode === 'grid'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-500 hover:text-slate-700'
@@ -145,7 +145,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-all hover:scale-110 ${
                   viewMode === 'list'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-500 hover:text-slate-700'

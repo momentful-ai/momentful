@@ -161,7 +161,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const canGenerate = selectedSources.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col animate-fade-in">
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -197,7 +197,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
         <div className="flex-1 bg-slate-800 p-6 overflow-y-auto">
           <div className="max-w-5xl mx-auto">
             <div
-              className={`bg-slate-700 rounded-xl flex items-center justify-center ${
+              className={`bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in ${
                 aspectRatio === '16:9' ? 'aspect-video' :
                 aspectRatio === '9:16' ? 'aspect-[9/16] max-w-md mx-auto' :
                 aspectRatio === '1:1' ? 'aspect-square max-w-2xl mx-auto' :
@@ -229,7 +229,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                   {selectedSources.map((source, index) => (
                     <div
                       key={source.id}
-                      className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden group"
+                      className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden group animate-scale-in hover:scale-105 transition-transform"
                     >
                       {source.thumbnail ? (
                         <img
@@ -276,9 +276,9 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                 <button
                   key={model.id}
                   onClick={() => setSelectedModel(model.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     selectedModel === model.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -467,14 +467,14 @@ function SourceSelectorModal({
   const isSelected = (id: string) => selectedSources.some((s) => s.id === id);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col animate-scale-in shadow-2xl">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-900">Select Source Media</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-all hover:rotate-90 duration-200"
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>
@@ -530,9 +530,9 @@ function SourceSelectorModal({
                     });
                     onClose();
                   }}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
                     isSelected(image.id)
-                      ? 'border-blue-500 ring-2 ring-blue-500'
+                      ? 'border-blue-500 ring-2 ring-blue-500 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
