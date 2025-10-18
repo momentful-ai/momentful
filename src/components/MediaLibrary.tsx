@@ -8,6 +8,8 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { cn, formatFileSize, formatDuration } from '../lib/utils';
 import { useUserId } from '../hooks/useUserId';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from './ToastContainer';
 
 interface MediaLibraryProps {
   projectId: string;
@@ -18,11 +20,13 @@ interface MediaLibraryProps {
 
 export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'grid' }: MediaLibraryProps) {
   const userId = useUserId();
+  const { showToast } = useToast();
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<{ id: string; path: string } | null>(null);
 
   useEffect(() => {
     loadAssets();
@@ -39,18 +43,19 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
     }
   };
 
-  const deleteAsset = async (assetId: string, storagePath: string) => {
-    if (!confirm('Are you sure you want to delete this asset? This action cannot be undone.')) {
-      return;
-    }
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
 
     try {
-      await database.storage.delete('user-uploads', [storagePath]);
-      await database.mediaAssets.delete(assetId);
-      setAssets((prev) => prev.filter((a) => a.id !== assetId));
+      await database.storage.delete('user-uploads', [assetToDelete.path]);
+      await database.mediaAssets.delete(assetToDelete.id);
+      setAssets((prev) => prev.filter((a) => a.id !== assetToDelete.id));
+      showToast('Asset deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting asset:', error);
-      alert('Failed to delete asset. Please try again.');
+      showToast('Failed to delete asset. Please try again.', 'error');
+    } finally {
+      setAssetToDelete(null);
     }
   };
 
@@ -65,7 +70,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
     );
 
     if (imageFiles.length === 0) {
-      alert('Please upload valid image files');
+      showToast('Please upload valid image files', 'error');
       return;
     }
 
@@ -99,9 +104,10 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
       }
 
       await loadAssets();
+      showToast('Files uploaded successfully', 'success');
     } catch (error) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload some files');
+      showToast('Failed to upload some files', 'error');
     } finally {
       setUploading(false);
     }
@@ -271,7 +277,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteAsset(asset.id, asset.storage_path);
+                  setAssetToDelete({ id: asset.id, path: asset.storage_path });
                 }}
                 size="icon"
                 variant="destructive"
@@ -308,6 +314,18 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
           </Card>
         ))}
       </div>
+
+      {assetToDelete && (
+        <ConfirmDialog
+          title="Delete Asset"
+          message="Are you sure you want to delete this asset? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmDeleteAsset}
+          onCancel={() => setAssetToDelete(null)}
+        />
+      )}
     </div>
   );
 }

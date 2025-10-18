@@ -4,6 +4,7 @@ import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
+import { useToast } from './ToastContainer';
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -14,6 +15,7 @@ interface ImageEditorProps {
 
 export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorProps) {
   const userId = useUserId();
+  const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
   const [prompt, setPrompt] = useState('');
   const [context, setContext] = useState('');
@@ -94,10 +96,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         height: asset.height || 0,
       });
 
+      showToast('Image saved successfully', 'success');
       onSave();
     } catch (error) {
       console.error('Error saving edited image:', error);
-      alert('Failed to save edited image. Please try again.');
+      showToast('Failed to save edited image. Please try again.', 'error');
     }
   };
 
