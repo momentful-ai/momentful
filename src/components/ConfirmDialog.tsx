@@ -1,4 +1,6 @@
 import { AlertCircle } from 'lucide-react';
+import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 interface ConfirmDialogProps {
   title: string;
@@ -19,51 +21,58 @@ export function ConfirmDialog({
   onCancel,
   type = 'warning',
 }: ConfirmDialogProps) {
-  const typeColors = {
+  const typeConfig = {
     danger: {
-      icon: 'text-red-500',
-      bg: 'bg-red-50',
-      button: 'bg-red-500 hover:bg-red-600',
+      iconBg: 'bg-destructive/10 dark:bg-destructive/20',
+      iconColor: 'text-destructive',
+      variant: 'destructive' as const,
     },
     warning: {
-      icon: 'text-orange-500',
-      bg: 'bg-orange-50',
-      button: 'bg-orange-500 hover:bg-orange-600',
+      iconBg: 'bg-accent-amber-100 dark:bg-accent-amber-900/30',
+      iconColor: 'text-accent-amber-600 dark:text-accent-amber-400',
+      variant: 'default' as const,
     },
     info: {
-      icon: 'text-blue-500',
-      bg: 'bg-blue-50',
-      button: 'bg-blue-500 hover:bg-blue-600',
+      iconBg: 'bg-primary/10 dark:bg-primary/20',
+      iconColor: 'text-primary',
+      variant: 'default' as const,
     },
   };
 
-  const colors = typeColors[type];
+  const config = typeConfig[type];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
-        <div className={`w-12 h-12 rounded-full ${colors.bg} flex items-center justify-center mx-auto mb-4`}>
-          <AlertCircle className={`w-6 h-6 ${colors.icon}`} />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="glass-card max-w-md w-full p-6 shadow-2xl animate-scale-in">
+        <div className={cn(
+          'w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-offset-2 ring-offset-background',
+          config.iconBg
+        )}>
+          <AlertCircle className={cn('w-7 h-7', config.iconColor)} />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 text-center mb-2">
+        <h2 className="text-2xl font-bold text-center mb-3">
           {title}
         </h2>
-        <p className="text-slate-600 text-center mb-6">
+        <p className="text-muted-foreground text-center mb-6 leading-relaxed">
           {message}
         </p>
         <div className="flex gap-3">
-          <button
+          <Button
             onClick={onCancel}
-            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+            variant="outline"
+            size="lg"
+            className="flex-1"
           >
             {cancelText}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onConfirm}
-            className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors ${colors.button}`}
+            variant={config.variant}
+            size="lg"
+            className="flex-1"
           >
             {confirmText}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

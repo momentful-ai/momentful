@@ -6,6 +6,9 @@ import { useUserId } from '../hooks/useUserId';
 import { useToast } from './ToastContainer';
 import { DashboardSkeleton } from './LoadingSkeleton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { cn } from '../lib/utils';
 
 interface DashboardProps {
   onSelectProject: (project: Project) => void;
@@ -88,47 +91,54 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Your Projects</h2>
-          <p className="text-sm sm:text-base text-slate-600 mt-1">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gradient mb-2">
+            Your Projects
+          </h2>
+          <p className="text-base text-muted-foreground">
             Create stunning marketing visuals with AI
           </p>
         </div>
-        <button
+        <Button
           onClick={createProject}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+          variant="gradient"
+          size="lg"
+          className="w-full sm:w-auto gap-2"
         >
           <Plus className="w-5 h-5" />
-          <span className="sm:inline">New Project</span>
-        </button>
+          New Project
+        </Button>
       </div>
 
       {projects.length === 0 ? (
-        <div className="bg-white rounded-xl border-2 border-dashed border-slate-300 p-6 sm:p-12 text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FolderOpen className="w-8 h-8 text-slate-400" />
+        <Card className="border-2 border-dashed glass-card p-12 text-center hover-lift">
+          <div className="w-20 h-20 gradient-mesh rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <FolderOpen className="w-10 h-10 text-white" />
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          <h3 className="text-2xl font-semibold mb-3">
             No projects yet
           </h3>
-          <p className="text-slate-600 mb-6 max-w-md mx-auto">
+          <p className="text-muted-foreground mb-8 max-w-md mx-auto text-lg">
             Get started by creating your first project. Upload product images, edit them with AI, and generate professional videos.
           </p>
-          <button
+          <Button
             onClick={createProject}
-            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
+            variant="gradient"
+            size="lg"
+            className="gap-2"
           >
             <Plus className="w-5 h-5" />
             Create Your First Project
-          </button>
-        </div>
+          </Button>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {projects.map((project) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project, index) => (
             <ProjectCard
               key={project.id}
               project={project}
               onClick={() => onSelectProject(project)}
               onDelete={() => setProjectToDelete(project)}
+              index={index}
             />
           ))}
         </div>
@@ -147,8 +157,19 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   );
 }
 
-function ProjectCard({ project, onClick, onDelete }: { project: Project; onClick: () => void; onDelete: () => void }) {
+function ProjectCard({
+  project,
+  onClick,
+  onDelete,
+  index
+}: {
+  project: Project;
+  onClick: () => void;
+  onDelete: () => void;
+  index: number;
+}) {
   const [showMenu, setShowMenu] = useState(false);
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
@@ -158,42 +179,56 @@ function ProjectCard({ project, onClick, onDelete }: { project: Project; onClick
   };
 
   return (
-    <div
+    <Card
       onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all hover:scale-105 group cursor-pointer animate-fade-in"
+      className={cn(
+        "group cursor-pointer overflow-hidden hover-lift hover-glow glass-card",
+        "animate-slide-up border-2 border-transparent hover:border-primary/20",
+        "transition-all duration-300"
+      )}
+      style={{
+        animationDelay: `${index * 50}ms`,
+        animationFillMode: 'backwards'
+      }}
     >
-      <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 relative">
+      <div className="aspect-video bg-gradient-to-br from-primary-100 via-accent-coral-50 to-accent-amber-100 dark:from-primary-900/20 dark:via-accent-coral-900/20 dark:to-accent-amber-900/20 relative overflow-hidden">
         {project.thumbnail_url ? (
           <img
             src={project.thumbnail_url}
             alt={project.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <FolderOpen className="w-12 h-12 text-slate-300" />
+            <div className="relative">
+              <FolderOpen className="w-16 h-16 text-primary-300 dark:text-primary-700" />
+              <div className="absolute inset-0 bg-primary-500/20 blur-xl rounded-full" />
+            </div>
           </div>
         )}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
-            <button
+            <Button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowMenu(!showMenu);
               }}
-              className="p-2 bg-white/90 backdrop-blur-sm rounded-lg hover:bg-white transition-all hover:scale-110"
+              variant="secondary"
+              size="icon"
+              className="glass shadow-lg hover:scale-110"
             >
-              <MoreVertical className="w-4 h-4 text-slate-700" />
-            </button>
+              <MoreVertical className="w-4 h-4" />
+            </Button>
             {showMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px] z-10">
+              <div className="absolute top-full right-0 mt-2 glass-card rounded-lg shadow-2xl py-1 min-w-[160px] z-10 animate-scale-in border">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
                     onDelete();
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Project
@@ -203,18 +238,18 @@ function ProjectCard({ project, onClick, onDelete }: { project: Project; onClick
           </div>
         </div>
       </div>
-      <div className="p-4">
-        <h3 className="font-semibold text-slate-900 mb-1 truncate">
+      <div className="p-5">
+        <h3 className="font-semibold text-lg mb-2 truncate group-hover:text-primary transition-colors">
           {project.name}
         </h3>
-        <p className="text-sm text-slate-500 mb-3 line-clamp-2">
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
           {project.description || 'No description'}
         </p>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Clock className="w-3 h-3" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="w-3.5 h-3.5" />
           <span>Updated {formatDate(project.updated_at)}</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ThemeProvider } from './components/ThemeProvider';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
@@ -9,18 +10,20 @@ function App() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   return (
-    <ToastProvider>
-      <Layout>
-        {selectedProject ? (
-          <ProjectWorkspace
-            project={selectedProject}
-            onBack={() => setSelectedProject(null)}
-          />
-        ) : (
-          <Dashboard onSelectProject={setSelectedProject} />
-        )}
-      </Layout>
-    </ToastProvider>
+    <ThemeProvider defaultTheme="light">
+      <ToastProvider>
+        <Layout>
+          {selectedProject ? (
+            <ProjectWorkspace
+              project={selectedProject}
+              onBack={() => setSelectedProject(null)}
+            />
+          ) : (
+            <Dashboard onSelectProject={setSelectedProject} />
+          )}
+        </Layout>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 
