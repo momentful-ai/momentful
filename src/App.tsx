@@ -17,6 +17,7 @@ function App() {
             <ProjectWorkspace
               project={selectedProject}
               onBack={() => setSelectedProject(null)}
+              onUpdateProject={setSelectedProject}
             />
           ) : (
             <Dashboard onSelectProject={setSelectedProject} />

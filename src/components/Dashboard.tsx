@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, FolderOpen, Clock, MoreVertical, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Project } from '../types';
 import { useUserId } from '../hooks/useUserId';
@@ -138,6 +138,22 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
               project={project}
               onClick={() => onSelectProject(project)}
               onDelete={() => setProjectToDelete(project)}
+              onUpdateName={async (name) => {
+                try {
+                  const { error } = await supabase
+                    .from('projects')
+                    .update({ name })
+                    .eq('id', project.id);
+                  if (error) throw error;
+                  setProjects((prev) =>
+                    prev.map((p) => (p.id === project.id ? { ...p, name } : p))
+                  );
+                  showToast('Project name updated', 'success');
+                } catch (error) {
+                  console.error('Error updating project name:', error);
+                  showToast('Failed to update project name', 'error');
+                }
+              }}
               index={index}
             />
           ))}
@@ -161,14 +177,19 @@ function ProjectCard({
   project,
   onClick,
   onDelete,
+  onUpdateName,
   index
 }: {
   project: Project;
   onClick: () => void;
   onDelete: () => void;
+  onUpdateName: (name: string) => Promise<void>;
   index: number;
 }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState(project.name);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -176,6 +197,41 @@ function ProjectCard({
       day: 'numeric',
       year: 'numeric',
     });
+  };
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+    setEditedName(project.name);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (editedName.trim() && editedName !== project.name) {
+      await onUpdateName(editedName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditedName(project.name);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (editedName.trim() && editedName !== project.name) {
+        onUpdateName(editedName.trim());
+      }
+      setIsEditing(false);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditedName(project.name);
+      setIsEditing(false);
+    }
   };
 
   return (
@@ -239,9 +295,55 @@ function ProjectCard({
         </div>
       </div>
       <div className="p-5">
-        <h3 className="font-semibold text-lg mb-2 truncate group-hover:text-primary transition-colors">
-          {project.name}
-        </h3>
+        <div className="flex items-center gap-2 mb-2">
+          {isEditing ? (
+            <>
+              <input
+                ref={inputRef}
+                type="text"
+                value={editedName}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setEditedName(e.target.value);
+                }}
+                onKeyDown={handleKeyDown}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 px-2 py-1 text-lg font-semibold bg-background border border-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                maxLength={100}
+              />
+              <Button
+                onClick={handleSave}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
+              >
+                <Check className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={handleCancel}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <h3 className="flex-1 font-semibold text-lg truncate group-hover:text-primary transition-colors">
+                {project.name}
+              </h3>
+              <Button
+                onClick={handleStartEdit}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
           {project.description || 'No description'}
         </p>

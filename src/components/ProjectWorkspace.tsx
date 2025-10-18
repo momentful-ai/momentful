@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video, Download, Share2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video, Download, Share2, Pencil, Check, X } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { supabase } from '../lib/supabase';
 import { FileUpload } from './FileUpload';
@@ -15,9 +15,14 @@ import { cn } from '../lib/utils';
 interface ProjectWorkspaceProps {
   project: Project;
   onBack: () => void;
+  onUpdateProject?: (project: Project) => void;
 }
 
-export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWorkspaceProps) {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(project.name);
+  const [currentProject, setCurrentProject] = useState(project);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
@@ -33,6 +38,50 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   useEffect(() => {
     loadProjectData();
   }, [project.id]);
+
+  useEffect(() => {
+    setCurrentProject(project);
+    setEditedName(project.name);
+  }, [project]);
+
+  const handleStartEdit = () => {
+    setIsEditingName(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const handleSaveName = async () => {
+    if (editedName.trim() && editedName !== currentProject.name) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ name: editedName.trim() })
+          .eq('id', currentProject.id);
+        if (error) throw error;
+        const updatedProject = { ...currentProject, name: editedName.trim() };
+        setCurrentProject(updatedProject);
+        onUpdateProject?.(updatedProject);
+      } catch (error) {
+        console.error('Error updating project name:', error);
+        setEditedName(currentProject.name);
+      }
+    }
+    setIsEditingName(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedName(currentProject.name);
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  };
 
   const loadProjectData = async () => {
     try {
@@ -88,10 +137,53 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           Back to Projects
         </Button>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-2">{project.name}</h2>
-            {project.description && (
-              <p className="text-muted-foreground text-base">{project.description}</p>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              {isEditingName ? (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="flex-1 px-3 py-2 text-3xl sm:text-4xl font-bold bg-background border border-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    maxLength={100}
+                  />
+                  <Button
+                    onClick={handleSaveName}
+                    variant="ghost"
+                    size="icon"
+                    className="text-green-600 hover:text-green-700 hover:bg-green-100"
+                  >
+                    <Check className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    onClick={handleCancelEdit}
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-3xl sm:text-4xl font-bold">{currentProject.name}</h2>
+                  <Button
+                    onClick={handleStartEdit}
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                    title="Edit project name"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </Button>
+                </>
+              )}
+            </div>
+            {currentProject.description && (
+              <p className="text-muted-foreground text-base">{currentProject.description}</p>
             )}
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -315,9 +407,9 @@ function EditedImagesView({
               <Badge variant="secondary">{image.ai_model}</Badge>
               <span>{new Date(image.created_at).toLocaleDateString()}</span>
             </div>
-            {image.context && (
+            {image.context && typeof image.context === 'object' && Object.keys(image.context).length > 0 && (
               <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
-                {image.context}
+                {JSON.stringify(image.context)}
               </p>
             )}
           </div>
