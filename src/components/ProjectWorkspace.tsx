@@ -213,27 +213,35 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
       <Card className="glass-card overflow-hidden">
         <div className="border-b">
           <div className="flex items-center justify-between px-6">
-            <div className="flex gap-1 overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
-                    activeTab === tab.id
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {tab.label}
-                  <Badge variant="secondary" className="ml-2">
-                    {tab.count}
-                  </Badge>
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 gradient-primary" />
-                  )}
-                </button>
-              ))}
+            <div className="flex-1 flex items-center gap-4 overflow-x-auto">
+              <div className="flex gap-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
+                      activeTab === tab.id
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {tab.label}
+                    <Badge variant="secondary" className="ml-2">
+                      {tab.count}
+                    </Badge>
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 gradient-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              {activeTab === 'media' && (
+                <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground/60 ml-auto mr-4">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Drag images below to upload</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-1 border rounded-lg p-1">
               <Button
