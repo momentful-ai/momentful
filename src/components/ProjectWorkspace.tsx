@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video, Download, Share2, Pencil, Check, X } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { FileUpload } from './FileUpload';
 import { MediaLibrary } from './MediaLibrary';
 import { VideoGenerator } from './VideoGenerator';
@@ -53,11 +53,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
   const handleSaveName = async () => {
     if (editedName.trim() && editedName !== currentProject.name) {
       try {
-        const { error } = await supabase
-          .from('projects')
-          .update({ name: editedName.trim() })
-          .eq('id', currentProject.id);
-        if (error) throw error;
+        await database.projects.update(currentProject.id, { name: editedName.trim() });
         const updatedProject = { ...currentProject, name: editedName.trim() };
         setCurrentProject(updatedProject);
         onUpdateProject?.(updatedProject);
@@ -88,31 +84,15 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
     try {
       setLoading(true);
 
-      const [mediaResult, editedResult, videosResult] = await Promise.all([
-        supabase
-          .from('media_assets')
-          .select('*')
-          .eq('project_id', project.id)
-          .order('sort_order', { ascending: true }),
-        supabase
-          .from('edited_images')
-          .select('*')
-          .eq('project_id', project.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('generated_videos')
-          .select('*')
-          .eq('project_id', project.id)
-          .order('created_at', { ascending: false }),
+      const [mediaAssets, editedImages, videos] = await Promise.all([
+        database.mediaAssets.list(project.id),
+        database.editedImages.list(project.id),
+        database.generatedVideos.list(project.id),
       ]);
 
-      if (mediaResult.error) throw mediaResult.error;
-      if (editedResult.error) throw editedResult.error;
-      if (videosResult.error) throw videosResult.error;
-
-      setMediaAssets(mediaResult.data || []);
-      setEditedImages(editedResult.data || []);
-      setGeneratedVideos(videosResult.data || []);
+      setMediaAssets(mediaAssets);
+      setEditedImages(editedImages);
+      setGeneratedVideos(videos);
     } catch (error) {
       console.error('Error loading project data:', error);
     } finally {

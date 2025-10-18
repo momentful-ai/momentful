@@ -1,6 +1,6 @@
 import { useState, useRef, DragEvent } from 'react';
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon, Film } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
 
 interface FileUploadProps {
@@ -127,14 +127,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
         const fileName = `${timestamp}-${uploadFile.file.name}`;
         const storagePath = `${userId}/${projectId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('user-uploads')
-          .upload(storagePath, uploadFile.file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
+        await database.storage.upload('user-uploads', storagePath, uploadFile.file);
 
         setFiles((prev) =>
           prev.map((f) =>
@@ -157,21 +150,17 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
           duration = dims.duration;
         }
 
-        const { error: dbError } = await supabase
-          .from('media_assets')
-          .insert({
-            project_id: projectId,
-            user_id: userId,
-            file_name: uploadFile.file.name,
-            file_type: isImage ? 'image' : 'video',
-            file_size: uploadFile.file.size,
-            storage_path: storagePath,
-            width,
-            height,
-            duration,
-          });
-
-        if (dbError) throw dbError;
+        await database.mediaAssets.create({
+          project_id: projectId,
+          user_id: userId,
+          file_name: uploadFile.file.name,
+          file_type: isImage ? 'image' : 'video',
+          file_size: uploadFile.file.size,
+          storage_path: storagePath,
+          width: width || undefined,
+          height: height || undefined,
+          duration: duration || undefined,
+        });
 
         setFiles((prev) =>
           prev.map((f) =>

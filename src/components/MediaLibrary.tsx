@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Image as ImageIcon, Film, Clock, Wand2, Upload } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { MediaLibrarySkeleton } from './LoadingSkeleton';
 import { MediaAsset } from '../types';
 import { Button } from './ui/button';
@@ -30,14 +30,8 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
 
   const loadAssets = async () => {
     try {
-      const { data, error } = await supabase
-        .from('media_assets')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAssets(data || []);
+      const data = await database.mediaAssets.list(projectId);
+      setAssets(data);
     } catch (error) {
       console.error('Error loading assets:', error);
     } finally {
@@ -51,19 +45,8 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
     }
 
     try {
-      const { error: storageError } = await supabase.storage
-        .from('user-uploads')
-        .remove([storagePath]);
-
-      if (storageError) throw storageError;
-
-      const { error: dbError } = await supabase
-        .from('media_assets')
-        .delete()
-        .eq('id', assetId);
-
-      if (dbError) throw dbError;
-
+      await database.storage.delete('user-uploads', [storagePath]);
+      await database.mediaAssets.delete(assetId);
       setAssets((prev) => prev.filter((a) => a.id !== assetId));
     } catch (error) {
       console.error('Error deleting asset:', error);
@@ -72,10 +55,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
   };
 
   const getAssetUrl = (storagePath: string) => {
-    const { data } = supabase.storage
-      .from('user-uploads')
-      .getPublicUrl(storagePath);
-    return data.publicUrl;
+    return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -109,14 +89,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
         const fileName = `${timestamp}-${file.name}`;
         const storagePath = `${projectId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('user-uploads')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
+        await database.storage.upload('user-uploads', storagePath, file);
 
         const img = new Image();
         await new Promise<void>((resolve, reject) => {
@@ -125,20 +98,16 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
           img.src = URL.createObjectURL(file);
         });
 
-        const { error: dbError } = await supabase
-          .from('media_assets')
-          .insert({
-            project_id: projectId,
-            user_id: userId,
-            file_name: file.name,
-            file_type: 'image',
-            file_size: file.size,
-            storage_path: storagePath,
-            width: img.width,
-            height: img.height,
-          });
-
-        if (dbError) throw dbError;
+        await database.mediaAssets.create({
+          project_id: projectId,
+          user_id: userId,
+          file_name: file.name,
+          file_type: 'image',
+          file_size: file.size,
+          storage_path: storagePath,
+          width: img.width,
+          height: img.height,
+        });
       }
 
       await loadAssets();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { Project } from '../types';
 import { useUserId } from '../hooks/useUserId';
 import { useToast } from './ToastContainer';
@@ -27,30 +27,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
 
   const loadProjects = async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      const projectsWithMedia = await Promise.all(
-        (data || []).map(async (project) => {
-          const { data: mediaAssets } = await supabase
-            .from('media_assets')
-            .select('storage_path')
-            .eq('project_id', project.id)
-            .eq('file_type', 'image')
-            .order('created_at', { ascending: false })
-            .limit(4);
-
-          return {
-            ...project,
-            previewImages: mediaAssets?.map(asset => asset.storage_path) || []
-          };
-        })
-      );
-
+      const projectsWithMedia = await database.projects.list();
       setProjects(projectsWithMedia);
     } catch (error) {
       console.error('Error loading projects:', error);
@@ -62,21 +39,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
 
   const createProject = async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          user_id: userId,
-          name: 'Untitled Project',
-          description: '',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setProjects([data, ...projects]);
-        showToast('Project created successfully!', 'success');
-      }
+      const data = await database.projects.create(userId, 'Untitled Project', '');
+      setProjects([data, ...projects]);
+      showToast('Project created successfully!', 'success');
     } catch (error) {
       console.error('Error creating project:', error);
       showToast('Failed to create project. Please try again.', 'error');
@@ -85,12 +50,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
 
   const deleteProject = async (project: Project) => {
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', project.id);
-
-      if (error) throw error;
+      await database.projects.delete(project.id);
       setProjects((prev) => prev.filter((p) => p.id !== project.id));
       showToast('Project deleted successfully', 'success');
     } catch (error) {
@@ -159,11 +119,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
               onDelete={() => setProjectToDelete(project)}
               onUpdateName={async (name) => {
                 try {
-                  const { error } = await supabase
-                    .from('projects')
-                    .update({ name })
-                    .eq('id', project.id);
-                  if (error) throw error;
+                  await database.projects.update(project.id, { name });
                   setProjects((prev) =>
                     prev.map((p) => (p.id === project.id ? { ...p, name } : p))
                   );
@@ -367,10 +323,7 @@ function ProjectPreviewCollage({ project }: { project: any }) {
   const imageCount = previewImages.length;
 
   const getImageUrl = (storagePath: string) => {
-    const { data } = supabase.storage
-      .from('user-uploads')
-      .getPublicUrl(storagePath);
-    return data.publicUrl;
+    return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
   if (imageCount === 0) {

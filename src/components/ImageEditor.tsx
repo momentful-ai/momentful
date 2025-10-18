@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Wand2, ArrowLeft, Sparkles, ImageIcon, History } from 'lucide-react';
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
 
 interface ImageEditorProps {
@@ -55,10 +55,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   }, [isResizing]);
 
   const getAssetUrl = (storagePath: string) => {
-    const { data } = supabase.storage
-      .from('user-uploads')
-      .getPublicUrl(storagePath);
-    return data.publicUrl;
+    return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
   const handleGenerate = async () => {
@@ -85,22 +82,17 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
 
   const handleSave = async () => {
     try {
-      const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
-
-      const { error } = await supabase
-        .from('edited_images')
-        .insert({
-          project_id: projectId,
-          user_id: userId,
-          original_asset_id: asset.id,
-          edited_url: editedImageUrl || getAssetUrl(asset.storage_path),
-          prompt,
-          context: context || null,
-          ai_model: selectedModel,
-          model_provider: selectedModelInfo?.provider || '',
-        });
-
-      if (error) throw error;
+      await database.editedImages.create({
+        project_id: projectId,
+        user_id: userId,
+        source_asset_id: asset.id,
+        prompt,
+        context: context || {},
+        ai_model: selectedModel,
+        storage_path: asset.storage_path,
+        width: asset.width || 0,
+        height: asset.height || 0,
+      });
 
       onSave();
     } catch (error) {

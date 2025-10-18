@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Play, ArrowLeft, Sparkles, Film, GripVertical, Trash2, Check, Upload } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
-import { supabase } from '../lib/supabase';
+import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
 
 interface VideoGeneratorProps {
@@ -137,10 +137,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   };
 
   const getAssetUrl = (storagePath: string) => {
-    const { data } = supabase.storage
-      .from('user-uploads')
-      .getPublicUrl(storagePath);
-    return data.publicUrl;
+    return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
   const handleGenerate = async () => {
@@ -157,23 +154,15 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
       const sourceIds = selectedSources.map((s) => s.id).join(',');
 
-      const { error } = await supabase
-        .from('generated_videos')
-        .insert({
-          project_id: projectId,
-          user_id: userId,
-          video_url: dummyVideoUrl,
-          prompt,
-          aspect_ratio: aspectRatio,
-          scene_type: sceneType,
-          camera_movement: cameraMovement,
-          duration,
-          ai_model: selectedModel,
-          model_provider: selectedModelInfo?.provider || '',
-          source_asset_ids: sourceIds,
-        });
-
-      if (error) throw error;
+      await database.generatedVideos.create({
+        project_id: projectId,
+        user_id: userId,
+        name: prompt || 'Untitled Video',
+        ai_model: selectedModel,
+        aspect_ratio: aspectRatio,
+        scene_type: sceneType,
+        camera_movement: cameraMovement,
+      });
     } catch (error) {
       console.error('Error saving video:', error);
     }
@@ -292,14 +281,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
         const fileName = `${timestamp}-${file.name}`;
         const storagePath = `${userId}/${projectId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('user-uploads')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
+        await database.storage.upload('user-uploads', storagePath, file);
 
         const img = new Image();
         await new Promise<void>((resolve, reject) => {
@@ -308,20 +290,16 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           img.src = URL.createObjectURL(file);
         });
 
-        const { error: dbError } = await supabase
-          .from('media_assets')
-          .insert({
-            project_id: projectId,
-            user_id: userId,
-            file_name: file.name,
-            file_type: 'image',
-            file_size: file.size,
-            storage_path: storagePath,
-            width: img.width,
-            height: img.height,
-          });
-
-        if (dbError) throw dbError;
+        await database.mediaAssets.create({
+          project_id: projectId,
+          user_id: userId,
+          file_name: file.name,
+          file_type: 'image',
+          file_size: file.size,
+          storage_path: storagePath,
+          width: img.width,
+          height: img.height,
+        });
       } catch (error) {
         console.error('Error uploading file:', error);
       }
