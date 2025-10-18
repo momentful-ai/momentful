@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
 import { database } from '../lib/database';
 import { Project } from '../types';
+import { formatDate } from '../lib/utils';
 import { useUserId } from '../hooks/useUserId';
 import { useToast } from './ToastContainer';
 import { DashboardSkeleton } from './LoadingSkeleton';
@@ -165,14 +166,6 @@ function ProjectCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();

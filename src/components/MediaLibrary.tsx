@@ -6,7 +6,7 @@ import { MediaAsset } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { cn } from '../lib/utils';
+import { cn, formatFileSize, formatDuration } from '../lib/utils';
 import { useUserId } from '../hooks/useUserId';
 
 interface MediaLibraryProps {
@@ -58,18 +58,6 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
     return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleFileUpload = async (files: File[]) => {
     const imageFiles = files.filter((file) =>
