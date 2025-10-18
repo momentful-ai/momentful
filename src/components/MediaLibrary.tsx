@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Image as ImageIcon, Film, Clock, Wand2 } from 'lucide-react';
+import { Trash2, Image as ImageIcon, Film, Clock, Wand2, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MediaLibrarySkeleton } from './LoadingSkeleton';
 import { MediaAsset } from '../types';
@@ -18,6 +18,8 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadAssets();
@@ -86,28 +88,162 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleFileUpload = async (files: File[]) => {
+    const imageFiles = files.filter((file) =>
+      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+    );
+
+    if (imageFiles.length === 0) {
+      alert('Please upload valid image files');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      for (const file of imageFiles) {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name}`;
+        const storagePath = `${projectId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('user-uploads')
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+
+        const { error: dbError } = await supabase
+          .from('media_assets')
+          .insert({
+            project_id: projectId,
+            file_name: file.name,
+            file_type: 'image',
+            file_size: file.size,
+            storage_path: storagePath,
+            width: img.width,
+            height: img.height,
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      await loadAssets();
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      alert('Failed to upload some files');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files);
+    }
+  };
+
   if (loading) {
     return <MediaLibrarySkeleton />;
   }
 
   if (assets.length === 0) {
     return (
-      <Card className="border-2 border-dashed p-12 text-center">
-        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-          <ImageIcon className="w-10 h-10 text-muted-foreground" />
-        </div>
-        <h3 className="text-2xl font-semibold mb-3">
-          No media assets yet
-        </h3>
-        <p className="text-muted-foreground max-w-md mx-auto text-lg">
-          Upload images and videos to get started with your project
-        </p>
-      </Card>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="relative"
+      >
+        {isDragging && (
+          <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center border-2 border-dashed border-primary">
+            <div className="text-center">
+              <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
+              <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
+            </div>
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-xl font-semibold">Uploading...</p>
+            </div>
+          </div>
+        )}
+        <Card className="border-2 border-dashed p-12 text-center">
+          <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+            <ImageIcon className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-3">
+            No media assets yet
+          </h3>
+          <p className="text-muted-foreground max-w-md mx-auto text-lg mb-2">
+            Upload images and videos to get started with your project
+          </p>
+          <p className="text-muted-foreground/60 flex items-center gap-2 justify-center">
+            <Upload className="w-4 h-4" />
+            Drag images here to upload
+          </p>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="relative"
+    >
+      {isDragging && (
+        <div className="fixed inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-card rounded-xl p-8 shadow-2xl border-2 border-dashed border-primary">
+            <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
+            <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
+          </div>
+        </div>
+      )}
+      {uploading && (
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card rounded-xl p-8 shadow-2xl">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-xl font-semibold">Uploading...</p>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {assets.map((asset, index) => (
           <Card
             key={asset.id}
@@ -194,6 +330,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
             </div>
           </Card>
         ))}
+      </div>
     </div>
   );
 }

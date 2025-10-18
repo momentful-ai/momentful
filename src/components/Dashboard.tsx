@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Upload } from 'lucide-react';
+import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Project } from '../types';
 import { useUserId } from '../hooks/useUserId';
@@ -20,9 +20,6 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -86,132 +83,20 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     }
   };
 
-  const handleFileUpload = async (files: File[], projectId: string) => {
-    const imageFiles = files.filter((file) =>
-      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
-    );
-
-    if (imageFiles.length === 0) {
-      showToast('Please upload valid image files', 'error');
-      return;
-    }
-
-    try {
-      for (const file of imageFiles) {
-        const fileExt = file.name.split('.').pop();
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        const storagePath = `${userId}/${projectId}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('user-uploads')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
-        });
-
-        const { error: dbError } = await supabase
-          .from('media_assets')
-          .insert({
-            project_id: projectId,
-            user_id: userId,
-            file_name: file.name,
-            file_type: 'image',
-            file_size: file.size,
-            storage_path: storagePath,
-            width: img.width,
-            height: img.height,
-          });
-
-        if (dbError) throw dbError;
-      }
-
-      showToast(`Uploaded ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} successfully`, 'success');
-      setPendingFiles([]);
-      setShowProjectSelector(false);
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      showToast('Failed to upload some files', 'error');
-    }
-  };
-
-  const handleDashboardDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDraggingFile(true);
-    }
-  };
-
-  const handleDashboardDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget === e.target) {
-      setIsDraggingFile(false);
-    }
-  };
-
-  const handleDashboardDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingFile(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter((file) =>
-      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
-    );
-
-    if (imageFiles.length === 0) {
-      showToast('Please drop valid image files', 'error');
-      return;
-    }
-
-    setPendingFiles(imageFiles);
-    setShowProjectSelector(true);
-  };
 
   if (loading) {
     return <DashboardSkeleton />;
   }
 
   return (
-    <div
-      onDragOver={handleDashboardDragOver}
-      onDragLeave={handleDashboardDragLeave}
-      onDrop={handleDashboardDrop}
-      className="relative"
-    >
-      {isDraggingFile && (
-        <div className="fixed inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
-          <div className="bg-card rounded-xl p-8 shadow-2xl border-2 border-dashed border-primary">
-            <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
-            <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
-            <p className="text-muted-foreground mt-2">You'll choose a project next</p>
-          </div>
-        </div>
-      )}
-
+    <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gradient mb-2">
             Your Projects
           </h2>
-          <p className="text-base text-muted-foreground flex items-center gap-2">
-            <span>Create stunning marketing visuals with AI</span>
-            <span className="hidden sm:inline text-muted-foreground/60">•</span>
-            <span className="hidden sm:inline text-muted-foreground/60 flex items-center gap-1.5">
-              <Upload className="w-3.5 h-3.5" />
-              Drag images anywhere to upload
-            </span>
+          <p className="text-base text-muted-foreground">
+            Create stunning marketing visuals with AI
           </p>
         </div>
         <Button
@@ -284,60 +169,6 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
           onConfirm={() => deleteProject(projectToDelete)}
           onCancel={() => setProjectToDelete(null)}
         />
-      )}
-
-      {showProjectSelector && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-foreground">Select Project</h2>
-                <button
-                  onClick={() => {
-                    setShowProjectSelector(false);
-                    setPendingFiles([]);
-                  }}
-                  className="p-2 hover:bg-muted rounded-lg transition-all"
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-              <p className="text-muted-foreground mt-1">
-                Choose which project to upload {pendingFiles.length} image{pendingFiles.length > 1 ? 's' : ''} to
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {projects.map((project) => (
-                  <button
-                    key={project.id}
-                    onClick={() => handleFileUpload(pendingFiles, project.id)}
-                    className="text-left p-4 rounded-lg border-2 border-border hover:border-primary transition-all hover:scale-105"
-                  >
-                    <div className="aspect-video bg-muted/30 rounded-lg mb-3 overflow-hidden">
-                      {project.thumbnail_url ? (
-                        <img
-                          src={project.thumbnail_url}
-                          alt={project.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <FolderOpen className="w-12 h-12 text-muted-foreground/50" />
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="font-semibold truncate">{project.name}</h3>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {project.description || 'No description'}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
