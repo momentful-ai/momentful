@@ -80,7 +80,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
 
   return (
-    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bg-slate-900 z-[100] flex flex-col animate-fade-in">
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
