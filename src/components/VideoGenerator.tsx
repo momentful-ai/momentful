@@ -66,6 +66,8 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'add' | 'remove'>('add');
   const selectionStartRef = useRef<{ id: string; type: 'edited_image' | 'media_asset' } | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     loadSources();
@@ -254,6 +256,82 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     }
   }, [isSelecting]);
 
+  const handleFileDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter((file) =>
+      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+    );
+
+    if (imageFiles.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+
+    for (const file of imageFiles) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name}`;
+        const storagePath = `${userId}/${projectId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('user-uploads')
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+
+        const { error: dbError } = await supabase
+          .from('media_assets')
+          .insert({
+            project_id: projectId,
+            user_id: userId,
+            file_name: file.name,
+            file_type: 'image',
+            file_size: file.size,
+            storage_path: storagePath,
+            width: img.width,
+            height: img.height,
+          });
+
+        if (dbError) throw dbError;
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
+    }
+
+    setIsUploading(false);
+    await loadSources();
+  };
+
   const canGenerate = selectedSources.length > 0;
   const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
@@ -335,7 +413,29 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4" style={{ userSelect: 'none' }}>
+          <div
+            className="flex-1 overflow-y-auto p-4 relative"
+            style={{ userSelect: 'none' }}
+            onDragOver={handleFileDragOver}
+            onDragLeave={handleFileDragLeave}
+            onDrop={handleFileDrop}
+          >
+            {isDraggingFile && (
+              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-10 m-4">
+                <div className="text-center">
+                  <Upload className="w-12 h-12 text-primary mx-auto mb-2" />
+                  <p className="text-primary font-medium">Drop images here to upload</p>
+                </div>
+              </div>
+            )}
+            {isUploading && (
+              <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20 m-4 rounded-lg">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-foreground font-medium">Uploading...</p>
+                </div>
+              </div>
+            )}
             {leftPanelTab === 'edited' ? (
               <div className="grid grid-cols-2 gap-2">
                 {editedImages.map((image) => {
@@ -376,8 +476,9 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                   );
                 })}
                 {editedImages.length === 0 && (
-                  <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
-                    No edited images yet
+                  <div className="col-span-2 text-center py-8">
+                    <p className="text-muted-foreground text-sm mb-2">No edited images yet</p>
+                    <p className="text-xs text-muted-foreground/70">Drag and drop images here to upload</p>
                   </div>
                 )}
               </div>
@@ -421,10 +522,20 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                   );
                 })}
                 {mediaAssets.length === 0 && (
-                  <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
-                    No library images yet
+                  <div className="col-span-2 text-center py-8">
+                    <p className="text-muted-foreground text-sm mb-2">No library images yet</p>
+                    <p className="text-xs text-muted-foreground/70">Drag and drop images here to upload</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Upload hint */}
+            {(editedImages.length > 0 || mediaAssets.length > 0) && (
+              <div className="px-4 pb-3 pt-2 border-t border-border/50">
+                <p className="text-xs text-muted-foreground/70 text-center">
+                  Drag images here to upload or drag to canvas to add
+                </p>
               </div>
             )}
           </div>
