@@ -263,7 +263,13 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
               animationDelay: `${index * 30}ms`,
               animationFillMode: 'backwards'
             }}
-            onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}
+            onClick={() => {
+              if (asset.file_type === 'image' && onEditImage) {
+                onEditImage(asset, projectId);
+              } else {
+                setSelectedAsset(asset.id === selectedAsset ? null : asset.id);
+              }
+            }}
           >
             <div className={cn(
               'bg-muted overflow-hidden relative',
@@ -293,19 +299,12 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
                 </div>
               )}
 
-              {asset.file_type === 'image' && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditImage?.(asset, projectId);
-                    }}
-                    variant="secondary"
-                    className="glass shadow-lg gap-2"
-                  >
+              {asset.file_type === 'image' && onEditImage && (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <div className="flex items-center gap-2 text-white font-medium text-sm">
                     <Wand2 className="w-4 h-4" />
-                    Edit with AI
-                  </Button>
+                    Click to edit with AI
+                  </div>
                 </div>
               )}
 
