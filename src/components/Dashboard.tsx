@@ -205,8 +205,13 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
           <h2 className="text-3xl sm:text-4xl font-bold text-gradient mb-2">
             Your Projects
           </h2>
-          <p className="text-base text-muted-foreground">
-            Create stunning marketing visuals with AI
+          <p className="text-base text-muted-foreground flex items-center gap-2">
+            <span>Create stunning marketing visuals with AI</span>
+            <span className="hidden sm:inline text-muted-foreground/60">•</span>
+            <span className="hidden sm:inline text-muted-foreground/60 flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5" />
+              Drag images anywhere to upload
+            </span>
           </p>
         </div>
         <Button
