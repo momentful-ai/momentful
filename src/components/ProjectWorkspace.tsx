@@ -7,6 +7,10 @@ import { MediaLibrary } from './MediaLibrary';
 import { VideoGenerator } from './VideoGenerator';
 import { ExportModal } from './ExportModal';
 import { PublishModal } from './PublishModal';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -74,85 +78,93 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
 
   return (
     <div>
-      <div className="mb-6">
-        <button
+      <div className="mb-8">
+        <Button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-all hover:scale-105"
+          variant="ghost"
+          className="mb-6 gap-2 -ml-2 hover:translate-x-[-4px] transition-transform"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Projects
-        </button>
-        <div className="flex items-center justify-between">
+        </Button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">{project.name}</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-2">{project.name}</h2>
             {project.description && (
-              <p className="text-slate-600 mt-1">{project.description}</p>
+              <p className="text-muted-foreground text-base">{project.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <button
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Button
               onClick={() => setShowVideoGenerator(true)}
-              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-sm hover:shadow-lg hover:scale-105 active:scale-95"
+              variant="default"
+              size="lg"
+              className="flex-1 sm:flex-initial gap-2"
             >
               <Video className="w-5 h-5" />
               Generate Video
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-sm hover:shadow-lg hover:scale-105 active:scale-95"
+              variant="gradient"
+              size="lg"
+              className="flex-1 sm:flex-initial gap-2"
             >
               <Upload className="w-5 h-5" />
               Upload Media
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="border-b border-slate-200">
+      <Card className="glass-card overflow-hidden">
+        <div className="border-b">
           <div className="flex items-center justify-between px-6">
-            <div className="flex gap-1">
+            <div className="flex gap-1 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-3 font-medium text-sm transition-colors relative ${
+                  className={cn(
+                    'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
                     activeTab === tab.id
-                      ? 'text-blue-600'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
                 >
                   {tab.label}
-                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
+                  <Badge variant="secondary" className="ml-2">
                     {tab.count}
-                  </span>
+                  </Badge>
                   {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 gradient-primary" />
                   )}
                 </button>
               ))}
             </div>
-            <div className="flex gap-1 border border-slate-200 rounded-lg p-1">
-              <button
+            <div className="flex gap-1 border rounded-lg p-1">
+              <Button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded transition-all hover:scale-110 ${
-                  viewMode === 'grid'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-8 w-8',
+                  viewMode === 'grid' && 'bg-muted'
+                )}
               >
                 <Grid3x3 className="w-4 h-4" />
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-all hover:scale-110 ${
-                  viewMode === 'list'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-8 w-8',
+                  viewMode === 'list' && 'bg-muted'
+                )}
               >
                 <List className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -160,7 +172,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
         <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
             </div>
           ) : (
             <>
@@ -189,7 +201,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
             </>
           )}
         </div>
-      </div>
+      </Card>
 
       {showUploadModal && (
         <FileUpload
@@ -236,119 +248,6 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   );
 }
 
-function MediaLibraryView({
-  assets,
-  viewMode,
-  projectId,
-}: {
-  assets: MediaAsset[];
-  viewMode: 'grid' | 'list';
-  projectId: string;
-}) {
-  if (assets.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <ImageIcon className="w-8 h-8 text-slate-400" />
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-          No media uploaded yet
-        </h3>
-        <p className="text-slate-600 mb-6 max-w-md mx-auto">
-          Upload your product images or videos to get started with AI editing and video generation.
-        </p>
-      </div>
-    );
-  }
-
-  if (viewMode === 'grid') {
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {assets.map((asset) => (
-          <MediaAssetCard key={asset.id} asset={asset} />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {assets.map((asset) => (
-        <MediaAssetRow key={asset.id} asset={asset} />
-      ))}
-    </div>
-  );
-}
-
-function MediaAssetCard({ asset }: { asset: MediaAsset }) {
-  return (
-    <div className="group relative aspect-square bg-slate-100 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
-      {asset.thumbnail_url ? (
-        <img
-          src={asset.thumbnail_url}
-          alt={asset.file_name}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          {asset.file_type === 'video' ? (
-            <Film className="w-8 h-8 text-slate-400" />
-          ) : (
-            <ImageIcon className="w-8 h-8 text-slate-400" />
-          )}
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <p className="text-white text-sm font-medium truncate">
-            {asset.file_name}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MediaAssetRow({ asset }: { asset: MediaAsset }) {
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  return (
-    <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
-      <div className="w-16 h-16 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-        {asset.thumbnail_url ? (
-          <img
-            src={asset.thumbnail_url}
-            alt={asset.file_name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            {asset.file_type === 'video' ? (
-              <Film className="w-6 h-6 text-slate-400" />
-            ) : (
-              <ImageIcon className="w-6 h-6 text-slate-400" />
-            )}
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-slate-900 truncate">{asset.file_name}</p>
-        <div className="flex items-center gap-3 text-sm text-slate-500">
-          <span className="capitalize">{asset.file_type}</span>
-          <span>{formatFileSize(asset.file_size)}</span>
-          {asset.width && asset.height && (
-            <span>{asset.width} × {asset.height}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function EditedImagesView({
   images,
   viewMode,
@@ -362,62 +261,67 @@ function EditedImagesView({
 }) {
   if (images.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <ImageIcon className="w-8 h-8 text-slate-400" />
+      <Card className="border-2 border-dashed p-12 text-center">
+        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+          <ImageIcon className="w-10 h-10 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+        <h3 className="text-2xl font-semibold mb-3">
           No edited images yet
         </h3>
-        <p className="text-slate-600 mb-6 max-w-md mx-auto">
+        <p className="text-muted-foreground max-w-md mx-auto text-lg">
           Use AI to edit your product images with text prompts and context.
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
       {images.map((image) => (
-        <div key={image.id} className="group relative bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
-          <div className="aspect-square bg-slate-100">
+        <Card key={image.id} className="group overflow-hidden hover-lift hover-glow">
+          <div className="aspect-square bg-muted relative">
             <img
               src={image.edited_url}
               alt="Edited"
               className="w-full h-full object-cover"
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              <Button
+                onClick={() => onExport(image)}
+                size="icon"
+                variant="secondary"
+                className="glass shadow-lg h-9 w-9"
+                title="Export image"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => onPublish(image)}
+                size="icon"
+                variant="secondary"
+                className="glass shadow-lg h-9 w-9"
+                title="Publish to social"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-            <button
-              onClick={() => onExport(image)}
-              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
-              title="Export image"
-            >
-              <Download className="w-4 h-4 text-slate-700" />
-            </button>
-            <button
-              onClick={() => onPublish(image)}
-              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
-              title="Publish to social"
-            >
-              <Share2 className="w-4 h-4 text-slate-700" />
-            </button>
-          </div>
-          <div className="p-3">
-            <p className="text-sm font-medium text-slate-900 mb-1 line-clamp-2">
+          <div className="p-4">
+            <p className="text-sm font-medium mb-2 line-clamp-2">
               {image.prompt}
             </p>
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>{image.ai_model}</span>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <Badge variant="secondary">{image.ai_model}</Badge>
               <span>{new Date(image.created_at).toLocaleDateString()}</span>
             </div>
             {image.context && (
-              <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
                 {image.context}
               </p>
             )}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -436,68 +340,70 @@ function GeneratedVideosView({
 }) {
   if (videos.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Film className="w-8 h-8 text-slate-400" />
+      <Card className="border-2 border-dashed p-12 text-center">
+        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+          <Film className="w-10 h-10 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+        <h3 className="text-2xl font-semibold mb-3">
           No generated videos yet
         </h3>
-        <p className="text-slate-600 mb-6 max-w-md mx-auto">
+        <p className="text-muted-foreground max-w-md mx-auto text-lg">
           Create professional marketing videos from your edited images.
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-2'}>
       {videos.map((video) => (
-        <div key={video.id} className="group relative bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
-          <div className="aspect-video bg-slate-900">
+        <Card key={video.id} className="group overflow-hidden hover-lift hover-glow">
+          <div className="aspect-video bg-black relative">
             <video
               src={video.video_url}
               controls
               className="w-full h-full"
             />
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              <Button
+                onClick={() => onExport(video)}
+                size="icon"
+                variant="secondary"
+                className="glass shadow-lg h-9 w-9"
+                title="Export video"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => onPublish(video)}
+                size="icon"
+                variant="secondary"
+                className="glass shadow-lg h-9 w-9"
+                title="Publish to social"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-            <button
-              onClick={() => onExport(video)}
-              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
-              title="Export video"
-            >
-              <Download className="w-4 h-4 text-slate-700" />
-            </button>
-            <button
-              onClick={() => onPublish(video)}
-              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
-              title="Publish to social"
-            >
-              <Share2 className="w-4 h-4 text-slate-700" />
-            </button>
-          </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-              <span className="flex items-center gap-1">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Badge variant="secondary" className="gap-1">
                 <Film className="w-3 h-3" />
                 {video.duration}s
-              </span>
-              <span>{video.aspect_ratio}</span>
+              </Badge>
+              <Badge variant="outline">{video.aspect_ratio}</Badge>
             </div>
             {video.prompt && (
-              <p className="text-sm text-slate-900 mb-1 line-clamp-2">
+              <p className="text-sm font-medium mb-2 line-clamp-2">
                 {video.prompt}
               </p>
             )}
-            <p className="text-xs text-slate-600">
-              {video.ai_model}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              {new Date(video.created_at).toLocaleDateString()}
-            </p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{video.ai_model}</span>
+              <span>{new Date(video.created_at).toLocaleDateString()}</span>
+            </div>
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );

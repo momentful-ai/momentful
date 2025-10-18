@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase';
 import { ImageEditor } from './ImageEditor';
 import { MediaLibrarySkeleton } from './LoadingSkeleton';
 import { MediaAsset } from '../types';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
 interface MediaLibraryProps {
   projectId: string;
@@ -89,39 +93,44 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
 
   if (assets.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-          <ImageIcon className="w-8 h-8 text-slate-400" />
+      <Card className="border-2 border-dashed p-12 text-center">
+        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+          <ImageIcon className="w-10 h-10 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+        <h3 className="text-2xl font-semibold mb-3">
           No media assets yet
         </h3>
-        <p className="text-slate-600">
+        <p className="text-muted-foreground max-w-md mx-auto text-lg">
           Upload images and videos to get started with your project
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {assets.map((asset) => (
-          <div
+        {assets.map((asset, index) => (
+          <Card
             key={asset.id}
-            className={`group relative bg-white rounded-lg border-2 transition-all cursor-pointer hover:scale-105 animate-fade-in ${
+            className={cn(
+              'group relative overflow-hidden cursor-pointer hover-lift hover-glow transition-all animate-slide-up',
               selectedAsset === asset.id
-                ? 'border-blue-500 shadow-lg scale-105'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
+                ? 'ring-2 ring-primary shadow-xl'
+                : 'hover:ring-2 hover:ring-primary/50'
+            )}
+            style={{
+              animationDelay: `${index * 30}ms`,
+              animationFillMode: 'backwards'
+            }}
             onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}
           >
-            <div className="aspect-square bg-slate-100 rounded-t-lg overflow-hidden relative">
+            <div className="aspect-square bg-muted overflow-hidden relative">
               {asset.file_type === 'image' ? (
                 <img
                   src={getAssetUrl(asset.storage_path)}
                   alt={asset.file_name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
               ) : (
                 <div className="relative w-full h-full">
@@ -129,60 +138,63 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
                     src={getAssetUrl(asset.storage_path)}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Film className="w-12 h-12 text-white" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Film className="w-12 h-12 text-white drop-shadow-lg" />
                   </div>
                   {asset.duration && (
-                    <div className="absolute bottom-2 right-2 bg-black/75 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                    <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg">
                       <Clock className="w-3 h-3" />
                       {formatDuration(asset.duration)}
-                    </div>
+                    </Badge>
                   )}
                 </div>
               )}
 
               {asset.file_type === 'image' && (
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingAsset(asset);
                     }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                    variant="secondary"
+                    className="glass shadow-lg gap-2"
                   >
                     <Wand2 className="w-4 h-4" />
                     Edit with AI
-                  </button>
+                  </Button>
                 </div>
               )}
+
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteAsset(asset.id, asset.storage_path);
+                }}
+                size="icon"
+                variant="destructive"
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg h-8 w-8"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
 
             <div className="p-3">
-              <p className="text-sm font-medium text-slate-900 truncate" title={asset.file_name}>
+              <p className="text-sm font-medium truncate mb-1" title={asset.file_name}>
                 {asset.file_name}
               </p>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-slate-500">
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-xs">
                   {formatFileSize(asset.file_size)}
-                </p>
+                </Badge>
                 {asset.width && asset.height && (
-                  <p className="text-xs text-slate-500">
+                  <span className="text-xs text-muted-foreground">
                     {asset.width} × {asset.height}
-                  </p>
+                  </span>
                 )}
               </div>
             </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteAsset(asset.id, asset.storage_path);
-              }}
-              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+          </Card>
         ))}
       </div>
 
