@@ -21,7 +21,8 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [uploadingToProject, setUploadingToProject] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -95,8 +96,6 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       return;
     }
 
-    setUploadingToProject(projectId);
-
     try {
       for (const file of imageFiles) {
         const fileExt = file.name.split('.').pop();
@@ -137,12 +136,47 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       }
 
       showToast(`Uploaded ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} successfully`, 'success');
+      setPendingFiles([]);
+      setShowProjectSelector(false);
     } catch (error) {
       console.error('Error uploading files:', error);
       showToast('Failed to upload some files', 'error');
-    } finally {
-      setUploadingToProject(null);
     }
+  };
+
+  const handleDashboardDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleDashboardDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) {
+      setIsDraggingFile(false);
+    }
+  };
+
+  const handleDashboardDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter((file) =>
+      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+    );
+
+    if (imageFiles.length === 0) {
+      showToast('Please drop valid image files', 'error');
+      return;
+    }
+
+    setPendingFiles(imageFiles);
+    setShowProjectSelector(true);
   };
 
   if (loading) {
@@ -150,7 +184,22 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   }
 
   return (
-    <div>
+    <div
+      onDragOver={handleDashboardDragOver}
+      onDragLeave={handleDashboardDragLeave}
+      onDrop={handleDashboardDrop}
+      className="relative"
+    >
+      {isDraggingFile && (
+        <div className="fixed inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-card rounded-xl p-8 shadow-2xl border-2 border-dashed border-primary">
+            <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
+            <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
+            <p className="text-muted-foreground mt-2">You'll choose a project next</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gradient mb-2">
@@ -216,8 +265,6 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
                   showToast('Failed to update project name', 'error');
                 }
               }}
-              onFileUpload={(files) => handleFileUpload(files, project.id)}
-              isUploading={uploadingToProject === project.id}
               index={index}
             />
           ))}
@@ -233,6 +280,60 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
           onCancel={() => setProjectToDelete(null)}
         />
       )}
+
+      {showProjectSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="p-6 border-b border-border">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-foreground">Select Project</h2>
+                <button
+                  onClick={() => {
+                    setShowProjectSelector(false);
+                    setPendingFiles([]);
+                  }}
+                  className="p-2 hover:bg-muted rounded-lg transition-all"
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+              <p className="text-muted-foreground mt-1">
+                Choose which project to upload {pendingFiles.length} image{pendingFiles.length > 1 ? 's' : ''} to
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => handleFileUpload(pendingFiles, project.id)}
+                    className="text-left p-4 rounded-lg border-2 border-border hover:border-primary transition-all hover:scale-105"
+                  >
+                    <div className="aspect-video bg-muted/30 rounded-lg mb-3 overflow-hidden">
+                      {project.thumbnail_url ? (
+                        <img
+                          src={project.thumbnail_url}
+                          alt={project.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <FolderOpen className="w-12 h-12 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-semibold truncate">{project.name}</h3>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {project.description || 'No description'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -242,22 +343,17 @@ function ProjectCard({
   onClick,
   onDelete,
   onUpdateName,
-  onFileUpload,
-  isUploading,
   index
 }: {
   project: Project;
   onClick: () => void;
   onDelete: () => void;
   onUpdateName: (name: string) => Promise<void>;
-  onFileUpload: (files: File[]) => void;
-  isUploading: boolean;
   index: number;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (date: string) => {
@@ -303,41 +399,13 @@ function ProjectCard({
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDraggingOver(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      onFileUpload(files);
-    }
-  };
-
   return (
     <Card
-      onClick={!isEditing && !isDraggingOver ? onClick : undefined}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onClick={!isEditing ? onClick : undefined}
       className={cn(
         "group cursor-pointer overflow-hidden hover-lift hover-glow glass-card",
-        "animate-slide-up border-2 transition-all duration-300",
-        isDraggingOver ? "border-primary ring-4 ring-primary/20 scale-105" : "border-transparent hover:border-primary/20"
+        "animate-slide-up border-2 border-transparent hover:border-primary/20",
+        "transition-all duration-300"
       )}
       style={{
         animationDelay: `${index * 50}ms`,
@@ -360,25 +428,6 @@ function ProjectCard({
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-300" />
-
-        {isDraggingOver && (
-          <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center">
-            <div className="text-center">
-              <Upload className="w-12 h-12 text-primary mx-auto mb-2" />
-              <p className="text-primary font-medium text-sm">Drop to upload</p>
-            </div>
-          </div>
-        )}
-
-        {isUploading && (
-          <div className="absolute inset-0 bg-background/90 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-foreground font-medium text-sm">Uploading...</p>
-            </div>
-          </div>
-        )}
-
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
             <Button
@@ -463,15 +512,9 @@ function ProjectCard({
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
           {project.description || 'No description'}
         </p>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Updated {formatDate(project.updated_at)}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
-            <Upload className="w-3 h-3" />
-            <span>Drag images here to upload</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="w-3.5 h-3.5" />
+          <span>Updated {formatDate(project.updated_at)}</span>
         </div>
       </div>
     </Card>
