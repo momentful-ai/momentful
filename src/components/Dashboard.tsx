@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Project } from '../types';
 import { useUserId } from '../hooks/useUserId';
@@ -20,6 +20,8 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadingToProject, setUploadingToProject] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -80,6 +82,66 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       showToast('Failed to delete project. Please try again.', 'error');
     } finally {
       setProjectToDelete(null);
+    }
+  };
+
+  const handleFileUpload = async (files: File[], projectId: string) => {
+    const imageFiles = files.filter((file) =>
+      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+    );
+
+    if (imageFiles.length === 0) {
+      showToast('Please upload valid image files', 'error');
+      return;
+    }
+
+    setUploadingToProject(projectId);
+
+    try {
+      for (const file of imageFiles) {
+        const fileExt = file.name.split('.').pop();
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name}`;
+        const storagePath = `${userId}/${projectId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('user-uploads')
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+
+        const { error: dbError } = await supabase
+          .from('media_assets')
+          .insert({
+            project_id: projectId,
+            user_id: userId,
+            file_name: file.name,
+            file_type: 'image',
+            file_size: file.size,
+            storage_path: storagePath,
+            width: img.width,
+            height: img.height,
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      showToast(`Uploaded ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} successfully`, 'success');
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      showToast('Failed to upload some files', 'error');
+    } finally {
+      setUploadingToProject(null);
     }
   };
 
@@ -154,6 +216,8 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
                   showToast('Failed to update project name', 'error');
                 }
               }}
+              onFileUpload={(files) => handleFileUpload(files, project.id)}
+              isUploading={uploadingToProject === project.id}
               index={index}
             />
           ))}
@@ -178,17 +242,22 @@ function ProjectCard({
   onClick,
   onDelete,
   onUpdateName,
+  onFileUpload,
+  isUploading,
   index
 }: {
   project: Project;
   onClick: () => void;
   onDelete: () => void;
   onUpdateName: (name: string) => Promise<void>;
+  onFileUpload: (files: File[]) => void;
+  isUploading: boolean;
   index: number;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (date: string) => {
@@ -234,13 +303,41 @@ function ProjectCard({
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      onFileUpload(files);
+    }
+  };
+
   return (
     <Card
-      onClick={onClick}
+      onClick={!isEditing && !isDraggingOver ? onClick : undefined}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={cn(
         "group cursor-pointer overflow-hidden hover-lift hover-glow glass-card",
-        "animate-slide-up border-2 border-transparent hover:border-primary/20",
-        "transition-all duration-300"
+        "animate-slide-up border-2 transition-all duration-300",
+        isDraggingOver ? "border-primary ring-4 ring-primary/20 scale-105" : "border-transparent hover:border-primary/20"
       )}
       style={{
         animationDelay: `${index * 50}ms`,
@@ -263,6 +360,25 @@ function ProjectCard({
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {isDraggingOver && (
+          <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center">
+            <div className="text-center">
+              <Upload className="w-12 h-12 text-primary mx-auto mb-2" />
+              <p className="text-primary font-medium text-sm">Drop to upload</p>
+            </div>
+          </div>
+        )}
+
+        {isUploading && (
+          <div className="absolute inset-0 bg-background/90 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-foreground font-medium text-sm">Uploading...</p>
+            </div>
+          </div>
+        )}
+
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
             <Button
@@ -347,9 +463,15 @@ function ProjectCard({
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
           {project.description || 'No description'}
         </p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="w-3.5 h-3.5" />
-          <span>Updated {formatDate(project.updated_at)}</span>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Updated {formatDate(project.updated_at)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+            <Upload className="w-3 h-3" />
+            <span>Drag images here to upload</span>
+          </div>
         </div>
       </div>
     </Card>
