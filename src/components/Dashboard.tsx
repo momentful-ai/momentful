@@ -5,7 +5,11 @@ import { Project } from '../types';
 
 const LOCAL_USER_ID = 'local-dev-user';
 
-export function Dashboard() {
+interface DashboardProps {
+  onSelectProject: (project: Project) => void;
+}
+
+export function Dashboard({ onSelectProject }: DashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -98,7 +102,7 @@ export function Dashboard() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <ProjectCard key={project.id} project={project} onClick={() => onSelectProject(project)} />
           ))}
         </div>
       )}
@@ -106,7 +110,7 @@ export function Dashboard() {
   );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
@@ -116,7 +120,10 @@ function ProjectCard({ project }: { project: Project }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
+    >
       <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 relative">
         {project.thumbnail_url ? (
           <img
@@ -129,7 +136,12 @@ function ProjectCard({ project }: { project: Project }) {
             <FolderOpen className="w-12 h-12 text-slate-300" />
           </div>
         )}
-        <button className="absolute top-2 right-2 p-2 bg-white/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          className="absolute top-2 right-2 p-2 bg-white/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+        >
           <MoreVertical className="w-4 h-4 text-slate-700" />
         </button>
       </div>
