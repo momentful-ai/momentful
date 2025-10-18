@@ -37,27 +37,33 @@ function App() {
     <ThemeProvider defaultTheme="light">
       <ToastProvider>
         {view.type === 'editor' ? (
-          <ImageEditor
-            asset={view.asset}
-            projectId={view.projectId}
-            onClose={() => {
-              setView({ type: 'project', project: view.project });
-            }}
-            onSave={() => {
-              setView({ type: 'project', project: view.project });
-            }}
-          />
+          <div key="editor" className="animate-fade-in">
+            <ImageEditor
+              asset={view.asset}
+              projectId={view.projectId}
+              onClose={() => {
+                setView({ type: 'project', project: view.project });
+              }}
+              onSave={() => {
+                setView({ type: 'project', project: view.project });
+              }}
+            />
+          </div>
         ) : (
           <Layout>
             {view.type === 'project' ? (
-              <ProjectWorkspace
-                project={view.project}
-                onBack={handleBackToDashboard}
-                onUpdateProject={handleUpdateProject}
-                onEditImage={handleEditImage}
-              />
+              <div key={`project-${view.project.id}`} className="animate-fade-in">
+                <ProjectWorkspace
+                  project={view.project}
+                  onBack={handleBackToDashboard}
+                  onUpdateProject={handleUpdateProject}
+                  onEditImage={handleEditImage}
+                />
+              </div>
             ) : (
-              <Dashboard onSelectProject={handleSelectProject} />
+              <div key="dashboard" className="animate-fade-in">
+                <Dashboard onSelectProject={handleSelectProject} />
+              </div>
             )}
           </Layout>
         )}

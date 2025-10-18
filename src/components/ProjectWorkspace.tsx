@@ -213,7 +213,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
                       {tab.count}
                     </Badge>
                     {activeTab === tab.id && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 gradient-primary" />
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 gradient-primary animate-slide-in-right" />
                     )}
                   </button>
                 ))}
@@ -254,34 +254,40 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
 
         <div className="p-6">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex items-center justify-center h-64 animate-fade-in">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
             </div>
           ) : (
             <>
               {activeTab === 'media' && (
-                <MediaLibrary
-                  projectId={project.id}
-                  onRefresh={refreshKey}
-                  onEditImage={onEditImage}
-                  viewMode={viewMode}
-                />
+                <div key="media-tab" className="animate-fade-in">
+                  <MediaLibrary
+                    projectId={project.id}
+                    onRefresh={refreshKey}
+                    onEditImage={onEditImage}
+                    viewMode={viewMode}
+                  />
+                </div>
               )}
               {activeTab === 'edited' && (
-                <EditedImagesView
-                  images={editedImages}
-                  viewMode={viewMode}
-                  onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
-                  onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
-                />
+                <div key="edited-tab" className="animate-fade-in">
+                  <EditedImagesView
+                    images={editedImages}
+                    viewMode={viewMode}
+                    onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
+                    onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
+                  />
+                </div>
               )}
               {activeTab === 'videos' && (
-                <GeneratedVideosView
-                  videos={generatedVideos}
-                  viewMode={viewMode}
-                  onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.video_url })}
-                  onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
-                />
+                <div key="videos-tab" className="animate-fade-in">
+                  <GeneratedVideosView
+                    videos={generatedVideos}
+                    viewMode={viewMode}
+                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.video_url })}
+                    onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
+                  />
+                </div>
               )}
             </>
           )}
