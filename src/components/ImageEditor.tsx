@@ -113,48 +113,97 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-slate-800 p-6 overflow-y-auto">
-          <div className="max-w-5xl mx-auto">
-            {!showComparison ? (
-              <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in">
-                <img
-                  src={getAssetUrl(asset.storage_path)}
-                  alt={asset.file_name}
-                  className="w-full h-full object-contain rounded-xl transition-transform hover:scale-105"
+        <div className="flex-1 bg-slate-800 flex flex-col">
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-5xl mx-auto">
+              {!showComparison ? (
+                <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in">
+                  <img
+                    src={getAssetUrl(asset.storage_path)}
+                    alt={asset.file_name}
+                    className="w-full h-full object-contain rounded-xl transition-transform hover:scale-105"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-6 animate-fade-in">
+                  <div>
+                    <div className="mb-2 text-sm font-medium text-slate-400">
+                      Original
+                    </div>
+                    <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
+                      <img
+                        src={getAssetUrl(asset.storage_path)}
+                        alt="Original"
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium text-slate-400">
+                      AI Edited
+                    </div>
+                    <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
+                      <img
+                        src={editedImageUrl || getAssetUrl(asset.storage_path)}
+                        alt="Edited"
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-700 bg-slate-800 p-6">
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Wand2 className="w-5 h-5 text-blue-400" />
+                <span className="text-sm font-medium text-slate-300">
+                  Using {selectedModelInfo?.name}
+                </span>
+              </div>
+
+              <div>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe how you want to edit this image... For example: 'Add a gradient background' or 'Make the product pop with vibrant colors'"
+                  className="w-full h-24 px-4 py-3 bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-6 animate-fade-in">
-                <div>
-                  <div className="mb-2 text-sm font-medium text-slate-400">
-                    Original
-                  </div>
-                  <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
-                    <img
-                      src={getAssetUrl(asset.storage_path)}
-                      alt="Original"
-                      className="w-full h-full object-contain rounded-xl"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-2 text-sm font-medium text-slate-400">
-                    AI Edited
-                  </div>
-                  <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
-                    <img
-                      src={editedImageUrl || getAssetUrl(asset.storage_path)}
-                      alt="Edited"
-                      className="w-full h-full object-contain rounded-xl"
-                    />
-                  </div>
-                </div>
+
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                  placeholder="Optional context about the image..."
+                  className="flex-1 px-4 py-3 bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleGenerate}
+                  disabled={!prompt.trim() || isGenerating}
+                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95 whitespace-nowrap"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-5 h-5" />
+                      <span>Generate</span>
+                    </>
+                  )}
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        <aside className="w-96 bg-white border-l border-slate-200 flex flex-col">
+        <aside className="w-80 bg-white border-l border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-blue-500" />
@@ -192,106 +241,35 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
             </div>
           </div>
 
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-900 mb-2">
-                Editing Instructions
-              </label>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe how you want to edit this image... For example: 'Add a gradient background' or 'Make the product pop with vibrant colors'"
-                className="w-full h-32 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <p className="text-xs text-slate-500 mt-2">
-                Be specific about the changes you want to make to the image
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-900 mb-2">
-                Context (Optional)
-              </label>
-              <textarea
-                value={context}
-                onChange={(e) => setContext(e.target.value)}
-                placeholder="Add context about the image... For example: 'This is a product photo for an e-commerce listing' or 'This will be used in social media ads'"
-                className="w-full h-20 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <p className="text-xs text-slate-500 mt-2">
-                Help the AI understand the purpose and usage of this image
-              </p>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-2">
-                <Wand2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-blue-900 mb-1">
-                    Using {selectedModelInfo?.name}
-                  </h4>
-                  <p className="text-sm text-blue-700">
-                    {selectedModelInfo?.description}
-                  </p>
-                </div>
+          {versions.length > 0 && (
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <History className="w-4 h-4 text-slate-600" />
+                <h4 className="text-sm font-medium text-slate-900">Version History</h4>
               </div>
-            </div>
-
-            {versions.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <History className="w-4 h-4 text-slate-600" />
-                  <h4 className="text-sm font-medium text-slate-900">Version History</h4>
-                </div>
-                <div className="space-y-2">
-                  {versions.map((version, index) => (
-                    <div
-                      key={index}
-                      className="bg-slate-50 rounded-lg p-3 text-xs animate-slide-up hover:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-slate-900">
-                          Version {versions.length - index}
-                        </span>
-                        <span className="text-slate-500">
-                          {new Date(version.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-slate-600 mb-1">{version.prompt}</p>
-                      <p className="text-slate-500">
-                        Model: {imageModels.find((m) => m.id === version.model)?.name}
-                      </p>
+              <div className="space-y-2">
+                {versions.map((version, index) => (
+                  <div
+                    key={index}
+                    className="bg-slate-50 rounded-lg p-3 text-xs animate-slide-up hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-slate-900">
+                        Version {versions.length - index}
+                      </span>
+                      <span className="text-slate-500">
+                        {new Date(version.timestamp).toLocaleTimeString()}
+                      </span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-slate-600 mb-1">{version.prompt}</p>
+                    <p className="text-slate-500">
+                      Model: {imageModels.find((m) => m.id === version.model)?.name}
+                    </p>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-
-          <div className="p-6 border-t border-slate-200">
-            <button
-              onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating}
-              className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <Wand2 className="w-5 h-5" />
-                  <span>Generate Edited Image</span>
-                </>
-              )}
-            </button>
-            {!prompt.trim() && (
-              <p className="text-xs text-slate-500 text-center mt-2">
-                Enter editing instructions to generate
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>
