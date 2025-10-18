@@ -320,7 +320,29 @@ function EditedImagesView({
   return (
     <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
       {images.map((image) => (
-        <div key={image.id} className="aspect-square bg-slate-100 rounded-lg" />
+        <div key={image.id} className="group relative bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+          <div className="aspect-square bg-slate-100">
+            <img
+              src={image.edited_url}
+              alt="Edited"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-medium text-slate-900 mb-1 line-clamp-2">
+              {image.prompt}
+            </p>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>{image.ai_model}</span>
+              <span>{new Date(image.created_at).toLocaleDateString()}</span>
+            </div>
+            {image.context && (
+              <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                {image.context}
+              </p>
+            )}
+          </div>
+        </div>
       ))}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Image as ImageIcon, Film, Clock } from 'lucide-react';
+import { Trash2, Image as ImageIcon, Film, Clock, Wand2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { ImageEditor } from './ImageEditor';
 
 interface MediaAsset {
   id: string;
@@ -27,6 +28,7 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
 
   useEffect(() => {
     loadAssets();
@@ -120,70 +122,99 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {assets.map((asset) => (
-        <div
-          key={asset.id}
-          className={`group relative bg-white rounded-lg border-2 transition-all cursor-pointer ${
-            selectedAsset === asset.id
-              ? 'border-blue-500 shadow-lg'
-              : 'border-slate-200 hover:border-slate-300'
-          }`}
-          onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}
-        >
-          <div className="aspect-square bg-slate-100 rounded-t-lg overflow-hidden relative">
-            {asset.file_type === 'image' ? (
-              <img
-                src={getAssetUrl(asset.storage_path)}
-                alt={asset.file_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="relative w-full h-full">
-                <video
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {assets.map((asset) => (
+          <div
+            key={asset.id}
+            className={`group relative bg-white rounded-lg border-2 transition-all cursor-pointer ${
+              selectedAsset === asset.id
+                ? 'border-blue-500 shadow-lg'
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+            onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}
+          >
+            <div className="aspect-square bg-slate-100 rounded-t-lg overflow-hidden relative">
+              {asset.file_type === 'image' ? (
+                <img
                   src={getAssetUrl(asset.storage_path)}
+                  alt={asset.file_name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <Film className="w-12 h-12 text-white" />
-                </div>
-                {asset.duration && (
-                  <div className="absolute bottom-2 right-2 bg-black/75 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatDuration(asset.duration)}
+              ) : (
+                <div className="relative w-full h-full">
+                  <video
+                    src={getAssetUrl(asset.storage_path)}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Film className="w-12 h-12 text-white" />
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                  {asset.duration && (
+                    <div className="absolute bottom-2 right-2 bg-black/75 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDuration(asset.duration)}
+                    </div>
+                  )}
+                </div>
+              )}
 
-          <div className="p-3">
-            <p className="text-sm font-medium text-slate-900 truncate" title={asset.file_name}>
-              {asset.file_name}
-            </p>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-slate-500">
-                {formatFileSize(asset.file_size)}
-              </p>
-              {asset.width && asset.height && (
-                <p className="text-xs text-slate-500">
-                  {asset.width} × {asset.height}
-                </p>
+              {asset.file_type === 'image' && (
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingAsset(asset);
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    Edit with AI
+                  </button>
+                </div>
               )}
             </div>
-          </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteAsset(asset.id, asset.storage_path);
-            }}
-            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ))}
-    </div>
+            <div className="p-3">
+              <p className="text-sm font-medium text-slate-900 truncate" title={asset.file_name}>
+                {asset.file_name}
+              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-slate-500">
+                  {formatFileSize(asset.file_size)}
+                </p>
+                {asset.width && asset.height && (
+                  <p className="text-xs text-slate-500">
+                    {asset.width} × {asset.height}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteAsset(asset.id, asset.storage_path);
+              }}
+              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {editingAsset && (
+        <ImageEditor
+          asset={editingAsset}
+          projectId={projectId}
+          onClose={() => setEditingAsset(null)}
+          onSave={() => {
+            setEditingAsset(null);
+            loadAssets();
+          }}
+        />
+      )}
+    </>
   );
 }

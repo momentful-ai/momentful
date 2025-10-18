@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { X, Wand2, ArrowLeft, Sparkles, ImageIcon } from 'lucide-react';
+import { X, Wand2, ArrowLeft, Sparkles, ImageIcon, History } from 'lucide-react';
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
+import { supabase } from '../lib/supabase';
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -10,19 +11,70 @@ interface ImageEditorProps {
   onSave: () => void;
 }
 
+const LOCAL_USER_ID = 'local-dev-user';
+
 export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorProps) {
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
   const [prompt, setPrompt] = useState('');
+  const [context, setContext] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
+  const [versions, setVersions] = useState<Array<{ prompt: string; model: string; timestamp: string }>>([]);
+
+  const getAssetUrl = (storagePath: string) => {
+    const { data } = supabase.storage
+      .from('user-uploads')
+      .getPublicUrl(storagePath);
+    return data.publicUrl;
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
+
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    setIsGenerating(false);
+
+    setEditedImageUrl(getAssetUrl(asset.storage_path));
     setShowComparison(true);
+
+    setVersions([
+      {
+        prompt,
+        model: selectedModel,
+        timestamp: new Date().toISOString(),
+      },
+      ...versions,
+    ]);
+
+    setIsGenerating(false);
+  };
+
+  const handleSave = async () => {
+    try {
+      const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
+
+      const { error } = await supabase
+        .from('edited_images')
+        .insert({
+          project_id: projectId,
+          user_id: LOCAL_USER_ID,
+          original_asset_id: asset.id,
+          edited_url: editedImageUrl || getAssetUrl(asset.storage_path),
+          prompt,
+          context: context || null,
+          ai_model: selectedModel,
+          model_provider: selectedModelInfo?.provider || '',
+        });
+
+      if (error) throw error;
+
+      onSave();
+    } catch (error) {
+      console.error('Error saving edited image:', error);
+      alert('Failed to save edited image. Please try again.');
+    }
   };
 
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
@@ -50,7 +102,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
               Cancel
             </button>
             <button
-              onClick={onSave}
+              onClick={handleSave}
               disabled={!showComparison}
               className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
@@ -65,15 +117,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           <div className="max-w-5xl mx-auto">
             {!showComparison ? (
               <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center">
-                {asset.thumbnail_url ? (
-                  <img
-                    src={asset.thumbnail_url}
-                    alt={asset.file_name}
-                    className="w-full h-full object-contain rounded-xl"
-                  />
-                ) : (
-                  <ImageIcon className="w-24 h-24 text-slate-500" />
-                )}
+                <img
+                  src={getAssetUrl(asset.storage_path)}
+                  alt={asset.file_name}
+                  className="w-full h-full object-contain rounded-xl"
+                />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-6">
@@ -82,15 +130,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                     Original
                   </div>
                   <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
-                    {asset.thumbnail_url ? (
-                      <img
-                        src={asset.thumbnail_url}
-                        alt="Original"
-                        className="w-full h-full object-contain rounded-xl"
-                      />
-                    ) : (
-                      <ImageIcon className="w-16 h-16 text-slate-500" />
-                    )}
+                    <img
+                      src={getAssetUrl(asset.storage_path)}
+                      alt="Original"
+                      className="w-full h-full object-contain rounded-xl"
+                    />
                   </div>
                 </div>
                 <div>
@@ -98,15 +142,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                     AI Edited
                   </div>
                   <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
-                    {asset.thumbnail_url ? (
-                      <img
-                        src={asset.thumbnail_url}
-                        alt="Edited"
-                        className="w-full h-full object-contain rounded-xl"
-                      />
-                    ) : (
-                      <ImageIcon className="w-16 h-16 text-slate-500" />
-                    )}
+                    <img
+                      src={editedImageUrl || getAssetUrl(asset.storage_path)}
+                      alt="Edited"
+                      className="w-full h-full object-contain rounded-xl"
+                    />
                   </div>
                 </div>
               </div>
@@ -168,6 +208,21 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
               </p>
             </div>
 
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Context (Optional)
+              </label>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="Add context about the image... For example: 'This is a product photo for an e-commerce listing' or 'This will be used in social media ads'"
+                className="w-full h-20 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                Help the AI understand the purpose and usage of this image
+              </p>
+            </div>
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-2">
                 <Wand2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -181,6 +236,36 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                 </div>
               </div>
             </div>
+
+            {versions.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-sm font-medium text-slate-900">Version History</h4>
+                </div>
+                <div className="space-y-2">
+                  {versions.map((version, index) => (
+                    <div
+                      key={index}
+                      className="bg-slate-50 rounded-lg p-3 text-xs"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-slate-900">
+                          Version {versions.length - index}
+                        </span>
+                        <span className="text-slate-500">
+                          {new Date(version.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 mb-1">{version.prompt}</p>
+                      <p className="text-slate-500">
+                        Model: {imageModels.find((m) => m.id === version.model)?.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-6 border-t border-slate-200">
