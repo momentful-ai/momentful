@@ -63,6 +63,9 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const [leftPanelTab, setLeftPanelTab] = useState<'edited' | 'library'>('edited');
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<'add' | 'remove'>('add');
+  const selectionStartRef = useRef<{ id: string; type: 'edited_image' | 'media_asset' } | null>(null);
 
   useEffect(() => {
     loadSources();
@@ -212,6 +215,45 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     }
   };
 
+  const handleImageMouseDown = (source: SelectedSource) => {
+    const isSelected = selectedSources.find((s) => s.id === source.id);
+    setSelectionMode(isSelected ? 'remove' : 'add');
+    setIsSelecting(true);
+    selectionStartRef.current = { id: source.id, type: source.type };
+
+    if (isSelected) {
+      removeSource(source.id);
+    } else {
+      addSource(source);
+    }
+  };
+
+  const handleImageMouseEnter = (source: SelectedSource) => {
+    if (!isSelecting) return;
+
+    const isSelected = selectedSources.find((s) => s.id === source.id);
+
+    if (selectionMode === 'add' && !isSelected) {
+      addSource(source);
+    } else if (selectionMode === 'remove' && isSelected) {
+      removeSource(source.id);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsSelecting(false);
+    selectionStartRef.current = null;
+  };
+
+  useEffect(() => {
+    if (isSelecting) {
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isSelecting]);
+
   const canGenerate = selectedSources.length > 0;
   const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
@@ -293,39 +335,46 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4" style={{ userSelect: 'none' }}>
             {leftPanelTab === 'edited' ? (
               <div className="grid grid-cols-2 gap-2">
-                {editedImages.map((image) => (
-                  <div
-                    key={image.id}
-                    draggable
-                    onDragStart={(e) =>
-                      handleDragStart(e, {
-                        id: image.id,
-                        type: 'edited_image',
-                        thumbnail: image.edited_url,
-                        name: image.prompt.substring(0, 30),
-                      })
-                    }
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move transition-all hover:scale-105 hover:shadow-lg ${
-                      selectedSources.find((s) => s.id === image.id)
-                        ? 'border-primary ring-2 ring-primary'
-                        : 'border-border'
-                    }`}
-                  >
-                    <img
-                      src={image.edited_url}
-                      alt={image.prompt}
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedSources.find((s) => s.id === image.id) && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {editedImages.map((image) => {
+                  const source: SelectedSource = {
+                    id: image.id,
+                    type: 'edited_image',
+                    thumbnail: image.edited_url,
+                    name: image.prompt.substring(0, 30),
+                  };
+                  return (
+                    <div
+                      key={image.id}
+                      draggable={!isSelecting}
+                      onDragStart={(e) => !isSelecting && handleDragStart(e, source)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleImageMouseDown(source);
+                      }}
+                      onMouseEnter={() => handleImageMouseEnter(source)}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
+                        selectedSources.find((s) => s.id === image.id)
+                          ? 'border-primary ring-2 ring-primary'
+                          : 'border-border'
+                      }`}
+                    >
+                      <img
+                        src={image.edited_url}
+                        alt={image.prompt}
+                        className="w-full h-full object-cover pointer-events-none"
+                        draggable={false}
+                      />
+                      {selectedSources.find((s) => s.id === image.id) && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {editedImages.length === 0 && (
                   <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
                     No edited images yet
@@ -334,36 +383,43 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {mediaAssets.map((asset) => (
-                  <div
-                    key={asset.id}
-                    draggable
-                    onDragStart={(e) =>
-                      handleDragStart(e, {
-                        id: asset.id,
-                        type: 'media_asset',
-                        thumbnail: getAssetUrl(asset.storage_path),
-                        name: asset.file_name,
-                      })
-                    }
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move transition-all hover:scale-105 hover:shadow-lg ${
-                      selectedSources.find((s) => s.id === asset.id)
-                        ? 'border-primary ring-2 ring-primary'
-                        : 'border-border'
-                    }`}
-                  >
-                    <img
-                      src={getAssetUrl(asset.storage_path)}
-                      alt={asset.file_name}
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedSources.find((s) => s.id === asset.id) && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {mediaAssets.map((asset) => {
+                  const source: SelectedSource = {
+                    id: asset.id,
+                    type: 'media_asset',
+                    thumbnail: getAssetUrl(asset.storage_path),
+                    name: asset.file_name,
+                  };
+                  return (
+                    <div
+                      key={asset.id}
+                      draggable={!isSelecting}
+                      onDragStart={(e) => !isSelecting && handleDragStart(e, source)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleImageMouseDown(source);
+                      }}
+                      onMouseEnter={() => handleImageMouseEnter(source)}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
+                        selectedSources.find((s) => s.id === asset.id)
+                          ? 'border-primary ring-2 ring-primary'
+                          : 'border-border'
+                      }`}
+                    >
+                      <img
+                        src={getAssetUrl(asset.storage_path)}
+                        alt={asset.file_name}
+                        className="w-full h-full object-cover pointer-events-none"
+                        draggable={false}
+                      />
+                      {selectedSources.find((s) => s.id === asset.id) && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {mediaAssets.length === 0 && (
                   <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
                     No library images yet
