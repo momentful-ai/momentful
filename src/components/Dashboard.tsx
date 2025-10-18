@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Project } from '../types';
 import { useUserId } from '../hooks/useUserId';
@@ -33,7 +33,25 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setProjects(data || []);
+
+      const projectsWithMedia = await Promise.all(
+        (data || []).map(async (project) => {
+          const { data: mediaAssets } = await supabase
+            .from('media_assets')
+            .select('storage_path')
+            .eq('project_id', project.id)
+            .eq('file_type', 'image')
+            .order('created_at', { ascending: false })
+            .limit(4);
+
+          return {
+            ...project,
+            previewImages: mediaAssets?.map(asset => asset.storage_path) || []
+          };
+        })
+      );
+
+      setProjects(projectsWithMedia);
     } catch (error) {
       console.error('Error loading projects:', error);
       showToast('Failed to load projects. Please refresh the page.', 'error');
@@ -249,20 +267,7 @@ function ProjectCard({
       }}
     >
       <div className="aspect-video bg-muted/30 relative overflow-hidden">
-        {project.thumbnail_url ? (
-          <img
-            src={project.thumbnail_url}
-            alt={project.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="relative">
-              <FolderOpen className="w-16 h-16 text-muted-foreground/50" />
-              <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
-            </div>
-          </div>
-        )}
+        <ProjectPreviewCollage project={project} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
@@ -354,5 +359,93 @@ function ProjectCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+function ProjectPreviewCollage({ project }: { project: any }) {
+  const previewImages = project.previewImages || [];
+  const imageCount = previewImages.length;
+
+  const getImageUrl = (storagePath: string) => {
+    const { data } = supabase.storage
+      .from('user-uploads')
+      .getPublicUrl(storagePath);
+    return data.publicUrl;
+  };
+
+  if (imageCount === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="relative">
+          <FolderOpen className="w-16 h-16 text-muted-foreground/50" />
+          <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (imageCount === 1) {
+    return (
+      <img
+        src={getImageUrl(previewImages[0])}
+        alt="Project preview"
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+      />
+    );
+  }
+
+  if (imageCount === 2) {
+    return (
+      <div className="grid grid-cols-2 h-full gap-0.5">
+        {previewImages.map((path: string, idx: number) => (
+          <div key={idx} className="relative overflow-hidden">
+            <img
+              src={getImageUrl(path)}
+              alt={`Preview ${idx + 1}`}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (imageCount === 3) {
+    return (
+      <div className="grid grid-cols-2 h-full gap-0.5">
+        <div className="relative overflow-hidden">
+          <img
+            src={getImageUrl(previewImages[0])}
+            alt="Preview 1"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        </div>
+        <div className="grid grid-rows-2 gap-0.5">
+          {previewImages.slice(1, 3).map((path: string, idx: number) => (
+            <div key={idx} className="relative overflow-hidden">
+              <img
+                src={getImageUrl(path)}
+                alt={`Preview ${idx + 2}`}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 grid-rows-2 h-full gap-0.5">
+      {previewImages.slice(0, 4).map((path: string, idx: number) => (
+        <div key={idx} className="relative overflow-hidden">
+          <img
+            src={getImageUrl(path)}
+            alt={`Preview ${idx + 1}`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        </div>
+      ))}
+    </div>
   );
 }
