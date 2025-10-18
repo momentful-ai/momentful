@@ -100,65 +100,51 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     if (selectedSources.length === 0) return;
 
     setIsGenerating(true);
+
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    setGeneratedVideoUrl('https://www.w3schools.com/html/mov_bbb.mp4');
-    setIsGenerating(false);
-  };
-
-  const handleSaveVideo = async () => {
-    if (!generatedVideoUrl) return;
+    const dummyVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    setGeneratedVideoUrl(dummyVideoUrl);
 
     try {
       const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
+      const sourceIds = selectedSources.map((s) => s.id).join(',');
 
-      const { data: videoData, error: videoError } = await supabase
+      const { error } = await supabase
         .from('generated_videos')
         .insert({
           project_id: projectId,
           user_id: userId,
-          video_url: generatedVideoUrl,
-          prompt: prompt || null,
-          duration,
+          video_url: dummyVideoUrl,
+          prompt,
           aspect_ratio: aspectRatio,
+          scene_type: sceneType,
+          camera_movement: cameraMovement,
+          duration,
           ai_model: selectedModel,
           model_provider: selectedModelInfo?.provider || '',
-          settings: {
-            sceneType,
-            cameraMovement,
-          },
-        })
-        .select()
-        .single();
+          source_asset_ids: sourceIds,
+        });
 
-      if (videoError) throw videoError;
-
-      const sourceInserts = selectedSources.map((source) => ({
-        generated_video_id: videoData.id,
-        source_type: source.type,
-        source_id: source.id,
-        sort_order: selectedSources.indexOf(source),
-      }));
-
-      const { error: sourcesError } = await supabase
-        .from('video_sources')
-        .insert(sourceInserts);
-
-      if (sourcesError) throw sourcesError;
-
-      onSave();
+      if (error) throw error;
     } catch (error) {
       console.error('Error saving video:', error);
-      alert('Failed to save video. Please try again.');
     }
+
+    setIsGenerating(false);
+  };
+
+  const handleSave = async () => {
+    if (!generatedVideoUrl) return;
+    onSave();
   };
 
   const removeSource = (id: string) => {
-    setSelectedSources((prev) => prev.filter((s) => s.id !== id));
+    setSelectedSources(selectedSources.filter((s) => s.id !== id));
   };
 
-  const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
   const canGenerate = selectedSources.length > 0;
+  const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
   return (
     <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col animate-fade-in">
@@ -183,7 +169,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
               Cancel
             </button>
             <button
-              onClick={handleSaveVideo}
+              onClick={handleSave}
               disabled={!generatedVideoUrl}
               className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
@@ -194,74 +180,130 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-slate-800 p-6 overflow-y-auto">
-          <div className="max-w-5xl mx-auto">
-            <div
-              className={`bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in ${
-                aspectRatio === '16:9' ? 'aspect-video' :
-                aspectRatio === '9:16' ? 'aspect-[9/16] max-w-md mx-auto' :
-                aspectRatio === '1:1' ? 'aspect-square max-w-2xl mx-auto' :
-                'aspect-[4/5] max-w-xl mx-auto'
-              }`}
-            >
-              {generatedVideoUrl ? (
-                <video
-                  src={generatedVideoUrl}
-                  controls
-                  className="w-full h-full rounded-xl"
-                />
-              ) : (
-                <div className="text-center">
-                  <Film className="w-24 h-24 text-slate-500 mx-auto mb-4" />
-                  <p className="text-slate-400">
-                    {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
-                  </p>
+        <div className="flex-1 bg-slate-800 flex flex-col">
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-5xl mx-auto">
+              <div
+                className={`bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in ${
+                  aspectRatio === '16:9' ? 'aspect-video' :
+                  aspectRatio === '9:16' ? 'aspect-[9/16] max-w-md mx-auto' :
+                  aspectRatio === '1:1' ? 'aspect-square max-w-2xl mx-auto' :
+                  'aspect-[4/5] max-w-xl mx-auto'
+                }`}
+              >
+                {generatedVideoUrl ? (
+                  <video
+                    src={generatedVideoUrl}
+                    controls
+                    className="w-full h-full rounded-xl"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <Film className="w-24 h-24 text-slate-500 mx-auto mb-4" />
+                    <p className="text-slate-400">
+                      {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedSources.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-slate-300 mb-3">
+                    Source Media ({selectedSources.length})
+                  </h3>
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                    {selectedSources.map((source, index) => (
+                      <div
+                        key={source.id}
+                        className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden group animate-scale-in hover:scale-105 transition-transform"
+                      >
+                        {source.thumbnail ? (
+                          <img
+                            src={source.thumbnail}
+                            alt={source.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <Film className="w-8 h-8 text-slate-500" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            onClick={() => removeSource(source.id)}
+                            className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                        <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {selectedSources.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-slate-300 mb-3">
-                  Source Media ({selectedSources.length})
-                </h3>
-                <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-                  {selectedSources.map((source, index) => (
-                    <div
-                      key={source.id}
-                      className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden group animate-scale-in hover:scale-105 transition-transform"
-                    >
-                      {source.thumbnail ? (
-                        <img
-                          src={source.thumbnail}
-                          alt={source.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <Film className="w-8 h-8 text-slate-500" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          onClick={() => removeSource(source.id)}
-                          className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
-                      <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-xs px-2 py-1 rounded">
-                        {index + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div className="border-t border-slate-700 bg-slate-800 p-6">
+            <div className="max-w-5xl mx-auto space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-blue-400" />
+                <span className="text-sm font-medium text-slate-300">
+                  Using {selectedModelInfo?.name} • {sceneType.replace('-', ' ')} • {cameraMovement.replace('-', ' ')}
+                </span>
               </div>
-            )}
+
+              <div>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe your video vision... For example: 'Create a dynamic product showcase with smooth transitions' or 'Show the product in a lifestyle setting with upbeat energy'"
+                  className="w-full h-24 px-4 py-3 bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSourceSelector(true)}
+                  className="flex items-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Media ({selectedSources.length})</span>
+                </button>
+
+                <button
+                  onClick={handleGenerate}
+                  disabled={!canGenerate || isGenerating}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                      <span>Generating Video...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5" />
+                      <span>Generate Video</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {!canGenerate && (
+                <p className="text-xs text-red-400 text-center">
+                  Add at least one image or clip to generate video
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        <aside className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-y-auto">
+        <aside className="w-80 bg-white border-l border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-blue-500" />
@@ -300,48 +342,19 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           </div>
 
           <div className="p-6 border-b border-slate-200">
-            <h3 className="font-semibold text-slate-900 mb-4">Source Media</h3>
-            <button
-              onClick={() => setShowSourceSelector(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg text-slate-600 hover:text-slate-900 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Add Images or Clips</span>
-            </button>
-            {selectedSources.length === 0 && (
-              <p className="text-xs text-red-600 mt-2">
-                At least one edited image or video clip is required
-              </p>
-            )}
-          </div>
-
-          <div className="p-6 border-b border-slate-200">
-            <h3 className="font-semibold text-slate-900 mb-4">Video Description</h3>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe your video vision... For example: 'Create a dynamic product showcase with smooth transitions' or 'Show the product in a lifestyle setting with upbeat energy'"
-              className="w-full h-32 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
-            <p className="text-xs text-slate-500 mt-2">
-              Tell the AI how you want your video to look and feel
-            </p>
-          </div>
-
-          <div className="p-6 border-b border-slate-200">
             <h3 className="font-semibold text-slate-900 mb-4">Aspect Ratio</h3>
             <div className="grid grid-cols-2 gap-2">
               {ASPECT_RATIOS.map((ratio) => (
                 <button
                   key={ratio.id}
                   onClick={() => setAspectRatio(ratio.id)}
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  className={`p-3 rounded-lg border-2 text-left transition-all hover:scale-105 ${
                     aspectRatio === ratio.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <div className="font-medium text-slate-900 mb-1">
+                  <div className="font-medium text-slate-900 text-sm mb-1">
                     {ratio.label}
                   </div>
                   <div className="text-xs text-slate-600">
@@ -359,13 +372,13 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                 <button
                   key={scene.id}
                   onClick={() => setSceneType(scene.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     sceneType === scene.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <div className="font-medium text-slate-900 mb-1">
+                  <div className="font-medium text-slate-900 text-sm mb-1">
                     {scene.label}
                   </div>
                   <div className="text-xs text-slate-600">
@@ -376,20 +389,20 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
             </div>
           </div>
 
-          <div className="p-6 border-b border-slate-200">
+          <div className="p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Camera Movement</h3>
             <div className="space-y-2">
               {CAMERA_MOVEMENTS.map((camera) => (
                 <button
                   key={camera.id}
                   onClick={() => setCameraMovement(camera.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     cameraMovement === camera.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <div className="font-medium text-slate-900 mb-1">
+                  <div className="font-medium text-slate-900 text-sm mb-1">
                     {camera.label}
                   </div>
                   <div className="text-xs text-slate-600">
@@ -398,31 +411,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="p-6">
-            <button
-              onClick={handleGenerate}
-              disabled={!canGenerate || isGenerating}
-              className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                  <span>Generating Video...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  <span>Generate Video</span>
-                </>
-              )}
-            </button>
-            {!canGenerate && (
-              <p className="text-xs text-slate-500 text-center mt-2">
-                Add source media to generate video
-              </p>
-            )}
           </div>
         </aside>
       </div>
@@ -542,17 +530,12 @@ function SourceSelectorModal({
                     className="w-full h-full object-cover"
                   />
                   {isSelected(image.id) && (
-                    <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
-                      <Check className="w-4 h-4" />
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
                 </button>
               ))}
-              {editedImages.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <p className="text-slate-500">No edited images yet</p>
-                </div>
-              )}
             </div>
           )}
 
@@ -570,9 +553,9 @@ function SourceSelectorModal({
                     });
                     onClose();
                   }}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
                     isSelected(asset.id)
-                      ? 'border-blue-500 ring-2 ring-blue-500'
+                      ? 'border-blue-500 ring-2 ring-blue-500 scale-105'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -582,19 +565,23 @@ function SourceSelectorModal({
                     className="w-full h-full object-cover"
                   />
                   {isSelected(asset.id) && (
-                    <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
-                      <Check className="w-4 h-4" />
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
                 </button>
               ))}
-              {mediaAssets.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <p className="text-slate-500">No original media yet</p>
-                </div>
-              )}
             </div>
           )}
+        </div>
+
+        <div className="p-6 border-t border-slate-200">
+          <button
+            onClick={onClose}
+            className="w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-lg font-medium transition-colors"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>
