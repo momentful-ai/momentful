@@ -1,13 +1,9 @@
 import { ReactNode } from 'react';
 import { Sparkles, User } from 'lucide-react';
-import { UserButton, useUser } from '@clerk/clerk-react';
 
 interface LayoutProps {
   children: ReactNode;
 }
-
-const isClerkConfigured = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY &&
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY !== 'your_clerk_publishable_key_here';
 
 export function Layout({ children }: LayoutProps) {
   return (
@@ -24,14 +20,10 @@ export function Layout({ children }: LayoutProps) {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              {isClerkConfigured ? (
-                <UserButton afterSignOutUrl="/" />
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <User className="w-5 h-5" />
-                  <span>Local Mode</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <User className="w-5 h-5" />
+                <span>Local Mode</span>
+              </div>
             </div>
           </div>
         </div>

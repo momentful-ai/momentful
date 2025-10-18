@@ -1,17 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Plus, FolderOpen, Clock, MoreVertical } from 'lucide-react';
-import { useUser } from '@clerk/clerk-react';
 import { supabase } from '../lib/supabase';
 import { Project } from '../types';
-
-const isClerkConfigured = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY &&
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY !== 'your_clerk_publishable_key_here';
 
 const LOCAL_USER_ID = 'local-dev-user';
 
 export function Dashboard() {
-  const clerkUser = useUser();
-  const user = isClerkConfigured ? clerkUser.user : { id: LOCAL_USER_ID };
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,13 +30,11 @@ export function Dashboard() {
   };
 
   const createProject = async () => {
-    if (!user) return;
-
     try {
       const { data, error } = await supabase
         .from('projects')
         .insert({
-          user_id: user.id,
+          user_id: LOCAL_USER_ID,
           name: 'Untitled Project',
           description: '',
         })
