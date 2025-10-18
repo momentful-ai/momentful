@@ -174,7 +174,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWo
                     onClick={handleStartEdit}
                     variant="ghost"
                     size="icon"
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    className="opacity-50 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                     title="Edit project name"
                   >
                     <Pencil className="w-5 h-5" />
