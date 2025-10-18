@@ -14,13 +14,27 @@ type View =
 
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [nextView, setNextView] = useState<View | null>(null);
 
   const handleSelectProject = (project: Project) => {
-    setView({ type: 'project', project });
+    setIsTransitioning(true);
+    setNextView({ type: 'project', project });
+    setTimeout(() => {
+      setView({ type: 'project', project });
+      setIsTransitioning(false);
+      setNextView(null);
+    }, 250);
   };
 
   const handleBackToDashboard = () => {
-    setView({ type: 'dashboard' });
+    setIsTransitioning(true);
+    setNextView({ type: 'dashboard' });
+    setTimeout(() => {
+      setView({ type: 'dashboard' });
+      setIsTransitioning(false);
+      setNextView(null);
+    }, 250);
   };
 
   const handleEditImage = (asset: MediaAsset, projectId: string) => {
@@ -52,7 +66,10 @@ function App() {
         ) : (
           <Layout>
             {view.type === 'project' ? (
-              <div key={`project-${view.project.id}`} className="animate-fade-in">
+              <div
+                key={`project-${view.project.id}`}
+                className={isTransitioning ? 'animate-fade-out' : 'animate-fade-in-scale'}
+              >
                 <ProjectWorkspace
                   project={view.project}
                   onBack={handleBackToDashboard}
@@ -61,7 +78,10 @@ function App() {
                 />
               </div>
             ) : (
-              <div key="dashboard" className="animate-fade-in">
+              <div
+                key="dashboard"
+                className={isTransitioning ? 'animate-scale-out' : 'animate-fade-in'}
+              >
                 <Dashboard onSelectProject={handleSelectProject} />
               </div>
             )}
