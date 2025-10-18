@@ -1,5 +1,8 @@
 import { useState, useRef, DragEvent } from 'react';
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon, Film } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+const LOCAL_USER_ID = 'local-dev-user';
 
 interface FileUploadProps {
   projectId: string;
@@ -80,6 +83,32 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
     setFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
+  const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const getVideoDimensions = (file: File): Promise<{ width: number; height: number; duration: number }> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.onloadedmetadata = () => {
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight,
+          duration: video.duration,
+        });
+      };
+      video.onerror = reject;
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const startUpload = async () => {
     const pendingFiles = files.filter((f) => f.status === 'pending');
 
@@ -91,7 +120,58 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
       );
 
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const isImage = ALLOWED_IMAGE_TYPES.includes(uploadFile.file.type);
+        const isVideo = ALLOWED_VIDEO_TYPES.includes(uploadFile.file.type);
+        const fileExt = uploadFile.file.name.split('.').pop();
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${uploadFile.file.name}`;
+        const storagePath = `${LOCAL_USER_ID}/${projectId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('user-uploads')
+          .upload(storagePath, uploadFile.file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadFile.id ? { ...f, progress: 50 } : f
+          )
+        );
+
+        let width: number | null = null;
+        let height: number | null = null;
+        let duration: number | null = null;
+
+        if (isImage) {
+          const dims = await getImageDimensions(uploadFile.file);
+          width = dims.width;
+          height = dims.height;
+        } else if (isVideo) {
+          const dims = await getVideoDimensions(uploadFile.file);
+          width = dims.width;
+          height = dims.height;
+          duration = dims.duration;
+        }
+
+        const { error: dbError } = await supabase
+          .from('media_assets')
+          .insert({
+            project_id: projectId,
+            user_id: LOCAL_USER_ID,
+            file_name: uploadFile.file.name,
+            file_type: isImage ? 'image' : 'video',
+            file_size: uploadFile.file.size,
+            storage_path: storagePath,
+            width,
+            height,
+            duration,
+          });
+
+        if (dbError) throw dbError;
 
         setFiles((prev) =>
           prev.map((f) =>
@@ -101,6 +181,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
           )
         );
       } catch (error) {
+        console.error('Upload error:', error);
         setFiles((prev) =>
           prev.map((f) =>
             f.id === uploadFile.id
@@ -115,9 +196,12 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
       }
     }
 
-    const allSuccess = files.every((f) => f.status === 'success');
-    if (allSuccess) {
-      onUploadComplete();
+    const allSuccess = files.every((f) => f.status === 'success' || f.status === 'error');
+    const hasSuccess = files.some((f) => f.status === 'success');
+    if (allSuccess && hasSuccess) {
+      setTimeout(() => {
+        onUploadComplete();
+      }, 500);
     }
   };
 

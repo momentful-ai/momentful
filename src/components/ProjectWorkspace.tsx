@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { supabase } from '../lib/supabase';
+import { FileUpload } from './FileUpload';
+import { MediaLibrary } from './MediaLibrary';
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -15,6 +17,8 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
   const [generatedVideos, setGeneratedVideos] = useState<GeneratedVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     loadProjectData();
@@ -79,7 +83,10 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
               <p className="text-slate-600 mt-1">{project.description}</p>
             )}
           </div>
-          <button className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md">
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+          >
             <Upload className="w-5 h-5" />
             Upload Media
           </button>
@@ -143,10 +150,9 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           ) : (
             <>
               {activeTab === 'media' && (
-                <MediaLibraryView
-                  assets={mediaAssets}
-                  viewMode={viewMode}
+                <MediaLibrary
                   projectId={project.id}
+                  onRefresh={refreshKey}
                 />
               )}
               {activeTab === 'edited' && (
@@ -159,6 +165,18 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           )}
         </div>
       </div>
+
+      {showUploadModal && (
+        <FileUpload
+          projectId={project.id}
+          onUploadComplete={() => {
+            setShowUploadModal(false);
+            setRefreshKey((prev) => prev + 1);
+            loadProjectData();
+          }}
+          onClose={() => setShowUploadModal(false)}
+        />
+      )}
     </div>
   );
 }
