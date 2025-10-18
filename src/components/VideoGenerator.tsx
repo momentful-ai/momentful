@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Play, ArrowLeft, Sparkles, Film, Plus, GripVertical, Trash2, Check } from 'lucide-react';
+import { X, Play, ArrowLeft, Sparkles, Film, GripVertical, Trash2, Check, Upload } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
 import { supabase } from '../lib/supabase';
@@ -51,7 +51,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [prompt, setPrompt] = useState('');
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showSourceSelector, setShowSourceSelector] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
@@ -632,14 +631,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowSourceSelector(true)}
-                  className="flex items-center gap-2 px-4 py-3 bg-muted hover:bg-muted/70 border border-border text-foreground rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Media ({selectedSources.length})</span>
-                </button>
-
-                <button
                   onClick={handleGenerate}
                   disabled={!canGenerate || isGenerating}
                   className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
@@ -788,171 +779,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
         </aside>
       </div>
 
-      {showSourceSelector && (
-        <SourceSelectorModal
-          editedImages={editedImages}
-          mediaAssets={mediaAssets}
-          selectedSources={selectedSources}
-          onSelectSource={addSource}
-          onClose={() => setShowSourceSelector(false)}
-          getAssetUrl={getAssetUrl}
-        />
-      )}
     </div>
   );
 }
 
-interface SourceSelectorModalProps {
-  editedImages: EditedImage[];
-  mediaAssets: MediaAsset[];
-  selectedSources: SelectedSource[];
-  onSelectSource: (source: SelectedSource) => void;
-  onClose: () => void;
-  getAssetUrl: (path: string) => string;
-}
-
-function SourceSelectorModal({
-  editedImages,
-  mediaAssets,
-  selectedSources,
-  onSelectSource,
-  onClose,
-  getAssetUrl,
-}: SourceSelectorModalProps) {
-  const [activeTab, setActiveTab] = useState<'edited' | 'original'>('edited');
-
-  const isSelected = (id: string) => selectedSources.some((s) => s.id === id);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-card rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col animate-scale-in shadow-2xl">
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-foreground">Select Source Media</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-muted rounded-lg transition-all hover:rotate-90 duration-200"
-            >
-              <X className="w-5 h-5 text-muted-foreground" />
-            </button>
-          </div>
-          <p className="text-muted-foreground mt-1">
-            Choose edited images or original media to include in your video
-          </p>
-        </div>
-
-        <div className="border-b border-border">
-          <div className="flex gap-1 px-6">
-            <button
-              onClick={() => setActiveTab('edited')}
-              className={`px-4 py-3 font-medium text-sm transition-colors relative ${
-                activeTab === 'edited'
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Edited Images ({editedImages.length})
-              {activeTab === 'edited' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('original')}
-              className={`px-4 py-3 font-medium text-sm transition-colors relative ${
-                activeTab === 'original'
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Original Media ({mediaAssets.length})
-              {activeTab === 'original' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'edited' && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-              {editedImages.map((image) => (
-                <button
-                  key={image.id}
-                  onClick={() => {
-                    onSelectSource({
-                      id: image.id,
-                      type: 'edited_image',
-                      thumbnail: image.edited_url,
-                      name: image.prompt.substring(0, 30),
-                    });
-                    onClose();
-                  }}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-                    isSelected(image.id)
-                      ? 'border-primary ring-2 ring-primary scale-105'
-                      : 'border-border hover:border-border/70'
-                  }`}
-                >
-                  <img
-                    src={image.edited_url}
-                    alt={image.prompt}
-                    className="w-full h-full object-cover"
-                  />
-                  {isSelected(image.id) && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'original' && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-              {mediaAssets.map((asset) => (
-                <button
-                  key={asset.id}
-                  onClick={() => {
-                    onSelectSource({
-                      id: asset.id,
-                      type: 'media_asset',
-                      thumbnail: getAssetUrl(asset.storage_path),
-                      name: asset.file_name,
-                    });
-                    onClose();
-                  }}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-                    isSelected(asset.id)
-                      ? 'border-primary ring-2 ring-primary scale-105'
-                      : 'border-border hover:border-border/70'
-                  }`}
-                >
-                  <img
-                    src={getAssetUrl(asset.storage_path)}
-                    alt={asset.file_name}
-                    className="w-full h-full object-cover"
-                  />
-                  {isSelected(asset.id) && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="p-6 border-t border-border">
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-muted hover:bg-muted/70 text-foreground rounded-lg font-medium transition-colors"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
