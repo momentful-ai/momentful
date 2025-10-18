@@ -138,7 +138,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWo
         </Button>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-2 group">
               {isEditingName ? (
                 <>
                   <input
@@ -174,7 +174,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWo
                     onClick={handleStartEdit}
                     variant="ghost"
                     size="icon"
-                    className="opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                     title="Edit project name"
                   >
                     <Pencil className="w-5 h-5" />
