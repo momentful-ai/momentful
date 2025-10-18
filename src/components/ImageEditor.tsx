@@ -80,31 +80,31 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col animate-fade-in">
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
+    <div className="min-h-screen bg-background flex flex-col animate-fade-in">
+      <header className="bg-card border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="flex items-center gap-2 text-slate-300 hover:text-white transition-all hover:scale-105"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all hover:scale-105"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Project</span>
             </button>
-            <div className="h-6 w-px bg-slate-700" />
-            <h2 className="text-lg font-semibold text-white">Image Editor</h2>
+            <div className="h-6 w-px bg-border" />
+            <h2 className="text-lg font-semibold text-foreground">Image Editor</h2>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-slate-300 hover:text-white transition-all hover:scale-105"
+              className="px-4 py-2 text-muted-foreground hover:text-foreground transition-all hover:scale-105"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!showComparison}
-              className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
+              className="px-6 py-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
             >
               Save to Project
             </button>
@@ -113,11 +113,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-slate-800 flex flex-col">
+        <div className="flex-1 bg-card flex flex-col">
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="max-w-5xl mx-auto">
               {!showComparison ? (
-                <div className="aspect-video bg-slate-700 rounded-xl flex items-center justify-center animate-fade-in">
+                <div className="aspect-video bg-muted rounded-xl flex items-center justify-center animate-fade-in">
                   <img
                     src={getAssetUrl(asset.storage_path)}
                     alt={asset.file_name}
@@ -127,10 +127,10 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
               ) : (
                 <div className="grid grid-cols-2 gap-6 animate-fade-in">
                   <div>
-                    <div className="mb-2 text-sm font-medium text-slate-400">
+                    <div className="mb-2 text-sm font-medium text-muted-foreground">
                       Original
                     </div>
-                    <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
+                    <div className="aspect-square bg-muted rounded-xl flex items-center justify-center">
                       <img
                         src={getAssetUrl(asset.storage_path)}
                         alt="Original"
@@ -139,10 +139,10 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                     </div>
                   </div>
                   <div>
-                    <div className="mb-2 text-sm font-medium text-slate-400">
+                    <div className="mb-2 text-sm font-medium text-muted-foreground">
                       AI Edited
                     </div>
-                    <div className="aspect-square bg-slate-700 rounded-xl flex items-center justify-center">
+                    <div className="aspect-square bg-muted rounded-xl flex items-center justify-center">
                       <img
                         src={editedImageUrl || getAssetUrl(asset.storage_path)}
                         alt="Edited"
@@ -155,11 +155,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
             </div>
           </div>
 
-          <div className="border-t border-slate-700 bg-slate-800 p-6">
+          <div className="border-t border-border bg-card p-6">
             <div className="max-w-5xl mx-auto space-y-4">
               <div className="flex items-center gap-2 mb-2">
-                <Wand2 className="w-5 h-5 text-blue-400" />
-                <span className="text-sm font-medium text-slate-300">
+                <Wand2 className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium text-muted-foreground">
                   Using {selectedModelInfo?.name}
                 </span>
               </div>
@@ -169,7 +169,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Describe how you want to edit this image... For example: 'Add a gradient background' or 'Make the product pop with vibrant colors'"
-                  className="w-full h-24 px-4 py-3 bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-24 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                 />
               </div>
 
@@ -179,16 +179,16 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                   value={context}
                   onChange={(e) => setContext(e.target.value)}
                   placeholder="Optional context about the image..."
-                  className="flex-1 px-4 py-3 bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                 />
                 <button
                   onClick={handleGenerate}
                   disabled={!prompt.trim() || isGenerating}
-                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95 whitespace-nowrap"
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95 whitespace-nowrap"
                 >
                   {isGenerating ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
                       <span>Generating...</span>
                     </>
                   ) : (
@@ -203,13 +203,13 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           </div>
         </div>
 
-        <aside className="w-80 bg-white border-l border-slate-200 flex flex-col overflow-y-auto">
-          <div className="p-6 border-b border-slate-200">
+        <aside className="w-80 bg-card border-l border-border flex flex-col overflow-y-auto">
+          <div className="p-6 border-b border-border">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-blue-500" />
-              <h3 className="font-semibold text-slate-900">AI Model</h3>
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">AI Model</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Choose the best AI model for your editing needs
             </p>
 
@@ -220,22 +220,22 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                   onClick={() => setSelectedModel(model.id)}
                   className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:scale-105 ${
                     selectedModel === model.id
-                      ? 'border-blue-500 bg-blue-50 scale-105'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-primary bg-primary/10 scale-105'
+                      : 'border-border hover:border-border/70'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-1">
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-foreground">
                       {model.name}
                     </span>
                     {selectedModel === model.id && (
-                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full" />
+                      <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-primary-foreground rounded-full" />
                       </div>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600">{model.description}</p>
-                  <p className="text-xs text-slate-500 mt-1">{model.provider}</p>
+                  <p className="text-sm text-muted-foreground">{model.description}</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">{model.provider}</p>
                 </button>
               ))}
             </div>
@@ -244,25 +244,25 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           {versions.length > 0 && (
             <div className="p-6">
               <div className="flex items-center gap-2 mb-3">
-                <History className="w-4 h-4 text-slate-600" />
-                <h4 className="text-sm font-medium text-slate-900">Version History</h4>
+                <History className="w-4 h-4 text-muted-foreground" />
+                <h4 className="text-sm font-medium text-foreground">Version History</h4>
               </div>
               <div className="space-y-2">
                 {versions.map((version, index) => (
                   <div
                     key={index}
-                    className="bg-slate-50 rounded-lg p-3 text-xs animate-slide-up hover:bg-slate-100 transition-colors"
+                    className="bg-muted rounded-lg p-3 text-xs animate-slide-up hover:bg-muted/70 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-slate-900">
+                      <span className="font-medium text-foreground">
                         Version {versions.length - index}
                       </span>
-                      <span className="text-slate-500">
+                      <span className="text-muted-foreground">
                         {new Date(version.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
-                    <p className="text-slate-600 mb-1">{version.prompt}</p>
-                    <p className="text-slate-500">
+                    <p className="text-muted-foreground mb-1">{version.prompt}</p>
+                    <p className="text-muted-foreground/70">
                       Model: {imageModels.find((m) => m.id === version.model)?.name}
                     </p>
                   </div>
