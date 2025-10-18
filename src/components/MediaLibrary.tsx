@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
+import { useUserId } from '../hooks/useUserId';
 
 interface MediaLibraryProps {
   projectId: string;
@@ -16,6 +17,7 @@ interface MediaLibraryProps {
 }
 
 export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'grid' }: MediaLibraryProps) {
+  const userId = useUserId();
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
           .from('media_assets')
           .insert({
             project_id: projectId,
+            user_id: userId,
             file_name: file.name,
             file_type: 'image',
             file_size: file.size,
