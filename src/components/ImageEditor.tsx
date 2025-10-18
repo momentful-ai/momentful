@@ -3,6 +3,7 @@ import { X, Wand2, ArrowLeft, Sparkles, ImageIcon, History } from 'lucide-react'
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
 import { supabase } from '../lib/supabase';
+import { useUserId } from '../hooks/useUserId';
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -11,9 +12,8 @@ interface ImageEditorProps {
   onSave: () => void;
 }
 
-const LOCAL_USER_ID = 'local-dev-user';
-
 export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorProps) {
+  const userId = useUserId();
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
   const [prompt, setPrompt] = useState('');
   const [context, setContext] = useState('');
@@ -59,7 +59,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         .from('edited_images')
         .insert({
           project_id: projectId,
-          user_id: LOCAL_USER_ID,
+          user_id: userId,
           original_asset_id: asset.id,
           edited_url: editedImageUrl || getAssetUrl(asset.storage_path),
           prompt,

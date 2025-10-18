@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Download, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useUserId } from '../hooks/useUserId';
 
 interface ExportModalProps {
   projectId: string;
@@ -28,9 +29,8 @@ const QUALITY_OPTIONS = [
   { id: 'low', label: 'Low Quality', description: 'Smaller file, reduced quality' },
 ];
 
-const LOCAL_USER_ID = 'local-dev-user';
-
 export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }: ExportModalProps) {
+  const userId = useUserId();
   const [format, setFormat] = useState(assetType === 'video' ? 'mp4' : 'jpg');
   const [quality, setQuality] = useState('high');
   const [isExporting, setIsExporting] = useState(false);
@@ -48,7 +48,7 @@ export function ExportModal({ projectId, assetId, assetType, assetUrl, onClose }
         .from('exports')
         .insert({
           project_id: projectId,
-          user_id: LOCAL_USER_ID,
+          user_id: userId,
           export_type: assetType,
           asset_ids: [assetId],
           format,

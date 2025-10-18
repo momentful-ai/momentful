@@ -3,6 +3,7 @@ import { X, Play, ArrowLeft, Sparkles, Film, Plus, GripVertical, Trash2, Check }
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
 import { supabase } from '../lib/supabase';
+import { useUserId } from '../hooks/useUserId';
 
 interface VideoGeneratorProps {
   projectId: string;
@@ -40,9 +41,8 @@ const CAMERA_MOVEMENTS = [
   { id: 'dynamic', label: 'Dynamic', description: 'AI-driven intelligent movement' },
 ];
 
-const LOCAL_USER_ID = 'local-dev-user';
-
 export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorProps) {
+  const userId = useUserId();
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
   const [sceneType, setSceneType] = useState('product-showcase');
@@ -116,7 +116,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
         .from('generated_videos')
         .insert({
           project_id: projectId,
-          user_id: LOCAL_USER_ID,
+          user_id: userId,
           video_url: generatedVideoUrl,
           prompt: prompt || null,
           duration,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Youtube, Send, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useUserId } from '../hooks/useUserId';
 
 interface PublishModalProps {
   projectId: string;
@@ -54,9 +55,8 @@ const PLATFORMS = [
   },
 ];
 
-const LOCAL_USER_ID = 'local-dev-user';
-
 export function PublishModal({ projectId, assetId, assetType, onClose }: PublishModalProps) {
+  const userId = useUserId();
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -84,7 +84,7 @@ export function PublishModal({ projectId, assetId, assetType, onClose }: Publish
         .from('publish_logs')
         .insert({
           project_id: projectId,
-          user_id: LOCAL_USER_ID,
+          user_id: userId,
           asset_id: assetId,
           asset_type: assetType,
           platform: selectedPlatform,

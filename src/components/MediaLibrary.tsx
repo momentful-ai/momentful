@@ -2,22 +2,8 @@ import { useState, useEffect } from 'react';
 import { Trash2, Image as ImageIcon, Film, Clock, Wand2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ImageEditor } from './ImageEditor';
-
-interface MediaAsset {
-  id: string;
-  project_id: string;
-  user_id: string;
-  file_name: string;
-  file_type: 'image' | 'video';
-  file_size: number;
-  storage_path: string;
-  thumbnail_url: string | null;
-  width: number | null;
-  height: number | null;
-  duration: number | null;
-  sort_order: number;
-  created_at: string;
-}
+import { MediaLibrarySkeleton } from './LoadingSkeleton';
+import { MediaAsset } from '../types';
 
 interface MediaLibraryProps {
   projectId: string;
@@ -98,11 +84,7 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-500">Loading media...</div>
-      </div>
-    );
+    return <MediaLibrarySkeleton />;
   }
 
   if (assets.length === 0) {
@@ -127,9 +109,9 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
         {assets.map((asset) => (
           <div
             key={asset.id}
-            className={`group relative bg-white rounded-lg border-2 transition-all cursor-pointer ${
+            className={`group relative bg-white rounded-lg border-2 transition-all cursor-pointer hover:scale-105 animate-fade-in ${
               selectedAsset === asset.id
-                ? 'border-blue-500 shadow-lg'
+                ? 'border-blue-500 shadow-lg scale-105'
                 : 'border-slate-200 hover:border-slate-300'
             }`}
             onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}

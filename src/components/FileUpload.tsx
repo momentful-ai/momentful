@@ -1,8 +1,7 @@
 import { useState, useRef, DragEvent } from 'react';
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon, Film } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-
-const LOCAL_USER_ID = 'local-dev-user';
+import { useUserId } from '../hooks/useUserId';
 
 interface FileUploadProps {
   projectId: string;
@@ -24,6 +23,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 
 export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadProps) {
+  const userId = useUserId();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +125,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
         const fileExt = uploadFile.file.name.split('.').pop();
         const timestamp = Date.now();
         const fileName = `${timestamp}-${uploadFile.file.name}`;
-        const storagePath = `${LOCAL_USER_ID}/${projectId}/${fileName}`;
+        const storagePath = `${userId}/${projectId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('user-uploads')
@@ -161,7 +161,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
           .from('media_assets')
           .insert({
             project_id: projectId,
-            user_id: LOCAL_USER_ID,
+            user_id: userId,
             file_name: uploadFile.file.name,
             file_type: isImage ? 'image' : 'video',
             file_size: uploadFile.file.size,
@@ -222,14 +222,14 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
   const errorCount = files.filter((f) => f.status === 'error').length;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-scale-in shadow-2xl">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-900">Upload Media</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-all hover:rotate-90 duration-200"
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>
@@ -271,7 +271,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
             >
               Select Files
             </button>
@@ -285,7 +285,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
               {files.map((uploadFile) => (
                 <div
                   key={uploadFile.id}
-                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
+                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg animate-slide-up hover:bg-slate-100 transition-colors"
                 >
                   <div className="flex-shrink-0">
                     {getFileIcon(uploadFile.file)}
