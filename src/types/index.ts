@@ -32,6 +32,7 @@ export interface EditedImage {
   prompt: string;
   context: Record<string, any>;
   ai_model: string;
+  edited_url: string;
   storage_path: string;
   thumbnail_url?: string;
   width: number;
@@ -45,19 +46,14 @@ export interface GeneratedVideo {
   id: string;
   project_id: string;
   user_id: string;
-  name: string;
+  video_url: string;
+  prompt?: string;
   ai_model: string;
+  model_provider: string;
   aspect_ratio: '16:9' | '9:16' | '1:1' | '4:5';
-  scene_type?: string;
-  camera_movement?: string;
-  storage_path?: string;
-  thumbnail_url?: string;
-  duration?: number;
-  status: 'processing' | 'completed' | 'failed';
-  version: number;
-  parent_id?: string;
+  duration: number;
+  settings: Record<string, any>;
   created_at: string;
-  completed_at?: string;
 }
 
 export interface VideoSource {
@@ -75,4 +71,33 @@ export interface AIModel {
   description: string;
   type: 'image' | 'video';
   provider: string;
+}
+
+export interface Export {
+  id: string;
+  project_id: string;
+  user_id: string;
+  export_type: 'video' | 'image' | 'batch';
+  asset_ids: string[];
+  format: string;
+  settings: Record<string, any>;
+  file_url?: string;
+  file_size?: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface PublishLog {
+  id: string;
+  project_id: string;
+  user_id: string;
+  asset_id: string;
+  asset_type: 'video' | 'image';
+  platform: string;
+  platform_url?: string;
+  metadata: Record<string, any>;
+  status: 'scheduled' | 'published' | 'failed';
+  published_at?: string;
+  created_at: string;
 }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video } from 'lucide-react';
+import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video, Download, Share2 } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { supabase } from '../lib/supabase';
 import { FileUpload } from './FileUpload';
 import { MediaLibrary } from './MediaLibrary';
 import { VideoGenerator } from './VideoGenerator';
+import { ExportModal } from './ExportModal';
+import { PublishModal } from './PublishModal';
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -20,6 +22,8 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
+  const [exportAsset, setExportAsset] = useState<{ id: string; type: 'video' | 'image'; url: string } | null>(null);
+  const [publishAsset, setPublishAsset] = useState<{ id: string; type: 'video' | 'image' } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -167,10 +171,20 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
                 />
               )}
               {activeTab === 'edited' && (
-                <EditedImagesView images={editedImages} viewMode={viewMode} />
+                <EditedImagesView
+                  images={editedImages}
+                  viewMode={viewMode}
+                  onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
+                  onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
+                />
               )}
               {activeTab === 'videos' && (
-                <GeneratedVideosView videos={generatedVideos} viewMode={viewMode} />
+                <GeneratedVideosView
+                  videos={generatedVideos}
+                  viewMode={viewMode}
+                  onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.video_url })}
+                  onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
+                />
               )}
             </>
           )}
@@ -197,6 +211,25 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
             setShowVideoGenerator(false);
             loadProjectData();
           }}
+        />
+      )}
+
+      {exportAsset && (
+        <ExportModal
+          projectId={project.id}
+          assetId={exportAsset.id}
+          assetType={exportAsset.type}
+          assetUrl={exportAsset.url}
+          onClose={() => setExportAsset(null)}
+        />
+      )}
+
+      {publishAsset && (
+        <PublishModal
+          projectId={project.id}
+          assetId={publishAsset.id}
+          assetType={publishAsset.type}
+          onClose={() => setPublishAsset(null)}
         />
       )}
     </div>
@@ -319,9 +352,13 @@ function MediaAssetRow({ asset }: { asset: MediaAsset }) {
 function EditedImagesView({
   images,
   viewMode,
+  onExport,
+  onPublish,
 }: {
   images: EditedImage[];
   viewMode: 'grid' | 'list';
+  onExport: (image: EditedImage) => void;
+  onPublish: (image: EditedImage) => void;
 }) {
   if (images.length === 0) {
     return (
@@ -350,6 +387,22 @@ function EditedImagesView({
               className="w-full h-full object-cover"
             />
           </div>
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+            <button
+              onClick={() => onExport(image)}
+              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+              title="Export image"
+            >
+              <Download className="w-4 h-4 text-slate-700" />
+            </button>
+            <button
+              onClick={() => onPublish(image)}
+              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+              title="Publish to social"
+            >
+              <Share2 className="w-4 h-4 text-slate-700" />
+            </button>
+          </div>
           <div className="p-3">
             <p className="text-sm font-medium text-slate-900 mb-1 line-clamp-2">
               {image.prompt}
@@ -373,9 +426,13 @@ function EditedImagesView({
 function GeneratedVideosView({
   videos,
   viewMode,
+  onExport,
+  onPublish,
 }: {
   videos: GeneratedVideo[];
   viewMode: 'grid' | 'list';
+  onExport: (video: GeneratedVideo) => void;
+  onPublish: (video: GeneratedVideo) => void;
 }) {
   if (videos.length === 0) {
     return (
@@ -403,6 +460,22 @@ function GeneratedVideosView({
               controls
               className="w-full h-full"
             />
+          </div>
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+            <button
+              onClick={() => onExport(video)}
+              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+              title="Export video"
+            >
+              <Download className="w-4 h-4 text-slate-700" />
+            </button>
+            <button
+              onClick={() => onPublish(video)}
+              className="p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm transition-colors"
+              title="Publish to social"
+            >
+              <Share2 className="w-4 h-4 text-slate-700" />
+            </button>
           </div>
           <div className="p-3">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
