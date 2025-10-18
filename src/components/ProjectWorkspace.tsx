@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List } from 'lucide-react';
+import { ArrowLeft, Upload, Image as ImageIcon, Film, Grid3x3, List, Video } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { supabase } from '../lib/supabase';
 import { FileUpload } from './FileUpload';
 import { MediaLibrary } from './MediaLibrary';
+import { VideoGenerator } from './VideoGenerator';
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -18,6 +19,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   const [generatedVideos, setGeneratedVideos] = useState<GeneratedVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showVideoGenerator, setShowVideoGenerator] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -83,13 +85,22 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
               <p className="text-slate-600 mt-1">{project.description}</p>
             )}
           </div>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
-          >
-            <Upload className="w-5 h-5" />
-            Upload Media
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowVideoGenerator(true)}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+            >
+              <Video className="w-5 h-5" />
+              Generate Video
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+            >
+              <Upload className="w-5 h-5" />
+              Upload Media
+            </button>
+          </div>
         </div>
       </div>
 
@@ -175,6 +186,17 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
             loadProjectData();
           }}
           onClose={() => setShowUploadModal(false)}
+        />
+      )}
+
+      {showVideoGenerator && (
+        <VideoGenerator
+          projectId={project.id}
+          onClose={() => setShowVideoGenerator(false)}
+          onSave={() => {
+            setShowVideoGenerator(false);
+            loadProjectData();
+          }}
         />
       )}
     </div>
@@ -374,7 +396,30 @@ function GeneratedVideosView({
   return (
     <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-2'}>
       {videos.map((video) => (
-        <div key={video.id} className="aspect-video bg-slate-100 rounded-lg" />
+        <div key={video.id} className="group relative bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+          <div className="aspect-video bg-slate-900">
+            <video
+              src={video.video_url}
+              controls
+              className="w-full h-full"
+            />
+          </div>
+          <div className="p-3">
+            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span className="flex items-center gap-1">
+                <Film className="w-3 h-3" />
+                {video.duration}s
+              </span>
+              <span>{video.aspect_ratio}</span>
+            </div>
+            <p className="text-sm font-medium text-slate-900">
+              {video.ai_model}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {new Date(video.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
       ))}
     </div>
   );

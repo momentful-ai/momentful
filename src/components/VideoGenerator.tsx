@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Play, ArrowLeft, Sparkles, Film, Plus, GripVertical, Trash2 } from 'lucide-react';
+import { X, Play, ArrowLeft, Sparkles, Film, Plus, GripVertical, Trash2, Check } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
+import { supabase } from '../lib/supabase';
 
 interface VideoGeneratorProps {
   projectId: string;
@@ -39,21 +40,115 @@ const CAMERA_MOVEMENTS = [
   { id: 'dynamic', label: 'Dynamic', description: 'AI-driven intelligent movement' },
 ];
 
+const LOCAL_USER_ID = 'local-dev-user';
+
 export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorProps) {
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
   const [sceneType, setSceneType] = useState('product-showcase');
   const [cameraMovement, setCameraMovement] = useState('static');
+  const [duration, setDuration] = useState(5);
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSources();
+  }, [projectId]);
+
+  const loadSources = async () => {
+    try {
+      const [editedResult, mediaResult] = await Promise.all([
+        supabase
+          .from('edited_images')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('media_assets')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('file_type', 'image')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (editedResult.error) throw editedResult.error;
+      if (mediaResult.error) throw mediaResult.error;
+
+      setEditedImages(editedResult.data || []);
+      setMediaAssets(mediaResult.data || []);
+    } catch (error) {
+      console.error('Error loading sources:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAssetUrl = (storagePath: string) => {
+    const { data } = supabase.storage
+      .from('user-uploads')
+      .getPublicUrl(storagePath);
+    return data.publicUrl;
+  };
 
   const handleGenerate = async () => {
     if (selectedSources.length === 0) return;
 
     setIsGenerating(true);
     await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    setGeneratedVideoUrl('https://www.w3schools.com/html/mov_bbb.mp4');
     setIsGenerating(false);
+  };
+
+  const handleSaveVideo = async () => {
+    if (!generatedVideoUrl) return;
+
+    try {
+      const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
+
+      const { data: videoData, error: videoError } = await supabase
+        .from('generated_videos')
+        .insert({
+          project_id: projectId,
+          user_id: LOCAL_USER_ID,
+          video_url: generatedVideoUrl,
+          duration,
+          aspect_ratio: aspectRatio,
+          ai_model: selectedModel,
+          model_provider: selectedModelInfo?.provider || '',
+          settings: {
+            sceneType,
+            cameraMovement,
+          },
+        })
+        .select()
+        .single();
+
+      if (videoError) throw videoError;
+
+      const sourceInserts = selectedSources.map((source) => ({
+        generated_video_id: videoData.id,
+        source_type: source.type,
+        source_id: source.id,
+        sort_order: selectedSources.indexOf(source),
+      }));
+
+      const { error: sourcesError } = await supabase
+        .from('video_sources')
+        .insert(sourceInserts);
+
+      if (sourcesError) throw sourcesError;
+
+      onSave();
+    } catch (error) {
+      console.error('Error saving video:', error);
+      alert('Failed to save video. Please try again.');
+    }
   };
 
   const removeSource = (id: string) => {
@@ -86,8 +181,8 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
               Cancel
             </button>
             <button
-              onClick={onSave}
-              disabled={!isGenerating}
+              onClick={handleSaveVideo}
+              disabled={!generatedVideoUrl}
               className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
               Save to Project
@@ -107,12 +202,20 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                 'aspect-[4/5] max-w-xl mx-auto'
               }`}
             >
-              <div className="text-center">
-                <Film className="w-24 h-24 text-slate-500 mx-auto mb-4" />
-                <p className="text-slate-400">
-                  {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
-                </p>
-              </div>
+              {generatedVideoUrl ? (
+                <video
+                  src={generatedVideoUrl}
+                  controls
+                  className="w-full h-full rounded-xl"
+                />
+              ) : (
+                <div className="text-center">
+                  <Film className="w-24 h-24 text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-400">
+                    {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {selectedSources.length > 0 && (
@@ -307,6 +410,177 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
             )}
           </div>
         </aside>
+      </div>
+
+      {showSourceSelector && (
+        <SourceSelectorModal
+          editedImages={editedImages}
+          mediaAssets={mediaAssets}
+          selectedSources={selectedSources}
+          onSelectSource={(source) => {
+            if (!selectedSources.find((s) => s.id === source.id)) {
+              setSelectedSources([...selectedSources, source]);
+            }
+          }}
+          onClose={() => setShowSourceSelector(false)}
+          getAssetUrl={getAssetUrl}
+        />
+      )}
+    </div>
+  );
+}
+
+interface SourceSelectorModalProps {
+  editedImages: EditedImage[];
+  mediaAssets: MediaAsset[];
+  selectedSources: SelectedSource[];
+  onSelectSource: (source: SelectedSource) => void;
+  onClose: () => void;
+  getAssetUrl: (path: string) => string;
+}
+
+function SourceSelectorModal({
+  editedImages,
+  mediaAssets,
+  selectedSources,
+  onSelectSource,
+  onClose,
+  getAssetUrl,
+}: SourceSelectorModalProps) {
+  const [activeTab, setActiveTab] = useState<'edited' | 'original'>('edited');
+
+  const isSelected = (id: string) => selectedSources.some((s) => s.id === id);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">Select Source Media</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          <p className="text-slate-600 mt-1">
+            Choose edited images or original media to include in your video
+          </p>
+        </div>
+
+        <div className="border-b border-slate-200">
+          <div className="flex gap-1 px-6">
+            <button
+              onClick={() => setActiveTab('edited')}
+              className={`px-4 py-3 font-medium text-sm transition-colors relative ${
+                activeTab === 'edited'
+                  ? 'text-blue-600'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Edited Images ({editedImages.length})
+              {activeTab === 'edited' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('original')}
+              className={`px-4 py-3 font-medium text-sm transition-colors relative ${
+                activeTab === 'original'
+                  ? 'text-blue-600'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Original Media ({mediaAssets.length})
+              {activeTab === 'original' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'edited' && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+              {editedImages.map((image) => (
+                <button
+                  key={image.id}
+                  onClick={() => {
+                    onSelectSource({
+                      id: image.id,
+                      type: 'edited_image',
+                      thumbnail: image.edited_url,
+                      name: image.prompt.substring(0, 30),
+                    });
+                    onClose();
+                  }}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                    isSelected(image.id)
+                      ? 'border-blue-500 ring-2 ring-blue-500'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <img
+                    src={image.edited_url}
+                    alt={image.prompt}
+                    className="w-full h-full object-cover"
+                  />
+                  {isSelected(image.id) && (
+                    <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+                      <Check className="w-4 h-4" />
+                    </div>
+                  )}
+                </button>
+              ))}
+              {editedImages.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-slate-500">No edited images yet</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'original' && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+              {mediaAssets.map((asset) => (
+                <button
+                  key={asset.id}
+                  onClick={() => {
+                    onSelectSource({
+                      id: asset.id,
+                      type: 'media_asset',
+                      thumbnail: getAssetUrl(asset.storage_path),
+                      name: asset.file_name,
+                    });
+                    onClose();
+                  }}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                    isSelected(asset.id)
+                      ? 'border-blue-500 ring-2 ring-blue-500'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <img
+                    src={getAssetUrl(asset.storage_path)}
+                    alt={asset.file_name}
+                    className="w-full h-full object-cover"
+                  />
+                  {isSelected(asset.id) && (
+                    <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+                      <Check className="w-4 h-4" />
+                    </div>
+                  )}
+                </button>
+              ))}
+              {mediaAssets.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-slate-500">No original media yet</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
