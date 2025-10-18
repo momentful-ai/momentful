@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Play, ArrowLeft, Sparkles, Film, Plus, GripVertical, Trash2, Check } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
@@ -56,10 +56,42 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadSources();
   }, [projectId]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 250 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   const loadSources = async () => {
     try {
@@ -303,7 +335,15 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           </div>
         </div>
 
-        <aside className="w-80 bg-card border-l border-border flex flex-col overflow-y-auto">
+        <aside
+          ref={sidebarRef}
+          style={{ width: `${sidebarWidth}px` }}
+          className="bg-card border-l border-border flex flex-col overflow-y-auto relative"
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors z-10"
+            onMouseDown={() => setIsResizing(true)}
+          />
           <div className="p-6 border-b border-border">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-primary" />

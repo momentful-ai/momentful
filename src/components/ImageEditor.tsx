@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Wand2, ArrowLeft, Sparkles, ImageIcon, History } from 'lucide-react';
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
@@ -21,6 +21,38 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const [showComparison, setShowComparison] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<Array<{ prompt: string; model: string; timestamp: string }>>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 250 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   const getAssetUrl = (storagePath: string) => {
     const { data } = supabase.storage
@@ -203,7 +235,15 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           </div>
         </div>
 
-        <aside className="w-80 bg-card border-l border-border flex flex-col overflow-y-auto">
+        <aside
+          ref={sidebarRef}
+          style={{ width: `${sidebarWidth}px` }}
+          className="bg-card border-l border-border flex flex-col overflow-y-auto relative"
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors z-10"
+            onMouseDown={() => setIsResizing(true)}
+          />
           <div className="p-6 border-b border-border">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-primary" />
