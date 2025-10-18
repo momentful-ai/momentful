@@ -47,11 +47,9 @@ export default {
         },
       },
       borderRadius: {
-        sm: 'var(--radius-sm)',
-        DEFAULT: 'var(--radius-md)',
-        md: 'var(--radius-md)',
         lg: 'var(--radius-lg)',
-        xl: 'var(--radius-xl)',
+        md: 'var(--radius-md)',
+        sm: 'var(--radius-sm)',
       },
       fontFamily: {
         sans: ['var(--font-sans)'],
