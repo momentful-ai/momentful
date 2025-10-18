@@ -59,6 +59,10 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const [leftPanelTab, setLeftPanelTab] = useState<'edited' | 'library'>('edited');
 
   useEffect(() => {
     loadSources();
@@ -66,19 +70,26 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const newWidth = window.innerWidth - e.clientX;
-      if (newWidth >= 250 && newWidth <= 600) {
-        setSidebarWidth(newWidth);
+      if (isResizing) {
+        const newWidth = window.innerWidth - e.clientX;
+        if (newWidth >= 250 && newWidth <= 600) {
+          setSidebarWidth(newWidth);
+        }
+      }
+      if (isResizingLeft) {
+        const newWidth = e.clientX;
+        if (newWidth >= 200 && newWidth <= 400) {
+          setLeftPanelWidth(newWidth);
+        }
       }
     };
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      setIsResizingLeft(false);
     };
 
-    if (isResizing) {
+    if (isResizing || isResizingLeft) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = 'ew-resize';
@@ -91,7 +102,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isResizing]);
+  }, [isResizing, isResizingLeft]);
 
   const loadSources = async () => {
     try {
@@ -175,6 +186,32 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     setSelectedSources(selectedSources.filter((s) => s.id !== id));
   };
 
+  const addSource = (source: SelectedSource) => {
+    if (!selectedSources.find((s) => s.id === source.id)) {
+      setSelectedSources([...selectedSources, source]);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, source: SelectedSource) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/json', JSON.stringify(source));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    try {
+      const source = JSON.parse(e.dataTransfer.getData('application/json')) as SelectedSource;
+      addSource(source);
+    } catch (error) {
+      console.error('Error parsing dropped data:', error);
+    }
+  };
+
   const canGenerate = selectedSources.length > 0;
   const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
@@ -212,7 +249,135 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-card flex flex-col">
+        {/* Left Panel - Media Library */}
+        <aside
+          ref={leftPanelRef}
+          style={{ width: `${leftPanelWidth}px` }}
+          className="bg-card border-r border-border flex flex-col overflow-hidden relative"
+        >
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors z-10"
+            onMouseDown={() => setIsResizingLeft(true)}
+          />
+
+          {/* Tabs */}
+          <div className="border-b border-border">
+            <div className="flex">
+              <button
+                onClick={() => setLeftPanelTab('edited')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                  leftPanelTab === 'edited'
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Edited Images
+                {leftPanelTab === 'edited' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                )}
+              </button>
+              <button
+                onClick={() => setLeftPanelTab('library')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                  leftPanelTab === 'library'
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Library
+                {leftPanelTab === 'library' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {leftPanelTab === 'edited' ? (
+              <div className="grid grid-cols-2 gap-2">
+                {editedImages.map((image) => (
+                  <div
+                    key={image.id}
+                    draggable
+                    onDragStart={(e) =>
+                      handleDragStart(e, {
+                        id: image.id,
+                        type: 'edited_image',
+                        thumbnail: image.edited_url,
+                        name: image.prompt.substring(0, 30),
+                      })
+                    }
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move transition-all hover:scale-105 hover:shadow-lg ${
+                      selectedSources.find((s) => s.id === image.id)
+                        ? 'border-primary ring-2 ring-primary'
+                        : 'border-border'
+                    }`}
+                  >
+                    <img
+                      src={image.edited_url}
+                      alt={image.prompt}
+                      className="w-full h-full object-cover"
+                    />
+                    {selectedSources.find((s) => s.id === image.id) && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {editedImages.length === 0 && (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
+                    No edited images yet
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {mediaAssets.map((asset) => (
+                  <div
+                    key={asset.id}
+                    draggable
+                    onDragStart={(e) =>
+                      handleDragStart(e, {
+                        id: asset.id,
+                        type: 'media_asset',
+                        thumbnail: getAssetUrl(asset.storage_path),
+                        name: asset.file_name,
+                      })
+                    }
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move transition-all hover:scale-105 hover:shadow-lg ${
+                      selectedSources.find((s) => s.id === asset.id)
+                        ? 'border-primary ring-2 ring-primary'
+                        : 'border-border'
+                    }`}
+                  >
+                    <img
+                      src={getAssetUrl(asset.storage_path)}
+                      alt={asset.file_name}
+                      className="w-full h-full object-cover"
+                    />
+                    {selectedSources.find((s) => s.id === asset.id) && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {mediaAssets.length === 0 && (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
+                    No library images yet
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <div className="flex-1 bg-card flex flex-col"
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="max-w-5xl mx-auto">
               <div
@@ -461,11 +626,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           editedImages={editedImages}
           mediaAssets={mediaAssets}
           selectedSources={selectedSources}
-          onSelectSource={(source) => {
-            if (!selectedSources.find((s) => s.id === source.id)) {
-              setSelectedSources([...selectedSources, source]);
-            }
-          }}
+          onSelectSource={addSource}
           onClose={() => setShowSourceSelector(false)}
           getAssetUrl={getAssetUrl}
         />
