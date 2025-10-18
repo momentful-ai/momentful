@@ -190,7 +190,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
               onClick={() => setShowVideoGenerator(true)}
-              variant="default"
+              variant="gradient"
               size="lg"
               className="flex-1 sm:flex-initial gap-2"
             >
