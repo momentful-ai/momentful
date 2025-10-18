@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Image as ImageIcon, Film, Clock, Wand2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { ImageEditor } from './ImageEditor';
 import { MediaLibrarySkeleton } from './LoadingSkeleton';
 import { MediaAsset } from '../types';
 import { Button } from './ui/button';
@@ -12,13 +11,13 @@ import { cn } from '../lib/utils';
 interface MediaLibraryProps {
   projectId: string;
   onRefresh?: number;
+  onEditImage?: (asset: MediaAsset, projectId: string) => void;
 }
 
-export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
+export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibraryProps) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
-  const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
 
   useEffect(() => {
     loadAssets();
@@ -108,8 +107,7 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
   }
 
   return (
-    <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {assets.map((asset, index) => (
           <Card
             key={asset.id}
@@ -155,7 +153,7 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
                   <Button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingAsset(asset);
+                      onEditImage?.(asset, projectId);
                     }}
                     variant="secondary"
                     className="glass shadow-lg gap-2"
@@ -196,19 +194,6 @@ export function MediaLibrary({ projectId, onRefresh }: MediaLibraryProps) {
             </div>
           </Card>
         ))}
-      </div>
-
-      {editingAsset && (
-        <ImageEditor
-          asset={editingAsset}
-          projectId={projectId}
-          onClose={() => setEditingAsset(null)}
-          onSave={() => {
-            setEditingAsset(null);
-            loadAssets();
-          }}
-        />
-      )}
-    </>
+    </div>
   );
 }

@@ -16,9 +16,10 @@ interface ProjectWorkspaceProps {
   project: Project;
   onBack: () => void;
   onUpdateProject?: (project: Project) => void;
+  onEditImage?: (asset: MediaAsset, projectId: string) => void;
 }
 
-export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
@@ -272,6 +273,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject }: ProjectWo
                 <MediaLibrary
                   projectId={project.id}
                   onRefresh={refreshKey}
+                  onEditImage={onEditImage}
                 />
               )}
               {activeTab === 'edited' && (

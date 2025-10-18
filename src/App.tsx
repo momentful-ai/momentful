@@ -3,26 +3,64 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { ImageEditor } from './components/ImageEditor';
 import { ToastProvider } from './components/ToastContainer';
-import { Project } from './types';
+import { Project, MediaAsset } from './types';
+
+type View =
+  | { type: 'dashboard' }
+  | { type: 'project'; project: Project }
+  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project };
 
 function App() {
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [view, setView] = useState<View>({ type: 'dashboard' });
+
+  const handleSelectProject = (project: Project) => {
+    setView({ type: 'project', project });
+  };
+
+  const handleBackToDashboard = () => {
+    setView({ type: 'dashboard' });
+  };
+
+  const handleEditImage = (asset: MediaAsset, projectId: string) => {
+    if (view.type === 'project') {
+      setView({ type: 'editor', asset, projectId, project: view.project });
+    }
+  };
+
+  const handleUpdateProject = (project: Project) => {
+    setView({ type: 'project', project });
+  };
 
   return (
     <ThemeProvider defaultTheme="light">
       <ToastProvider>
-        <Layout>
-          {selectedProject ? (
-            <ProjectWorkspace
-              project={selectedProject}
-              onBack={() => setSelectedProject(null)}
-              onUpdateProject={setSelectedProject}
-            />
-          ) : (
-            <Dashboard onSelectProject={setSelectedProject} />
-          )}
-        </Layout>
+        {view.type === 'editor' ? (
+          <ImageEditor
+            asset={view.asset}
+            projectId={view.projectId}
+            onClose={() => {
+              setView({ type: 'project', project: view.project });
+            }}
+            onSave={() => {
+              setView({ type: 'project', project: view.project });
+            }}
+          />
+        ) : (
+          <Layout>
+            {view.type === 'project' ? (
+              <ProjectWorkspace
+                project={view.project}
+                onBack={handleBackToDashboard}
+                onUpdateProject={handleUpdateProject}
+                onEditImage={handleEditImage}
+              />
+            ) : (
+              <Dashboard onSelectProject={handleSelectProject} />
+            )}
+          </Layout>
+        )}
       </ToastProvider>
     </ThemeProvider>
   );
