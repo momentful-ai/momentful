@@ -4,6 +4,7 @@ import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
+import { supabase } from '../lib/supabase';
 
 interface VideoGeneratorProps {
   projectId: string;
@@ -110,25 +111,15 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
   const loadSources = async () => {
     try {
-      const [editedResult, mediaResult] = await Promise.all([
-        supabase
-          .from('edited_images')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('media_assets')
-          .select('*')
-          .eq('project_id', projectId)
-          .eq('file_type', 'image')
-          .order('created_at', { ascending: false }),
+      const [editedImagesData, mediaAssetsData] = await Promise.all([
+        database.editedImages.list(projectId),
+        database.mediaAssets.list(projectId),
       ]);
 
-      if (editedResult.error) throw editedResult.error;
-      if (mediaResult.error) throw mediaResult.error;
-
-      setEditedImages(editedResult.data || []);
-      setMediaAssets(mediaResult.data || []);
+      setEditedImages(editedImagesData || []);
+      // Filter media assets to only include images
+      const imageAssets = (mediaAssetsData || []).filter(asset => asset.file_type === 'image');
+      setMediaAssets(imageAssets);
     } catch (error) {
       console.error('Error loading sources:', error);
     } finally {
