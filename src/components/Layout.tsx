@@ -17,19 +17,19 @@ export function Layout({ children }: LayoutProps) {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-primary-50/30 to-accent-coral-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300">
-      <header className="sticky top-0 z-40 w-full glass border-b border-border/40 shadow-sm">
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      <header className="sticky top-0 z-40 w-full glass border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="gradient-primary p-2 rounded-xl shadow-lg hover-glow">
+              <div className="gradient-primary p-2 rounded-xl shadow-lg">
                 <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-primary-600 to-primary-400 dark:from-primary-400 dark:to-primary-300 bg-clip-text text-transparent">
+              <h1 className="text-lg sm:text-xl font-bold text-gradient">
                 Visual Studio
               </h1>
               {localMode && (
-                <span className="text-xs px-2 py-1 bg-accent-amber-100 dark:bg-accent-amber-900/30 text-accent-amber-800 dark:text-accent-amber-400 rounded-md font-medium border border-accent-amber-200 dark:border-accent-amber-800">
+                <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-md font-medium border border-border">
                   Local Mode
                 </span>
               )}

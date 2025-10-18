@@ -191,7 +191,7 @@ function ProjectCard({
         animationFillMode: 'backwards'
       }}
     >
-      <div className="aspect-video bg-gradient-to-br from-primary-100 via-accent-coral-50 to-accent-amber-100 dark:from-primary-900/20 dark:via-accent-coral-900/20 dark:to-accent-amber-900/20 relative overflow-hidden">
+      <div className="aspect-video bg-muted/30 relative overflow-hidden">
         {project.thumbnail_url ? (
           <img
             src={project.thumbnail_url}
@@ -201,8 +201,8 @@ function ProjectCard({
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="relative">
-              <FolderOpen className="w-16 h-16 text-primary-300 dark:text-primary-700" />
-              <div className="absolute inset-0 bg-primary-500/20 blur-xl rounded-full" />
+              <FolderOpen className="w-16 h-16 text-muted-foreground/50" />
+              <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
             </div>
           </div>
         )}

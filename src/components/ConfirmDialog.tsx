@@ -28,8 +28,8 @@ export function ConfirmDialog({
       variant: 'destructive' as const,
     },
     warning: {
-      iconBg: 'bg-accent-amber-100 dark:bg-accent-amber-900/30',
-      iconColor: 'text-accent-amber-600 dark:text-accent-amber-400',
+      iconBg: 'bg-accent/10',
+      iconColor: 'text-accent-foreground',
       variant: 'default' as const,
     },
     info: {
