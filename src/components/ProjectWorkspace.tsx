@@ -282,6 +282,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
                   projectId={project.id}
                   onRefresh={refreshKey}
                   onEditImage={onEditImage}
+                  viewMode={viewMode}
                 />
               )}
               {activeTab === 'edited' && (

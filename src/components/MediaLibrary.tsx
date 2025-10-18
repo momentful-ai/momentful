@@ -12,9 +12,10 @@ interface MediaLibraryProps {
   projectId: string;
   onRefresh?: number;
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
+  viewMode?: 'grid' | 'list';
 }
 
-export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibraryProps) {
+export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'grid' }: MediaLibraryProps) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
@@ -243,7 +244,11 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
           </div>
         </div>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className={cn(
+        viewMode === 'grid'
+          ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+          : 'flex flex-col gap-3'
+      )}>
         {assets.map((asset, index) => (
           <Card
             key={asset.id}
@@ -251,7 +256,8 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
               'group relative overflow-hidden cursor-pointer hover-lift hover-glow transition-all animate-slide-up',
               selectedAsset === asset.id
                 ? 'ring-2 ring-primary shadow-xl'
-                : 'hover:ring-2 hover:ring-primary/50'
+                : 'hover:ring-2 hover:ring-primary/50',
+              viewMode === 'list' && 'flex flex-row'
             )}
             style={{
               animationDelay: `${index * 30}ms`,
@@ -259,7 +265,10 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
             }}
             onClick={() => setSelectedAsset(asset.id === selectedAsset ? null : asset.id)}
           >
-            <div className="aspect-square bg-muted overflow-hidden relative">
+            <div className={cn(
+              'bg-muted overflow-hidden relative',
+              viewMode === 'grid' ? 'aspect-square' : 'w-32 h-32 flex-shrink-0'
+            )}>
               {asset.file_type === 'image' ? (
                 <img
                   src={getAssetUrl(asset.storage_path)}
@@ -313,11 +322,14 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
               </Button>
             </div>
 
-            <div className="p-3">
+            <div className={cn('p-3', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
               <p className="text-sm font-medium truncate mb-1" title={asset.file_name}>
                 {asset.file_name}
               </p>
-              <div className="flex items-center justify-between gap-2">
+              <div className={cn(
+                'flex items-center gap-2',
+                viewMode === 'grid' ? 'justify-between' : 'flex-wrap'
+              )}>
                 <Badge variant="secondary" className="text-xs">
                   {formatFileSize(asset.file_size)}
                 </Badge>
@@ -325,6 +337,12 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage }: MediaLibrary
                   <span className="text-xs text-muted-foreground">
                     {asset.width} × {asset.height}
                   </span>
+                )}
+                {viewMode === 'list' && asset.duration && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {formatDuration(asset.duration)}
+                  </Badge>
                 )}
               </div>
             </div>
