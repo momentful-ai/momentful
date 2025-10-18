@@ -48,6 +48,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [sceneType, setSceneType] = useState('product-showcase');
   const [cameraMovement, setCameraMovement] = useState('static');
   const [duration, setDuration] = useState(5);
+  const [prompt, setPrompt] = useState('');
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSourceSelector, setShowSourceSelector] = useState(false);
@@ -117,6 +118,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           project_id: projectId,
           user_id: LOCAL_USER_ID,
           video_url: generatedVideoUrl,
+          prompt: prompt || null,
           duration,
           aspect_ratio: aspectRatio,
           ai_model: selectedModel,
@@ -311,6 +313,19 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
                 At least one edited image or video clip is required
               </p>
             )}
+          </div>
+
+          <div className="p-6 border-b border-slate-200">
+            <h3 className="font-semibold text-slate-900 mb-4">Video Description</h3>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe your video vision... For example: 'Create a dynamic product showcase with smooth transitions' or 'Show the product in a lifestyle setting with upbeat energy'"
+              className="w-full h-32 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              Tell the AI how you want your video to look and feel
+            </p>
           </div>
 
           <div className="p-6 border-b border-slate-200">

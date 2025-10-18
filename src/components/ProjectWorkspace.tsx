@@ -412,7 +412,12 @@ function GeneratedVideosView({
               </span>
               <span>{video.aspect_ratio}</span>
             </div>
-            <p className="text-sm font-medium text-slate-900">
+            {video.prompt && (
+              <p className="text-sm text-slate-900 mb-1 line-clamp-2">
+                {video.prompt}
+              </p>
+            )}
+            <p className="text-xs text-slate-600">
               {video.ai_model}
             </p>
             <p className="text-xs text-slate-500 mt-1">
