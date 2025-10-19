@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { getImageDimensions, isAcceptableImageFile } from '../../lib/media';
 
 // Mock the database module
@@ -41,7 +41,7 @@ describe('media utils', () => {
       global.URL = {
         createObjectURL: vi.fn(() => 'blob:mock-url'),
         revokeObjectURL: vi.fn(),
-      } as any;
+      } as unknown as typeof global.URL;
 
       // Create a mock image that loads successfully
       const mockImage = {
@@ -53,7 +53,7 @@ describe('media utils', () => {
       };
 
       // Mock Image constructor
-      global.Image = vi.fn(() => mockImage) as any;
+      global.Image = vi.fn(() => mockImage) as unknown as typeof Image;
 
       const file = new File([''], 'test.jpg', { type: 'image/jpeg' });
 
@@ -74,7 +74,7 @@ describe('media utils', () => {
       global.URL = {
         createObjectURL: vi.fn(() => 'blob:mock-url'),
         revokeObjectURL: vi.fn(),
-      } as any;
+      } as unknown as typeof global.URL;
 
       const mockImage = {
         width: 0,
@@ -84,7 +84,7 @@ describe('media utils', () => {
         src: '',
       };
 
-      global.Image = vi.fn(() => mockImage) as any;
+      global.Image = vi.fn(() => mockImage) as unknown as typeof Image;
 
       const file = new File([''], 'test.jpg', { type: 'image/jpeg' });
 

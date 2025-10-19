@@ -1,10 +1,9 @@
 import { ReactNode } from 'react';
 import { Sparkles, LogOut, User, Moon, Sun } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
-import { useBypassMode } from '../contexts/BypassContext';
-import { useTheme } from './ThemeProvider';
+import { useBypassContext } from '../hooks/useBypassContext';
+import { useTheme } from '../hooks/useTheme';
 import { Button } from './ui/button';
-import { mergeName } from '../lib/utils';
 import { DevToolbar } from './DevToolbar';
 
 interface LayoutProps {
@@ -12,7 +11,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const isBypassEnabled = useBypassMode();
+  const isBypassEnabled = useBypassContext();
 
   // Always call Clerk hooks first to maintain hook order
   const { user } = useUser();

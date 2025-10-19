@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 
 export interface GridConfig {
   columns: number;
@@ -15,7 +15,7 @@ export function useGridConfig(
   const [config, setConfig] = useState<GridConfig | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  const calculateConfig = () => {
+  const calculateConfig = useCallback(() => {
     const parent = parentRef.current;
     if (!parent) return;
 
@@ -32,12 +32,12 @@ export function useGridConfig(
     const rowHeight = cardWidth;
 
     setConfig({ columns, rows, rowHeight });
-  };
+  }, [parentRef, assetCount, cardWidth, gap]);
 
   // Initial calculation
   useLayoutEffect(() => {
     calculateConfig();
-  }, [assetCount, cardWidth, gap]);
+  }, [calculateConfig]);
 
   // Setup ResizeObserver for responsive updates
   useEffect(() => {
@@ -64,7 +64,7 @@ export function useGridConfig(
         resizeObserverRef.current.disconnect();
       }
     };
-  }, [assetCount, cardWidth, gap]);
+  }, [calculateConfig, parentRef]);
 
   return config;
 }

@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import type { MediaAsset } from '../types';
 
 export interface Project {
   id: string;
@@ -18,7 +17,7 @@ export interface EditedImage {
   user_id: string;
   source_asset_id: string | null;
   prompt: string;
-  context: any;
+  context: Record<string, unknown>;
   ai_model: string;
   storage_path: string;
   thumbnail_url: string | null;
@@ -175,7 +174,7 @@ export const database = {
       user_id: string;
       source_asset_id?: string;
       prompt: string;
-      context?: any;
+      context?: Record<string, unknown>;
       ai_model: string;
       storage_path: string;
       width: number;

@@ -10,7 +10,16 @@ interface PublishModalProps {
   onClose: () => void;
 }
 
-const PLATFORMS = [
+type AssetType = 'video' | 'image';
+type Platform = {
+  id: string;
+  name: string;
+  icon: typeof Send;
+  description: string;
+  supportedTypes: ReadonlyArray<AssetType>;
+};
+
+const PLATFORMS: Platform[] = [
   {
     id: 'youtube',
     name: 'YouTube',

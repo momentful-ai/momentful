@@ -1,4 +1,4 @@
-import { Trash2, Image as ImageIcon, Film, Clock, Wand2 } from 'lucide-react';
+import { Trash2, Film, Clock, Wand2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';

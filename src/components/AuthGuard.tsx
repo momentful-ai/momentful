@@ -1,24 +1,20 @@
 import { ReactNode, useEffect } from 'react';
 import { SignIn, useUser, useAuth } from '@clerk/clerk-react';
 import { setSupabaseAuth } from '../lib/supabase-auth';
-import { useBypassMode } from '../contexts/BypassContext';
+import { useBypassContext } from '../hooks/useBypassContext';
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const isBypassEnabled = useBypassMode();
-
-  // In bypass mode, skip all auth checks
-  if (isBypassEnabled) {
-    return <>{children}</>;
-  }
+  const isBypassEnabled = useBypassContext();
 
   const { isLoaded, isSignedIn } = useUser();
   const { getToken } = useAuth();
 
   useEffect(() => {
+    if (isBypassEnabled) return;
     const syncAuth = async () => {
       if (isSignedIn) {
         const token = await getToken({ template: 'supabase' });
@@ -29,7 +25,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
     };
 
     syncAuth();
-  }, [isSignedIn, getToken]);
+  }, [isBypassEnabled, isSignedIn, getToken]);
+
+  // In bypass mode, skip all auth checks
+  if (isBypassEnabled) {
+    return <>{children}</>;
+  }
 
   if (!isLoaded) {
     return (

@@ -3,7 +3,7 @@ import { Plus, FolderOpen } from 'lucide-react';
 import { database } from '../../lib/database';
 import { Project } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
-import { useToast } from '../ToastContainer';
+import { useToast } from '../../hooks/useToast';
 import { DashboardSkeleton } from '../LoadingSkeleton';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { Button } from '../ui/button';

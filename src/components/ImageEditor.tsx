@@ -4,7 +4,7 @@ import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
-import { useToast } from './ToastContainer';
+import { useToast } from '../hooks/useToast';
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -94,7 +94,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         user_id: userId,
         source_asset_id: asset.id,
         prompt,
-        context: context || {},
+        context: typeof context === 'string' ? JSON.parse(context) : (context || {}),
         ai_model: selectedModel,
         storage_path: asset.storage_path,
         width: asset.width || 0,

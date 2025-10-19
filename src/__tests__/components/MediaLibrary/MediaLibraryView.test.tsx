@@ -15,7 +15,7 @@ Object.defineProperty(window, 'ResizeObserver', {
 
 // Mock the virtualizer hook
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn((options: any) => {
+  useVirtualizer: vi.fn((options: Record<string, unknown>) => {
     if (options.count === 0) {
       return {
         getVirtualItems: () => [],
@@ -59,8 +59,8 @@ describe('MediaLibraryView', () => {
       file_type: 'image',
       file_size: 1024,
       storage_path: 'project1/test1.jpg',
-      width: 100,
-      height: 100,
+      sort_order: 0,
+      created_at: new Date().toISOString(),
     },
     {
       id: '2',
@@ -70,8 +70,8 @@ describe('MediaLibraryView', () => {
       file_type: 'image',
       file_size: 2048,
       storage_path: 'project1/test2.png',
-      width: 200,
-      height: 200,
+      sort_order: 0,
+      created_at: new Date().toISOString(),
     },
   ];
 

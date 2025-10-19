@@ -31,7 +31,7 @@ export interface EditedImage {
   user_id: string;
   source_asset_id?: string;
   prompt: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   ai_model: string;
   edited_url: string;
   storage_path: string;
@@ -53,7 +53,7 @@ export interface GeneratedVideo {
   model_provider: string;
   aspect_ratio: '16:9' | '9:16' | '1:1' | '4:5';
   duration: number;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   created_at: string;
 }
 
@@ -81,7 +81,7 @@ export interface Export {
   export_type: 'video' | 'image' | 'batch';
   asset_ids: string[];
   format: string;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   file_url?: string;
   file_size?: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -97,7 +97,7 @@ export interface PublishLog {
   asset_type: 'video' | 'image';
   platform: string;
   platform_url?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   status: 'scheduled' | 'published' | 'failed';
   published_at?: string;
   created_at: string;

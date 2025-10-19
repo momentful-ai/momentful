@@ -1,5 +1,5 @@
 import { useUser } from '@clerk/clerk-react';
-import { useBypassMode } from '../contexts/BypassContext';
+import { useBypassContext } from './useBypassContext';
 import { getLocalDevUserId } from '../lib/local-mode';
 
 export function useUserId(): string | null {
@@ -7,7 +7,7 @@ export function useUserId(): string | null {
   const { user, isLoaded } = useUser();
 
   // Check if we're in bypass mode after calling useUser
-  const isBypassEnabled = useBypassMode();
+  const isBypassEnabled = useBypassContext();
 
   if (isBypassEnabled) {
     return getLocalDevUserId();

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from './ConfirmDialog';
-import { useToast } from './ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { useMediaAssets } from '../hooks/useMediaAssets';
 import { useUploadMedia } from '../hooks/useUploadMedia';
 import { useDeleteMediaAsset } from '../hooks/useDeleteMediaAsset';

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import './index.css';
 import { AuthGuard } from './components/AuthGuard';
-import { BypassProvider } from './contexts/BypassProvider.tsx';
+import { BypassProvider } from './contexts/BypassContext';
 
 const queryClient = new QueryClient();
 

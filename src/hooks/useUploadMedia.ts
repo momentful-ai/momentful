@@ -34,7 +34,7 @@ export function useUploadMedia() {
         // Create database record
         await database.mediaAssets.create({
           project_id: projectId,
-          user_id: userId,
+          user_id: userId || 'anonymous',
           file_name: file.name,
           file_type: 'image',
           file_size: file.size,
@@ -57,7 +57,8 @@ export function useUploadMedia() {
 
       return { successful, total: files.length };
     },
-    onSuccess: ({ successful }, { projectId }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onSuccess: ({ successful: _successful }, { projectId }) => {
       // Invalidate and refetch media assets
       queryClient.invalidateQueries({
         queryKey: ['media-assets', projectId],

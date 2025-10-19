@@ -37,15 +37,15 @@ export function useDeleteMediaAsset() {
       // Return a context object with the snapshotted value
       return { previousAssets };
     },
-    onError: (err, { assetId, projectId }, context) => {
+    onError: (_err, variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAssets) {
-        queryClient.setQueryData(['media-assets', projectId], context.previousAssets);
+        queryClient.setQueryData(['media-assets', variables.projectId], context.previousAssets);
       }
     },
-    onSettled: ({ projectId }) => {
+    onSettled: (_data, _error, variables) => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['media-assets', variables.projectId] });
     },
   });
 }
