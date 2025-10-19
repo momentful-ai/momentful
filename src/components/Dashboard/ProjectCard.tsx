@@ -1,4 +1,4 @@
-import { cn } from '../../lib/utils';
+import { mergeName } from '../../lib/utils';
 import { formatDate } from '../../lib/utils';
 import { Project } from '../../types';
 import { useState, useRef, memo } from 'react';
@@ -72,7 +72,7 @@ export const ProjectCard = memo(function ProjectCard({
     return (
       <Card
               onClick={!isEditing ? () => onClick(projectId) : undefined}
-        className={cn(
+        className={mergeName(
           "group cursor-pointer overflow-hidden hover-lift hover-glow glass-card",
           "animate-slide-up border-2 border-transparent hover:border-primary/20",
           "transition-all duration-300"

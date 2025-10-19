@@ -4,7 +4,7 @@ import { useUser, useClerk } from '@clerk/clerk-react';
 import { useBypassMode } from '../contexts/BypassContext';
 import { useTheme } from './ThemeProvider';
 import { Button } from './ui/button';
-import { cn } from '../lib/utils';
+import { mergeName } from '../lib/utils';
 import { DevToolbar } from './DevToolbar';
 
 interface LayoutProps {

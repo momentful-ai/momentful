@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { cn } from '../lib/utils';
+import { mergeName } from '../lib/utils';
 
 interface ConfirmDialogProps {
   title: string;
@@ -44,11 +44,11 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="glass-card max-w-md w-full p-6 shadow-2xl animate-scale-in">
-        <div className={cn(
+        <div className={mergeName(
           'w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-offset-2 ring-offset-background',
           config.iconBg
         )}>
-          <AlertCircle className={cn('w-7 h-7', config.iconColor)} />
+          <AlertCircle className={mergeName('w-7 h-7', config.iconColor)} />
         </div>
         <h2 className="text-2xl font-bold text-center mb-3">
           {title}

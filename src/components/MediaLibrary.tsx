@@ -1,319 +1,92 @@
-import { useState, useEffect } from 'react';
-import { Trash2, Image as ImageIcon, Film, Clock, Wand2, Upload } from 'lucide-react';
-import { database } from '../lib/database';
-import { MediaLibrarySkeleton } from './LoadingSkeleton';
-import { MediaAsset } from '../types';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { cn, formatFileSize, formatDuration } from '../lib/utils';
-import { useUserId } from '../hooks/useUserId';
+import { useState } from 'react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from './ToastContainer';
+import { useMediaAssets } from '../hooks/useMediaAssets';
+import { useUploadMedia } from '../hooks/useUploadMedia';
+import { useDeleteMediaAsset } from '../hooks/useDeleteMediaAsset';
+import { MediaLibrarySkeleton } from './LoadingSkeleton';
+import { getAssetUrl } from '../lib/media';
+import { MediaLibraryView } from './MediaLibrary/MediaLibraryView';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { MediaAsset } from '../types';
 
 interface MediaLibraryProps {
   projectId: string;
-  onRefresh?: number;
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
   viewMode?: 'grid' | 'list';
 }
 
-export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'grid' }: MediaLibraryProps) {
-  const userId = useUserId();
+export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: MediaLibraryProps) {
   const { showToast } = useToast();
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<{ id: string; path: string } | null>(null);
 
-  useEffect(() => {
-    loadAssets();
-  }, [projectId, onRefresh]);
+  // Use React Query hooks
+  const { data: assets = [], isLoading, error } = useMediaAssets(projectId);
+  const uploadMutation = useUploadMedia();
+  const deleteMutation = useDeleteMediaAsset();
 
-  const loadAssets = async () => {
-    try {
-      const data = await database.mediaAssets.list(projectId);
-      setAssets(data);
-    } catch (error) {
-      console.error('Error loading assets:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleFileUpload = (files: File[]) => {
+    uploadMutation.mutate(
+      { projectId, files },
+      {
+        onError: (error) => {
+          showToast(error.message || 'Failed to upload files', 'error');
+        },
+      }
+    );
   };
 
-  const confirmDeleteAsset = async () => {
+  const confirmDeleteAsset = () => {
     if (!assetToDelete) return;
 
-    try {
-      await database.storage.delete('user-uploads', [assetToDelete.path]);
-      await database.mediaAssets.delete(assetToDelete.id);
-      setAssets((prev) => prev.filter((a) => a.id !== assetToDelete.id));
-      showToast('Asset deleted successfully', 'success');
-    } catch (error) {
-      console.error('Error deleting asset:', error);
-      showToast('Failed to delete asset. Please try again.', 'error');
-    } finally {
-      setAssetToDelete(null);
-    }
-  };
-
-  const getAssetUrl = (storagePath: string) => {
-    return database.storage.getPublicUrl('user-uploads', storagePath);
-  };
-
-
-  const handleFileUpload = async (files: File[]) => {
-    const imageFiles = files.filter((file) =>
-      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
-    );
-
-    if (imageFiles.length === 0) {
-      showToast('Please upload valid image files', 'error');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      for (const file of imageFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        const storagePath = `${projectId}/${fileName}`;
-
-        await database.storage.upload('user-uploads', storagePath, file);
-
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
-        });
-
-        await database.mediaAssets.create({
-          project_id: projectId,
-          user_id: userId,
-          file_name: file.name,
-          file_type: 'image',
-          file_size: file.size,
-          storage_path: storagePath,
-          width: img.width,
-          height: img.height,
-        });
+    deleteMutation.mutate(
+      {
+        assetId: assetToDelete.id,
+        storagePath: assetToDelete.path,
+        projectId,
+      },
+      {
+        onSuccess: () => {
+          showToast('Asset deleted successfully', 'success');
+        },
+        onError: () => {
+          showToast('Failed to delete asset. Please try again.', 'error');
+        },
       }
-
-      await loadAssets();
-      showToast('Files uploaded successfully', 'success');
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      showToast('Failed to upload some files', 'error');
-    } finally {
-      setUploading(false);
-    }
+    );
+    setAssetToDelete(null);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDragging(true);
-    }
-  };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget === e.target) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileUpload(files);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return <MediaLibrarySkeleton />;
   }
 
-  if (assets.length === 0) {
+  if (error) {
     return (
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className="relative"
-      >
-        {isDragging && (
-          <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center border-2 border-dashed border-primary">
-            <div className="text-center">
-              <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
-              <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
-            </div>
-          </div>
-        )}
-        {uploading && (
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-xl font-semibold">Uploading...</p>
-            </div>
-          </div>
-        )}
-        <Card className="border-2 border-dashed p-12 text-center">
-          <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-            <ImageIcon className="w-10 h-10 text-muted-foreground" />
-          </div>
-          <h3 className="text-2xl font-semibold mb-3">
-            No media assets yet
-          </h3>
-          <p className="text-muted-foreground max-w-md mx-auto text-lg mb-2">
-            Upload images and videos to get started with your project
-          </p>
-          <p className="text-muted-foreground/60 flex items-center gap-2 justify-center">
-            <Upload className="w-4 h-4" />
-            Drag images here to upload
-          </p>
-        </Card>
-      </div>
+      <Card className="p-8 text-center">
+        <p className="text-destructive mb-4">Failed to load media assets</p>
+        <Button onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Card>
     );
   }
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className="relative"
-    >
-      {isDragging && (
-        <div className="fixed inset-0 bg-primary/10 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
-          <div className="bg-card rounded-xl p-8 shadow-2xl border-2 border-dashed border-primary">
-            <Upload className="w-16 h-16 text-primary mx-auto mb-4" />
-            <p className="text-2xl font-semibold text-primary">Drop images to upload</p>
-          </div>
-        </div>
-      )}
-      {uploading && (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card rounded-xl p-8 shadow-2xl">
-            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-xl font-semibold">Uploading...</p>
-          </div>
-        </div>
-      )}
-      <div className={cn(
-        viewMode === 'grid'
-          ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
-          : 'flex flex-col gap-3'
-      )}>
-        {assets.map((asset, index) => (
-          <Card
-            key={asset.id}
-            className={cn(
-              'group relative overflow-hidden cursor-pointer hover-lift hover-glow transition-all animate-slide-up',
-              selectedAsset === asset.id
-                ? 'ring-2 ring-primary shadow-xl'
-                : 'hover:ring-2 hover:ring-primary/50',
-              viewMode === 'list' && 'flex flex-row'
-            )}
-            style={{
-              animationDelay: `${index * 30}ms`,
-              animationFillMode: 'backwards'
-            }}
-            onClick={() => {
-              if (asset.file_type === 'image' && onEditImage) {
-                onEditImage(asset, projectId);
-              } else {
-                setSelectedAsset(asset.id === selectedAsset ? null : asset.id);
-              }
-            }}
-          >
-            <div className={cn(
-              'bg-muted overflow-hidden relative',
-              viewMode === 'grid' ? 'aspect-square' : 'w-32 h-32 flex-shrink-0'
-            )}>
-              {asset.file_type === 'image' ? (
-                <img
-                  src={getAssetUrl(asset.storage_path)}
-                  alt={asset.file_name}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                />
-              ) : (
-                <div className="relative w-full h-full">
-                  <video
-                    src={getAssetUrl(asset.storage_path)}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                    <Film className="w-12 h-12 text-white drop-shadow-lg" />
-                  </div>
-                  {asset.duration && (
-                    <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg">
-                      <Clock className="w-3 h-3" />
-                      {formatDuration(asset.duration)}
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              {asset.file_type === 'image' && onEditImage && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                  <div className="flex items-center gap-2 text-white font-medium text-sm">
-                    <Wand2 className="w-4 h-4" />
-                    Edit with AI
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setAssetToDelete({ id: asset.id, path: asset.storage_path });
-                }}
-                size="icon"
-                variant="destructive"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg h-8 w-8"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className={cn('p-3', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
-              <p className="text-sm font-medium truncate mb-1" title={asset.file_name}>
-                {asset.file_name}
-              </p>
-              <div className={cn(
-                'flex items-center gap-2',
-                viewMode === 'grid' ? 'justify-between' : 'flex-wrap'
-              )}>
-                <Badge variant="secondary" className="text-xs">
-                  {formatFileSize(asset.file_size)}
-                </Badge>
-                {asset.width && asset.height && (
-                  <span className="text-xs text-muted-foreground">
-                    {asset.width} × {asset.height}
-                  </span>
-                )}
-                {viewMode === 'list' && asset.duration && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {formatDuration(asset.duration)}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+    <>
+      <MediaLibraryView
+        assets={assets}
+        viewMode={viewMode}
+        isUploading={uploadMutation.isPending}
+        onDrop={handleFileUpload}
+        onEditImage={onEditImage}
+        onRequestDelete={(assetId, storagePath) => {
+          setAssetToDelete({ id: assetId, path: storagePath });
+        }}
+        getAssetUrl={getAssetUrl}
+      />
 
       {assetToDelete && (
         <ConfirmDialog
@@ -326,6 +99,6 @@ export function MediaLibrary({ projectId, onRefresh, onEditImage, viewMode = 'gr
           onCancel={() => setAssetToDelete(null)}
         />
       )}
-    </div>
+    </>
   );
 }

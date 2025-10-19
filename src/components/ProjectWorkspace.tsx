@@ -12,7 +12,7 @@ import { GeneratedVideosView } from './GeneratedVideosView';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { cn } from '../lib/utils';
+import { mergeName } from '../lib/utils';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -228,7 +228,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={cn(
+                    className={mergeName(
                       'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
                       activeTab === tab.id
                         ? 'text-primary'
@@ -257,7 +257,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 onClick={() => handleViewModeChange('grid')}
                 variant="ghost"
                 size="icon"
-                className={cn(
+                className={mergeName(
                   'h-8 w-8',
                   viewMode === 'grid' && 'bg-muted'
                 )}
@@ -268,7 +268,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 onClick={() => handleViewModeChange('list')}
                 variant="ghost"
                 size="icon"
-                className={cn(
+                className={mergeName(
                   'h-8 w-8',
                   viewMode === 'list' && 'bg-muted'
                 )}
