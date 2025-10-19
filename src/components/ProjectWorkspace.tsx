@@ -290,7 +290,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 <div key="media-tab" className="animate-fade-in">
                   <MemoizedMediaLibrary
                     projectId={project.id}
-                    onRefresh={refreshKey}
                     onEditImage={onEditImage}
                     viewMode={viewMode}
                   />
