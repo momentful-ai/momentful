@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Play, ArrowLeft, Sparkles, Film, Trash2, Check, Upload } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
@@ -71,9 +71,27 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  const loadSources = useCallback(async () => {
+    try {
+      const [editedImagesData, mediaAssetsData] = await Promise.all([
+        database.editedImages.list(projectId),
+        database.mediaAssets.list(projectId),
+      ]);
+
+      setEditedImages(editedImagesData || []);
+      // Filter media assets to only include images
+      const imageAssets = (mediaAssetsData || []).filter(asset => asset.file_type === 'image');
+      setMediaAssets(imageAssets);
+    } catch (error) {
+      console.error('Error loading sources:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     loadSources();
-  }, [projectId]);
+  }, [loadSources]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -109,25 +127,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isResizing, isResizingLeft]);
-
-  const loadSources = async () => {
-    try {
-      const [editedImagesData, mediaAssetsData] = await Promise.all([
-        database.editedImages.list(projectId),
-        database.mediaAssets.list(projectId),
-      ]);
-
-      setEditedImages(editedImagesData || []);
-      // Filter media assets to only include images
-      const imageAssets = (mediaAssetsData || []).filter(asset => asset.file_type === 'image');
-      setMediaAssets(imageAssets);
-    } catch (error) {
-      console.error('Error loading sources:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isResizing, isResizingLeft]); 
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
