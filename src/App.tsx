@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
+import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { ImageEditor } from './components/ImageEditor';
 import { ToastProvider } from './components/ToastContainer';

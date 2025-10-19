@@ -6,6 +6,7 @@ export interface Project {
   thumbnail_url?: string;
   created_at: string;
   updated_at: string;
+  previewImages?: string[];
 }
 
 export interface MediaAsset {

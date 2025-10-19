@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Wand2, ArrowLeft, Sparkles, ImageIcon, History } from 'lucide-react';
+import { Wand2, ArrowLeft, Sparkles, History } from 'lucide-react';
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
 import { database } from '../lib/database';
@@ -83,6 +83,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   };
 
   const handleSave = async () => {
+    if (!userId) {
+      showToast('User must be logged in to save images', 'error');
+      return;
+    }
+
     try {
       await database.editedImages.create({
         project_id: projectId,
