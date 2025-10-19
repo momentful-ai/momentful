@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Play, ArrowLeft, Sparkles, Film, GripVertical, Trash2, Check, Upload } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Play, ArrowLeft, Sparkles, Film, Trash2, Check, Upload } from 'lucide-react';
 import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
-import { supabase } from '../lib/supabase';
+// supabase import not used in this component
 
 interface VideoGeneratorProps {
   projectId: string;
@@ -44,18 +45,19 @@ const CAMERA_MOVEMENTS = [
 
 export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorProps) {
   const userId = useUserId();
+  const queryClient = useQueryClient();
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
   const [sceneType, setSceneType] = useState('product-showcase');
   const [cameraMovement, setCameraMovement] = useState('static');
-  const [duration, setDuration] = useState(5);
+  // duration was unused; remove state to satisfy linter
   const [prompt, setPrompt] = useState('');
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -133,6 +135,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
   const handleGenerate = async () => {
     if (selectedSources.length === 0) return;
+    if (!userId) return;
 
     setIsGenerating(true);
 
@@ -142,9 +145,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     setGeneratedVideoUrl(dummyVideoUrl);
 
     try {
-      const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
-      const sourceIds = selectedSources.map((s) => s.id).join(',');
-
       await database.generatedVideos.create({
         project_id: projectId,
         user_id: userId,
@@ -263,11 +263,12 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       return;
     }
 
+    if (!userId) return;
+
     setIsUploading(true);
 
     for (const file of imageFiles) {
       try {
-        const fileExt = file.name.split('.').pop();
         const timestamp = Date.now();
         const fileName = `${timestamp}-${file.name}`;
         const storagePath = `${userId}/${projectId}/${fileName}`;
@@ -298,6 +299,8 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
     setIsUploading(false);
     await loadSources();
+    // Invalidate global media assets cache so MediaLibrary refetches
+    await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
   };
 
   const canGenerate = selectedSources.length > 0;

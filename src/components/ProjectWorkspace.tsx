@@ -289,6 +289,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
               {activeTab === 'media' && (
                 <div key="media-tab" className="animate-fade-in">
                   <MemoizedMediaLibrary
+                    key={refreshKey}
                     projectId={project.id}
                     onEditImage={onEditImage}
                     viewMode={viewMode}

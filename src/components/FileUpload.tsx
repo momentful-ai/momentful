@@ -1,4 +1,5 @@
 import { useState, useRef, DragEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon, Film } from 'lucide-react';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
@@ -27,6 +28,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const validateFile = (file: File): string | null => {
     const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
@@ -110,7 +112,13 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
   };
 
   const startUpload = async () => {
+    if (!userId) {
+      console.error('Cannot upload: user not available');
+      return;
+    }
     const pendingFiles = files.filter((f) => f.status === 'pending');
+
+    let successCount = 0;
 
     for (const uploadFile of pendingFiles) {
       setFiles((prev) =>
@@ -122,7 +130,6 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
       try {
         const isImage = ALLOWED_IMAGE_TYPES.includes(uploadFile.file.type);
         const isVideo = ALLOWED_VIDEO_TYPES.includes(uploadFile.file.type);
-        const fileExt = uploadFile.file.name.split('.').pop();
         const timestamp = Date.now();
         const fileName = `${timestamp}-${uploadFile.file.name}`;
         const storagePath = `${userId}/${projectId}/${fileName}`;
@@ -169,6 +176,8 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
               : f
           )
         );
+
+        successCount += 1;
       } catch (error) {
         console.error('Upload error:', error);
         setFiles((prev) =>
@@ -185,12 +194,13 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
       }
     }
 
-    const allSuccess = files.every((f) => f.status === 'success' || f.status === 'error');
-    const hasSuccess = files.some((f) => f.status === 'success');
-    if (allSuccess && hasSuccess) {
+    if (successCount > 0) {
+      // Invalidate media assets for this project so MediaLibrary refetches
+      await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
+      // Notify parent after a short delay to allow UI polish
       setTimeout(() => {
         onUploadComplete();
-      }, 500);
+      }, 300);
     }
   };
 
