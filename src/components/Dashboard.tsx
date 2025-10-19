@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X, Image as ImageIcon } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { Plus, FolderOpen, Clock, MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
 import { database } from '../lib/database';
 import { Project } from '../types';
 import { formatDate } from '../lib/utils';
@@ -38,7 +38,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     }
   };
 
-  const createProject = async () => {
+  const createProject = useCallback(async () => {
+    if (!userId) return;
+
     try {
       const data = await database.projects.create(userId, 'Untitled Project', '');
       setProjects([data, ...projects]);
@@ -47,9 +49,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       console.error('Error creating project:', error);
       showToast('Failed to create project. Please try again.', 'error');
     }
-  };
+  }, [userId, projects, showToast]);
 
-  const deleteProject = async (project: Project) => {
+  const deleteProject = useCallback(async (project: Project) => {
     try {
       await database.projects.delete(project.id);
       setProjects((prev) => prev.filter((p) => p.id !== project.id));
@@ -60,7 +62,34 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     } finally {
       setProjectToDelete(null);
     }
-  };
+  }, [showToast]);
+
+  const handleSelectProject = useCallback((projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      onSelectProject(project);
+    }
+  }, [projects, onSelectProject]);
+
+  const handleDeleteProject = useCallback((projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setProjectToDelete(project);
+    }
+  }, [projects]);
+
+  const handleUpdateProjectName = useCallback(async (projectId: string, name: string) => {
+    try {
+      await database.projects.update(projectId, { name });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, name } : p))
+      );
+      showToast('Project name updated', 'success');
+    } catch (error) {
+      console.error('Error updating project name:', error);
+      showToast('Failed to update project name', 'error');
+    }
+  }, [showToast]);
 
 
   if (loading) {
@@ -115,21 +144,11 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
           {projects.map((project, index) => (
             <ProjectCard
               key={project.id}
+              projectId={project.id}
               project={project}
-              onClick={() => onSelectProject(project)}
-              onDelete={() => setProjectToDelete(project)}
-              onUpdateName={async (name) => {
-                try {
-                  await database.projects.update(project.id, { name });
-                  setProjects((prev) =>
-                    prev.map((p) => (p.id === project.id ? { ...p, name } : p))
-                  );
-                  showToast('Project name updated', 'success');
-                } catch (error) {
-                  console.error('Error updating project name:', error);
-                  showToast('Failed to update project name', 'error');
-                }
-              }}
+              onClick={handleSelectProject}
+              onDelete={handleDeleteProject}
+              onUpdateName={handleUpdateProjectName}
               index={index}
             />
           ))}
@@ -149,19 +168,23 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   );
 }
 
-function ProjectCard({
+interface ProjectCardProps {
+  projectId: string;
+  project: Project;
+  onClick: (projectId: string) => void;
+  onDelete: (projectId: string) => void;
+  onUpdateName: (projectId: string, name: string) => Promise<void>;
+  index: number;
+}
+
+const ProjectCard = memo(function ProjectCard({
+  projectId,
   project,
   onClick,
   onDelete,
   onUpdateName,
   index
-}: {
-  project: Project;
-  onClick: () => void;
-  onDelete: () => void;
-  onUpdateName: (name: string) => Promise<void>;
-  index: number;
-}) {
+}: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
@@ -177,7 +200,7 @@ function ProjectCard({
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (editedName.trim() && editedName !== project.name) {
-      await onUpdateName(editedName.trim());
+      await onUpdateName(projectId, editedName.trim());
     }
     setIsEditing(false);
   };
@@ -192,7 +215,7 @@ function ProjectCard({
     if (e.key === 'Enter') {
       e.preventDefault();
       if (editedName.trim() && editedName !== project.name) {
-        onUpdateName(editedName.trim());
+        onUpdateName(projectId, editedName.trim());
       }
       setIsEditing(false);
     } else if (e.key === 'Escape') {
@@ -204,7 +227,7 @@ function ProjectCard({
 
   return (
     <Card
-      onClick={!isEditing ? onClick : undefined}
+            onClick={!isEditing ? () => onClick(projectId) : undefined}
       className={cn(
         "group cursor-pointer overflow-hidden hover-lift hover-glow glass-card",
         "animate-slide-up border-2 border-transparent hover:border-primary/20",
@@ -237,7 +260,7 @@ function ProjectCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    onDelete();
+                    onDelete(projectId);
                   }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                 >
@@ -309,7 +332,7 @@ function ProjectCard({
       </div>
     </Card>
   );
-}
+});
 
 function ProjectPreviewCollage({ project }: { project: any }) {
   const previewImages = project.previewImages || [];

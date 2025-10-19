@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -15,23 +15,23 @@ type View =
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
 
-  const handleSelectProject = (project: Project) => {
+  const handleSelectProject = useCallback((project: Project) => {
     setView({ type: 'project', project });
-  };
+  }, []);
 
-  const handleBackToDashboard = () => {
+  const handleBackToDashboard = useCallback(() => {
     setView({ type: 'dashboard' });
-  };
+  }, []);
 
-  const handleEditImage = (asset: MediaAsset, projectId: string) => {
+  const handleEditImage = useCallback((asset: MediaAsset, projectId: string) => {
     if (view.type === 'project') {
       setView({ type: 'editor', asset, projectId, project: view.project });
     }
-  };
+  }, [view]);
 
-  const handleUpdateProject = (project: Project) => {
+  const handleUpdateProject = useCallback((project: Project) => {
     setView({ type: 'project', project });
-  };
+  }, []);
 
   return (
     <ThemeProvider defaultTheme="light">

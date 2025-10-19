@@ -3,19 +3,22 @@ import { createRoot } from 'react-dom/client';
 import { ClerkProvider } from '@clerk/clerk-react';
 import App from './App.tsx';
 import './index.css';
-import { CLERK_PUBLISHABLE_KEY } from './lib/clerk';
-import { isLocalMode } from './lib/local-mode';
+import { AuthGuard } from './components/AuthGuard';
+import { BypassProvider } from './contexts/BypassContext';
 
-const localMode = isLocalMode();
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!PUBLISHABLE_KEY) {
+  throw new Error("Missing Clerk Publishable Key");
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {localMode ? (
-      <App />
-    ) : (
-      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-        <App />
+    <BypassProvider>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+        <AuthGuard>
+          <App />
+        </AuthGuard>
       </ClerkProvider>
-    )}
+    </BypassProvider>
   </StrictMode>
 );

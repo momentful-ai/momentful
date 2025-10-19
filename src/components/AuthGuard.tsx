@@ -1,15 +1,17 @@
 import { ReactNode, useEffect } from 'react';
 import { SignIn, useUser, useAuth } from '@clerk/clerk-react';
 import { setSupabaseAuth } from '../lib/supabase-auth';
-import { isLocalMode } from '../lib/local-mode';
+import { useBypassMode } from '../contexts/BypassContext';
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  // In local mode, bypass all auth checks
-  if (isLocalMode()) {
+  const isBypassEnabled = useBypassMode();
+
+  // In bypass mode, skip all auth checks
+  if (isBypassEnabled) {
     return <>{children}</>;
   }
 

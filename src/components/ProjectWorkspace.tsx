@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { database } from '../lib/database';
@@ -14,6 +14,11 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 
+// Memoized components to prevent unnecessary re-renders
+const MemoizedMediaLibrary = memo(MediaLibrary);
+const MemoizedEditedImagesView = memo(EditedImagesView);
+const MemoizedGeneratedVideosView = memo(GeneratedVideosView);
+
 interface ProjectWorkspaceProps {
   project: Project;
   onBack: () => void;
@@ -21,7 +26,7 @@ interface ProjectWorkspaceProps {
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
 }
 
-export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage }: ProjectWorkspaceProps) {
+function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
@@ -38,51 +43,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
   const [publishAsset, setPublishAsset] = useState<{ id: string; type: 'video' | 'image' } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    loadProjectData();
-  }, [project.id]);
-
-  useEffect(() => {
-    setCurrentProject(project);
-    setEditedName(project.name);
-  }, [project]);
-
-  const handleStartEdit = () => {
-    setIsEditingName(true);
-    setTimeout(() => inputRef.current?.select(), 0);
-  };
-
-  const handleSaveName = async () => {
-    if (editedName.trim() && editedName !== currentProject.name) {
-      try {
-        await database.projects.update(currentProject.id, { name: editedName.trim() });
-        const updatedProject = { ...currentProject, name: editedName.trim() };
-        setCurrentProject(updatedProject);
-        onUpdateProject?.(updatedProject);
-      } catch (error) {
-        console.error('Error updating project name:', error);
-        setEditedName(currentProject.name);
-      }
-    }
-    setIsEditingName(false);
-  };
-
-  const handleCancelEdit = () => {
-    setEditedName(currentProject.name);
-    setIsEditingName(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSaveName();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      handleCancelEdit();
-    }
-  };
-
-  const loadProjectData = async () => {
+  const loadProjectData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -100,13 +61,79 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
     } finally {
       setLoading(false);
     }
-  };
+  }, [project.id]);
 
-  const tabs = [
-    { id: 'media' as const, label: 'Media Library', count: mediaAssets.length },
-    { id: 'edited' as const, label: 'Edited Images', count: editedImages.length },
-    { id: 'videos' as const, label: 'Generated Videos', count: generatedVideos.length },
-  ];
+  useEffect(() => {
+    loadProjectData();
+  }, [project.id, loadProjectData]);
+
+  useEffect(() => {
+    setCurrentProject(project);
+    setEditedName(project.name);
+  }, [project]);
+
+  const handleStartEdit = useCallback(() => {
+    setIsEditingName(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }, []);
+
+  const handleSaveName = useCallback(async () => {
+    if (editedName.trim() && editedName !== currentProject.name) {
+      try {
+        await database.projects.update(currentProject.id, { name: editedName.trim() });
+        const updatedProject = { ...currentProject, name: editedName.trim() };
+        setCurrentProject(updatedProject);
+        onUpdateProject?.(updatedProject);
+      } catch (error) {
+        console.error('Error updating project name:', error);
+        setEditedName(currentProject.name);
+      }
+    }
+    setIsEditingName(false);
+  }, [editedName, currentProject, onUpdateProject]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditedName(currentProject.name);
+    setIsEditingName(false);
+  }, [currentProject.name]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  }, [handleSaveName, handleCancelEdit]);
+
+  const handleTabClick = useCallback((tabId: 'media' | 'edited' | 'videos') => {
+    setActiveTab(tabId);
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: 'grid' | 'list') => {
+    setViewMode(mode);
+  }, []);
+
+  const handleShowVideoGenerator = useCallback(() => {
+    setShowVideoGenerator(true);
+  }, []);
+
+  const handleShowUploadModal = useCallback(() => {
+    setShowUploadModal(true);
+  }, []);
+
+  const tabCounts = useMemo(() => ({
+    media: mediaAssets.length,
+    edited: editedImages.length,
+    videos: generatedVideos.length,
+  }), [mediaAssets.length, editedImages.length, generatedVideos.length]);
+
+  const tabs = useMemo(() => [
+    { id: 'media' as const, label: 'Media Library', count: tabCounts.media },
+    { id: 'edited' as const, label: 'Edited Images', count: tabCounts.edited },
+    { id: 'videos' as const, label: 'Generated Videos', count: tabCounts.videos },
+  ], [tabCounts]);
 
   return (
     <div>
@@ -171,7 +198,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
-              onClick={() => setShowVideoGenerator(true)}
+              onClick={handleShowVideoGenerator}
               variant="gradient"
               size="lg"
               className="flex-1 sm:flex-initial gap-2"
@@ -180,7 +207,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
               Generate Video
             </Button>
             <Button
-              onClick={() => setShowUploadModal(true)}
+              onClick={handleShowUploadModal}
               variant="gradient"
               size="lg"
               className="flex-1 sm:flex-initial gap-2"
@@ -200,7 +227,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabClick(tab.id)}
                     className={cn(
                       'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
                       activeTab === tab.id
@@ -227,7 +254,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
             </div>
             <div className="flex gap-1 border rounded-lg p-1">
               <Button
-                onClick={() => setViewMode('grid')}
+                onClick={() => handleViewModeChange('grid')}
                 variant="ghost"
                 size="icon"
                 className={cn(
@@ -238,7 +265,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
                 <Grid3x3 className="w-4 h-4" />
               </Button>
               <Button
-                onClick={() => setViewMode('list')}
+                onClick={() => handleViewModeChange('list')}
                 variant="ghost"
                 size="icon"
                 className={cn(
@@ -261,7 +288,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
             <>
               {activeTab === 'media' && (
                 <div key="media-tab" className="animate-fade-in">
-                  <MediaLibrary
+                  <MemoizedMediaLibrary
                     projectId={project.id}
                     onRefresh={refreshKey}
                     onEditImage={onEditImage}
@@ -271,7 +298,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
               )}
               {activeTab === 'edited' && (
                 <div key="edited-tab" className="animate-fade-in">
-                  <EditedImagesView
+                  <MemoizedEditedImagesView
                     images={editedImages}
                     viewMode={viewMode}
                     onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
@@ -281,7 +308,7 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
               )}
               {activeTab === 'videos' && (
                 <div key="videos-tab" className="animate-fade-in">
-                  <GeneratedVideosView
+                  <MemoizedGeneratedVideosView
                     videos={generatedVideos}
                     viewMode={viewMode}
                     onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.video_url })}
@@ -338,3 +365,5 @@ export function ProjectWorkspace({ project, onBack, onUpdateProject, onEditImage
     </div>
   );
 }
+
+export const ProjectWorkspace = memo(ProjectWorkspaceComponent);
