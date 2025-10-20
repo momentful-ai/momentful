@@ -226,6 +226,8 @@ export const database = {
       camera_movement?: string;
       runway_task_id?: string;
       storage_path?: string;
+      status?: 'processing' | 'completed' | 'failed';
+      completed_at?: string;
     }) {
       const { data, error } = await supabase
         .from('generated_videos')

@@ -65,14 +65,7 @@ export function GeneratedVideosView({
       {videos.map((video) => (
         <Card key={video.id} className="group overflow-hidden hover-lift hover-glow">
           <div className="aspect-video bg-black relative">
-            {video.status === 'processing' ? (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">Processing video...</p>
-                </div>
-              </div>
-            ) : video.status === 'failed' ? (
+            {video.status === 'failed' ? (
               <div className="w-full h-full flex items-center justify-center bg-muted">
                 <div className="text-center">
                   <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
@@ -80,17 +73,31 @@ export function GeneratedVideosView({
                 </div>
               </div>
             ) : video.storage_path ? (
-              <video
-                src={video.storage_path}
-                controls
-                className="w-full h-full object-contain"
-                preload="metadata"
-                onError={(e) => {
-                  console.error('Video failed to load:', e);
-                  const video = e.target as HTMLVideoElement;
-                  console.error('Video src:', video.src);
-                }}
-              />
+              <div className="w-full h-full relative">
+                <video
+                  src={video.storage_path}
+                  controls
+                  className="w-full h-full object-contain"
+                  preload="metadata"
+                  onError={(e) => {
+                    console.error('Video failed to load:', e);
+                    const video = e.target as HTMLVideoElement;
+                    console.error('Video src:', video.src);
+                  }}
+                />
+                {video.status === 'processing' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white" />
+                  </div>
+                )}
+              </div>
+            ) : video.status === 'processing' ? (
+              <div className="w-full h-full flex items-center justify-center bg-muted">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">Processing video...</p>
+                </div>
+              </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted">
                 <div className="text-center">

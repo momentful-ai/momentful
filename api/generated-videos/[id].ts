@@ -3,17 +3,21 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseServiceKey) {
-  console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set. API endpoints may not work properly.');
+if (!supabaseServiceKey && !supabaseAnonKey) {
+  console.warn('⚠️  Neither SUPABASE_SERVICE_ROLE_KEY nor VITE_SUPABASE_ANON_KEY are set. API endpoints may not work properly.');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+// Use service role key if available (bypasses RLS), otherwise use anon key
+const supabase = supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers for all responses

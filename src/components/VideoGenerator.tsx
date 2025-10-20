@@ -235,12 +235,17 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           camera_movement: cameraMovement,
           runway_task_id: runwayTaskId,
           storage_path: runwayVideoUrl, // Store the direct Runway URL
+          status: 'completed',
+          completed_at: new Date().toISOString(),
         });
 
         console.log('Generated video URL:', runwayVideoUrl);
         setGeneratedVideoUrl(runwayVideoUrl);
 
         showToast('Video is ready to view!', 'success');
+
+        // Trigger parent refresh to update the videos list immediately
+        onSave();
       } else {
         throw new Error('Video generation failed');
       }
