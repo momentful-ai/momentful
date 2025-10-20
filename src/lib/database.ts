@@ -43,6 +43,7 @@ export interface GeneratedVideo {
   status: 'processing' | 'completed' | 'failed';
   version: number;
   parent_id: string | null;
+  runway_task_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -223,6 +224,8 @@ export const database = {
       aspect_ratio: string;
       scene_type?: string;
       camera_movement?: string;
+      runway_task_id?: string;
+      storage_path?: string;
     }) {
       const { data, error } = await supabase
         .from('generated_videos')
@@ -240,6 +243,12 @@ export const database = {
       duration?: number;
       status?: 'processing' | 'completed' | 'failed';
       completed_at?: string;
+      runway_task_id?: string;
+      name?: string;
+      ai_model?: string;
+      aspect_ratio?: string;
+      scene_type?: string;
+      camera_movement?: string;
     }) {
       const { data, error } = await supabase
         .from('generated_videos')

@@ -47,14 +47,20 @@ export interface GeneratedVideo {
   id: string;
   project_id: string;
   user_id: string;
-  video_url: string;
-  prompt?: string;
+  name: string;
   ai_model: string;
-  model_provider: string;
   aspect_ratio: '16:9' | '9:16' | '1:1' | '4:5';
-  duration: number;
-  settings: Record<string, unknown>;
+  scene_type?: string;
+  camera_movement?: string;
+  storage_path?: string; // This can be either local storage path or external Runway URL
+  thumbnail_url?: string;
+  duration?: number;
+  status: 'processing' | 'completed' | 'failed';
+  version?: number;
+  parent_id?: string;
+  runway_task_id?: string;
   created_at: string;
+  completed_at?: string;
 }
 
 export interface VideoSource {

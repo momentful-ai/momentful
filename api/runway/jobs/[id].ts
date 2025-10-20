@@ -42,10 +42,10 @@ function extractErrorMessage(errorMessage: string): string {
 }
 
 
-const apiKey = process.env.RUNWAYML_API_SECRET || config().parsed?.RUNWAYML_API_SECRET;
+const apiKey = process.env.RUNWAY_API_KEY || config().parsed?.RUNWAY_API_KEY;
 
 if (!apiKey) {
-  console.warn('⚠️  RUNWAYML_API_SECRET not set. Runway features will not work in development.');
+  console.warn('⚠️  RUNWAY_API_KEY not set. Runway features will not work in development.');
 }
 
 export const runway = new RunwayML({ apiKey: apiKey || 'dummy-key' });
@@ -55,7 +55,7 @@ export type Mode = 'image-to-video' | 'text-to-video';
 export async function getRunwayTask(taskId: string) {
   // Check if API key is available
   if (!apiKey) {
-    throw new Error('RUNWAYML_API_SECRET not configured. Please set your Runway API key.');
+    throw new Error('RUNWAY_API_KEY not configured. Please set your Runway API key.');
   }
 
   return await runway.tasks.retrieve(taskId);
@@ -69,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const task = await getRunwayTask(id);
+    console.log('task', task);
     return res.status(200).json({
       id: task.id,
       status: task.status,

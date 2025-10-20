@@ -13,6 +13,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { mergeName } from '../lib/utils';
+import { updateProjectVideoStatuses } from '../services/aiModels/runway';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -56,6 +57,17 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       setMediaAssets(mediaAssets);
       setEditedImages(editedImages);
       setGeneratedVideos(videos);
+
+      // Update video statuses from Runway for videos that have Runway task IDs
+      try {
+        await updateProjectVideoStatuses(project.id);
+        // Refresh videos after updating statuses
+        const updatedVideos = await database.generatedVideos.list(project.id);
+        setGeneratedVideos(updatedVideos);
+      } catch (error) {
+        console.error('Error updating video statuses from Runway:', error);
+        // Don't show error to user, just log it - videos will still work from local storage
+      }
     } catch (error) {
       console.error('Error loading project data:', error);
     } finally {
@@ -311,7 +323,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                   <MemoizedGeneratedVideosView
                     videos={generatedVideos}
                     viewMode={viewMode}
-                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.video_url })}
+                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
                     onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
                   />
                 </div>

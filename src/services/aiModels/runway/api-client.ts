@@ -129,14 +129,14 @@ export async function getRunwayJobStatus(taskId: string): Promise<JobStatusRespo
  */
 export async function pollJobStatus(
   taskId: string,
-  onProgress?: (status: string) => void,
+  onProgress?: (status: string, progress?: number) => void,
   maxAttempts: number = 60,
   intervalMs: number = 2000
 ): Promise<JobStatusResponse> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const status = await getRunwayJobStatus(taskId);
-      onProgress?.(status.status);
+      onProgress?.(status.status, status.progress || undefined);
 
       if (status.status === 'SUCCEEDED') {
         return status;
@@ -167,4 +167,68 @@ export async function pollJobStatus(
   }
 
   throw new Error('Job polling timed out');
+}
+
+/**
+ * Update video statuses from Runway for a project
+ * Retrieves all videos with Runway task IDs and updates their status from Runway API
+ */
+export async function updateProjectVideoStatuses(projectId: string): Promise<void> {
+  try {
+    // Get all generated videos for the project from our database
+    const response = await fetch(`/api/generated-videos?projectId=${projectId}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch project videos: ${response.statusText}`);
+    }
+
+    const videos = await response.json();
+
+    // Filter videos that have Runway task IDs
+    const videosWithRunwayTasks = videos.filter((video: { runway_task_id?: string }) => video.runway_task_id);
+
+    if (videosWithRunwayTasks.length === 0) {
+      console.log('No videos with Runway task IDs found for project');
+      return;
+    }
+
+    // Update each video's status from Runway
+    for (const video of videosWithRunwayTasks) {
+      try {
+        const runwayStatus = await getRunwayJobStatus(video.runway_task_id);
+
+        // Map Runway status to our status format
+        let status: 'processing' | 'completed' | 'failed' = 'processing';
+        if (runwayStatus.status === 'SUCCEEDED') {
+          status = 'completed';
+        } else if (runwayStatus.status === 'FAILED') {
+          status = 'failed';
+        }
+
+        // Update the video in our database if status changed
+        if (video.status !== status) {
+          await fetch(`/api/generated-videos/${video.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status,
+              storage_path: runwayStatus.output ? (typeof runwayStatus.output === 'string'
+                ? runwayStatus.output
+                : Array.isArray(runwayStatus.output)
+                  ? runwayStatus.output[0]
+                  : null) : null,
+              duration: runwayStatus.progress || null,
+            }),
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to update status for video ${video.id}:`, error);
+        // Continue with other videos even if one fails
+      }
+    }
+  } catch (error) {
+    console.error('Error updating project video statuses:', error);
+    throw error;
+  }
 }

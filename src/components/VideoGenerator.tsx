@@ -57,6 +57,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<boolean>(false);
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [, setLoading] = useState(true);
@@ -146,6 +147,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     }
 
     setIsGenerating(true);
+    setVideoError(false); // Reset error state when starting generation
 
     try {
       // Find the first image source (Runway Gen-2 typically uses one image)
@@ -186,44 +188,43 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       // Create the Runway job
       const { taskId } = await RunwayAPI.createRunwayJob(requestData);
 
-      // Poll for completion
-      const result = await RunwayAPI.pollJobStatus(taskId, (status: string) => {
-        if (status === 'PROCESSING') {
-          showToast('Video generation in progress...', 'info');
+      // Poll for completion with progress updates
+      const result = await RunwayAPI.pollJobStatus(
+        taskId,
+        (status: string, progress?: number) => {
+          if (status === 'PROCESSING' && progress !== undefined) {
+            const percentage = Math.round(progress * 100);
+            showToast(`Video generation in progress... ${percentage}%`, 'info');
+          } else if (status === 'PROCESSING') {
+            showToast('Video generation in progress...', 'info');
+          } else if (status === 'SUCCEEDED') {
+            showToast('Video generation completed!', 'success');
+          } else if (status === 'FAILED') {
+            showToast('Video generation failed!', 'error');
+            setVideoError(true);
+            setIsGenerating(false);
+          }
         }
-      });
+      );
+
+      // Store the Runway task ID for later reference
+      const runwayTaskId = taskId;
 
       if (result.status === 'SUCCEEDED' && result.output) {
-        // Extract video URL from the response
-        const videoUrl = typeof result.output === 'string'
+        // Extract video URL from the response - use direct Runway URL
+        const runwayVideoUrl = typeof result.output === 'string'
           ? result.output
           : Array.isArray(result.output)
             ? result.output[0]
             : null;
-
-        if (!videoUrl) {
+            setGeneratedVideoUrl(runwayVideoUrl as string)
+        if (!runwayVideoUrl) {
           throw new Error('No video URL in response');
         }
 
-        // Download and store the video in Supabase
-        showToast('Saving video to your project...', 'info');
+        showToast('Video generated successfully!', 'success');
 
-        const videoBlob = await fetch(videoUrl).then(res => {
-          if (!res.ok) throw new Error('Failed to download video');
-          return res.blob();
-        });
-
-        const timestamp = Date.now();
-        const fileName = `generated-${timestamp}.mp4`;
-
-        // Convert Blob to File for Supabase storage
-        const videoFile = new File([videoBlob], fileName, { type: 'video/mp4' });
-        const storagePath = `${userId}/${projectId}/${fileName}`;
-
-        // Upload to Supabase storage
-        await database.storage.upload('generated-videos', storagePath, videoFile);
-
-        // Save video metadata to database
+        // Save video metadata to database with Runway URL
         await database.generatedVideos.create({
           project_id: projectId,
           user_id: userId,
@@ -232,14 +233,14 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           aspect_ratio: aspectRatio,
           scene_type: sceneType,
           camera_movement: cameraMovement,
+          runway_task_id: runwayTaskId,
+          storage_path: runwayVideoUrl, // Store the direct Runway URL
         });
 
-        // Get the public URL for the stored video
-        const publicVideoUrl = database.storage.getPublicUrl('generated-videos', storagePath);
+        console.log('Generated video URL:', runwayVideoUrl);
+        setGeneratedVideoUrl(runwayVideoUrl);
 
-        setGeneratedVideoUrl(publicVideoUrl);
-
-        showToast('Video generated and saved successfully!', 'success');
+        showToast('Video is ready to view!', 'success');
       } else {
         throw new Error('Video generation failed');
       }
@@ -613,25 +614,64 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="max-w-5xl mx-auto">
               <div
-                className={`bg-muted rounded-xl flex items-center justify-center animate-fade-in ${
-                  aspectRatio === '16:9' ? 'aspect-video' :
-                  aspectRatio === '9:16' ? 'aspect-[9/16] max-w-md mx-auto' :
-                  aspectRatio === '1:1' ? 'aspect-square max-w-2xl mx-auto' :
-                  'aspect-[4/5] max-w-xl mx-auto'
+                className={`bg-muted rounded-xl flex items-center justify-center animate-fade-in overflow-hidden ${
+                  aspectRatio === '16:9' ? 'aspect-video max-w-4xl' :
+                  aspectRatio === '9:16' ? 'aspect-[9/16] max-w-md max-h-[600px]' :
+                  aspectRatio === '1:1' ? 'aspect-square max-w-2xl max-h-[600px]' :
+                  'aspect-[4/5] max-w-xl max-h-[600px]'
                 }`}
               >
-                {generatedVideoUrl ? (
+                {generatedVideoUrl && !videoError ? (
                   <video
+                    key={generatedVideoUrl} // Force re-render if URL changes
                     src={generatedVideoUrl}
                     controls
-                    className="w-full h-full rounded-xl"
+                    className="w-full h-full object-contain rounded-xl"
+                    preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      // Optional: Log video dimensions for debugging
+                      const video = e.target as HTMLVideoElement;
+                      console.log(`Video loaded - dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                      setVideoError(false); // Reset error state on successful load
+                    }}
+                    onError={(e) => {
+                      console.error('Video failed to load:', e);
+                      const video = e.target as HTMLVideoElement;
+                      console.error('Video src:', video.src);
+                      console.error('Video error code:', video.error?.code);
+                      console.error('Video error message:', video.error?.message);
+                      setVideoError(true);
+                    }}
                   />
                 ) : (
-                  <div className="text-center">
-                    <Film className="w-24 h-24 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
-                    </p>
+                  <div className="text-center p-8">
+                    {videoError ? (
+                      <>
+                        <div className="w-24 h-24 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Film className="w-12 h-12 text-destructive" />
+                        </div>
+                        <p className="text-destructive font-medium mb-2">Video failed to load</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          The generated video could not be displayed. You can still save it to your project.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setVideoError(false);
+                            setGeneratedVideoUrl(null);
+                          }}
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Film className="w-24 h-24 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">
+                          {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

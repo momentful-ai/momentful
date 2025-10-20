@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS generated_videos (
   status text DEFAULT 'processing' CHECK (status IN ('processing', 'completed', 'failed')),
   version integer DEFAULT 1,
   parent_id uuid REFERENCES generated_videos(id) ON DELETE SET NULL,
+  runway_task_id text,
   created_at timestamptz DEFAULT now(),
   completed_at timestamptz
 );
