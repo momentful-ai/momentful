@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@5.4.1",
+      "maxDuration": 60
+    }
+  },
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "includeFiles": [
+    ".env.local"
+  ],
+  "rewrites": [
+    { "source": "/((?!api|.*\\..*).*)", "destination": "/" }
+  ]
+}

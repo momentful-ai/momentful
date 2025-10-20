@@ -5,7 +5,8 @@ import { EditedImage, MediaAsset } from '../types';
 import { videoModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
-// supabase import not used in this component
+import { useToast } from '../hooks/useToast';
+import * as RunwayAPI from '../services/aiModels/runway';
 
 interface VideoGeneratorProps {
   projectId: string;
@@ -46,6 +47,7 @@ const CAMERA_MOVEMENTS = [
 export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorProps) {
   const userId = useUserId();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
   const [sceneType, setSceneType] = useState('product-showcase');
@@ -134,31 +136,123 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   };
 
   const handleGenerate = async () => {
-    if (selectedSources.length === 0) return;
-    if (!userId) return;
+    if (selectedSources.length === 0) {
+      showToast('Please select at least one image to generate a video', 'warning');
+      return;
+    }
+    if (!userId) {
+      showToast('User must be logged in to generate videos', 'error');
+      return;
+    }
 
     setIsGenerating(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    const dummyVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-    setGeneratedVideoUrl(dummyVideoUrl);
-
     try {
-      await database.generatedVideos.create({
-        project_id: projectId,
-        user_id: userId,
-        name: prompt || 'Untitled Video',
-        ai_model: selectedModel,
-        aspect_ratio: aspectRatio,
-        scene_type: sceneType,
-        camera_movement: cameraMovement,
-      });
-    } catch (error) {
-      console.error('Error saving video:', error);
-    }
+      // Find the first image source (Runway Gen-2 typically uses one image)
+      const imageSource = selectedSources.find(source =>
+        source.type === 'edited_image' || source.type === 'media_asset'
+      );
 
-    setIsGenerating(false);
+      if (!imageSource) {
+        showToast('No valid image source found', 'error');
+        return;
+      }
+
+      // Get the actual image data based on the source type
+      let imageUrl: string | null = null;
+
+      if (imageSource.type === 'edited_image') {
+        const editedImage = editedImages.find(img => img.id === imageSource.id);
+        imageUrl = editedImage?.edited_url || null;
+      } else if (imageSource.type === 'media_asset') {
+        const mediaAsset = mediaAssets.find(asset => asset.id === imageSource.id);
+        imageUrl = mediaAsset ? getAssetUrl(mediaAsset.storage_path) : null;
+      }
+
+      if (!imageUrl) {
+        showToast('Could not find image URL for selected source', 'error');
+        return;
+      }
+
+      // Prepare the request for Runway API
+      const requestData: RunwayAPI.CreateJobRequest = {
+        mode: 'image-to-video',
+        promptImage: imageUrl,
+        promptText: prompt.trim() || undefined,
+      };
+
+      showToast('Starting video generation...', 'info');
+
+      // Create the Runway job
+      const { taskId } = await RunwayAPI.createRunwayJob(requestData);
+
+      // Poll for completion
+      const result = await RunwayAPI.pollJobStatus(taskId, (status: string) => {
+        if (status === 'PROCESSING') {
+          showToast('Video generation in progress...', 'info');
+        }
+      });
+
+      if (result.status === 'SUCCEEDED' && result.output) {
+        // Extract video URL from the response
+        const videoUrl = typeof result.output === 'string'
+          ? result.output
+          : Array.isArray(result.output)
+            ? result.output[0]
+            : null;
+
+        if (!videoUrl) {
+          throw new Error('No video URL in response');
+        }
+
+        // Download and store the video in Supabase
+        showToast('Saving video to your project...', 'info');
+
+        const videoBlob = await fetch(videoUrl).then(res => {
+          if (!res.ok) throw new Error('Failed to download video');
+          return res.blob();
+        });
+
+        const timestamp = Date.now();
+        const fileName = `generated-${timestamp}.mp4`;
+
+        // Convert Blob to File for Supabase storage
+        const videoFile = new File([videoBlob], fileName, { type: 'video/mp4' });
+        const storagePath = `${userId}/${projectId}/${fileName}`;
+
+        // Upload to Supabase storage
+        await database.storage.upload('generated-videos', storagePath, videoFile);
+
+        // Save video metadata to database
+        await database.generatedVideos.create({
+          project_id: projectId,
+          user_id: userId,
+          name: prompt || 'Untitled Video',
+          ai_model: selectedModel,
+          aspect_ratio: aspectRatio,
+          scene_type: sceneType,
+          camera_movement: cameraMovement,
+        });
+
+        // Get the public URL for the stored video
+        const publicVideoUrl = database.storage.getPublicUrl('generated-videos', storagePath);
+
+        setGeneratedVideoUrl(publicVideoUrl);
+
+        showToast('Video generated and saved successfully!', 'success');
+      } else {
+        throw new Error('Video generation failed');
+      }
+
+    } catch (error) {
+      console.error('Error generating video:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to generate video. Please try again.',
+        'error'
+      );
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSave = async () => {

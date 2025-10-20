@@ -1,0 +1,130 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import RunwayML from '@runwayml/sdk';
+import { config } from 'dotenv';
+import { z } from 'zod';
+
+/**
+ * Extract meaningful error message from Runway API error responses
+ * Handles various error formats and extracts the actual error message
+ */
+function extractErrorMessage(errorMessage: string): string {
+  // If it's already a clean error message, return it
+  if (!errorMessage.includes('HTTP') && !errorMessage.includes('{') && !errorMessage.includes('"')) {
+    return errorMessage;
+  }
+
+  // Try to extract from HTTP error format: "HTTP 400: Bad Request - {"error":"message"}"
+  if (errorMessage.includes('HTTP')) {
+    const httpMatch = errorMessage.match(/HTTP \d+: ([^{]*)/);
+    if (httpMatch && httpMatch[1]) {
+      return httpMatch[1].trim();
+    }
+  }
+
+  // Try to extract from JSON error format
+  try {
+    // Look for JSON-like content in the error message
+    const jsonMatch = errorMessage.match(/\{.*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error) {
+        return parsed.error;
+      }
+      if (parsed.message) {
+        return parsed.message;
+      }
+    }
+  } catch {
+    // If JSON parsing fails, continue with other methods
+  }
+
+  // If we can't extract a meaningful message, return a cleaned version
+  return errorMessage.replace(/HTTP \d+: /, '').trim() || 'Failed to create Runway task';
+}
+
+export const createJobSchema = z.object({
+  mode: z.enum(['image-to-video', 'text-to-video']),
+  promptText: z.string().optional(),
+  promptImage: z.string().url().optional(),
+});
+
+
+const apiKey = process.env.RUNWAY_API_KEY || config().parsed?.RUNWAY_API_KEY;
+
+if (!apiKey) {
+  console.warn('⚠️  RUNWAY_API_KEY not set. Runway features will not work in development.');
+}
+
+export const runway = new RunwayML({ apiKey: apiKey || 'dummy-key' });
+
+export type Mode = 'image-to-video' | 'text-to-video';
+
+export async function createVideoTask(input: {
+  mode: Mode;
+  promptText?: string;
+  promptImage?: string;
+}) {
+  // Check if API key is available
+  if (!apiKey) {
+    throw new Error('apiKey not configured. Please set your Runway API key.');
+  }
+
+  if (input.mode === 'image-to-video') {
+    if (!input.promptImage) throw new Error('promptImage required');
+    return await runway.imageToVideo.create({
+      model: 'veo3.1_fast',
+      promptImage: input.promptImage,
+      promptText: input.promptText,
+      ratio: '1280:720',
+      duration: 4,
+    });
+  }
+  if (!input.promptText) throw new Error('promptText required');
+  return await runway.textToVideo.create({
+    model: 'veo3.1_fast',
+    promptText: input.promptText,
+    ratio: '1280:720',
+    duration: 4,
+  });
+}
+
+export async function getRunwayTask(taskId: string) {
+  // Check if API key is available
+  if (!apiKey) {
+    throw new Error('RUNWAY_API_KEY not configured. Please set your Runway API key.');
+  }
+
+  return await runway.tasks.retrieve(taskId);
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('req.body', req.body);
+  if (req.method !== 'POST') return res.status(405).end();
+  const parsed = createJobSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    const task = await createVideoTask(parsed.data);
+    return res.status(200).json({ taskId: task.id, status: 'processing' });
+  } catch (error) {
+    console.error('Error creating Runway task:', error);
+
+    // Handle different types of errors
+    let statusCode = 500;
+    let errorMessage = 'Failed to create Runway task';
+
+    if (error instanceof Error) {
+      // Try to extract meaningful error message from the error response
+      errorMessage = extractErrorMessage(error.message);
+
+      // Determine status code based on error content
+      if (error.message.includes('HTTP 4')) {
+        statusCode = 400;
+      } else if (error.message.includes('HTTP 5')) {
+        statusCode = 500;
+      }
+    }
+
+    return res.status(statusCode).json({ error: errorMessage });
+  }
+}
