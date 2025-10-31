@@ -23,3 +23,5 @@ dist-ssr
 .env
 .vercel
 dev-server.js
+bin/supabase
+test-results/
