@@ -25,14 +25,16 @@ interface ProjectWorkspaceProps {
   onBack: () => void;
   onUpdateProject?: (project: Project) => void;
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
+  defaultTab?: 'media' | 'edited' | 'videos';
+  onMounted?: () => void;
 }
 
-function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage }: ProjectWorkspaceProps) {
+function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>('media');
+  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>(defaultTab);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
@@ -77,12 +79,28 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
 
   useEffect(() => {
     loadProjectData();
-  }, [project.id, loadProjectData]);
+  }, [loadProjectData]);
 
   useEffect(() => {
     setCurrentProject(project);
     setEditedName(project.name);
   }, [project]);
+
+  useEffect(() => {
+    // Update active tab when defaultTab prop changes
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+      // Also refresh data when switching to edited tab from editor
+      if (defaultTab === 'edited') {
+        loadProjectData();
+      }
+    }
+  }, [defaultTab, loadProjectData]);
+
+  useEffect(() => {
+    // Notify parent when component is mounted/remounted
+    onMounted?.();
+  }, [onMounted]);
 
   const handleStartEdit = useCallback(() => {
     setIsEditingName(true);

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import RunwayML from '@runwayml/sdk';
 import { config } from 'dotenv';
-import { z } from 'zod';
+import { createJobSchema } from '../../validation';
 
 /**
  * Extract meaningful error message from Runway API error responses
@@ -42,13 +42,6 @@ function extractErrorMessage(errorMessage: string): string {
   return errorMessage.replace(/HTTP \d+: /, '').trim() || 'Failed to create Runway task';
 }
 
-export const createJobSchema = z.object({
-  mode: z.enum(['image-to-video', 'text-to-video']),
-  promptText: z.string().optional(),
-  promptImage: z.string().url().optional(),
-});
-
-
 const apiKey = process.env.RUNWAY_API_KEY || config().parsed?.RUNWAY_API_KEY;
 
 if (!apiKey) {
@@ -57,12 +50,13 @@ if (!apiKey) {
 
 export const runway = new RunwayML({ apiKey: apiKey || 'dummy-key' });
 
-export type Mode = 'image-to-video' | 'text-to-video';
+export type Mode = 'image-to-video' | 'text-to-video' | 'image-generation';
 
 export async function createVideoTask(input: {
   mode: Mode;
   promptText?: string;
   promptImage?: string;
+  model?: string;
 }) {
   // Check if API key is available
   if (!apiKey) {
@@ -79,12 +73,92 @@ export async function createVideoTask(input: {
       duration: 4,
     });
   }
+
+  if (input.mode === 'text-to-video') {
+    if (!input.promptText) throw new Error('promptText required');
+    return await runway.textToVideo.create({
+      model: 'veo3.1_fast',
+      promptText: input.promptText,
+      ratio: '1280:720',
+      duration: 4,
+    });
+  }
+
+  throw new Error(`Unsupported mode: ${input.mode}`);
+}
+
+const supportedImageModels = new Set<RunwayML.TextToImageCreateParams['model']>([
+  'gen4_image',
+  'gen4_image_turbo',
+  'gemini_2.5_flash',
+]);
+
+const supportedImageRatios = new Set<RunwayML.TextToImageCreateParams['ratio']>([
+  '1920:1080',
+  '1080:1920',
+  '1024:1024',
+  '1360:768',
+  '1080:1080',
+  '1168:880',
+  '1440:1080',
+  '1080:1440',
+  '1808:768',
+  '2112:912',
+  '1280:720',
+  '720:1280',
+  '720:720',
+  '960:720',
+  '720:960',
+  '1680:720',
+  '1344:768',
+  '768:1344',
+  '1184:864',
+  '864:1184',
+  '1536:672',
+  '832x1248',
+  '1248x832',
+  '896x1152',
+  '1152x896',
+]);
+
+const defaultImageRatio: RunwayML.TextToImageCreateParams['ratio'] = '1280:720';
+
+export async function createImageTask(input: {
+  promptImage: string;
+  promptText: string;
+  model?: string;
+  ratio?: RunwayML.TextToImageCreateParams['ratio'];
+}) {
+  // Check if API key is available
+  if (!apiKey) {
+    throw new Error('apiKey not configured. Please set your Runway API key.');
+  }
+
+  if (!input.promptImage) throw new Error('promptImage required');
   if (!input.promptText) throw new Error('promptText required');
-  return await runway.textToVideo.create({
-    model: 'veo3.1_fast',
+
+  const modelName: RunwayML.TextToImageCreateParams['model'] = supportedImageModels.has(
+    input.model as RunwayML.TextToImageCreateParams['model'],
+  )
+    ? (input.model as RunwayML.TextToImageCreateParams['model'])
+    : 'gen4_image';
+
+  const ratioCandidate = input.ratio ?? defaultImageRatio;
+  const ratio: RunwayML.TextToImageCreateParams['ratio'] = supportedImageRatios.has(
+    ratioCandidate,
+  )
+    ? ratioCandidate
+    : defaultImageRatio;
+
+  return await runway.textToImage.create({
+    model: modelName,
     promptText: input.promptText,
-    ratio: '1280:720',
-    duration: 4,
+    ratio,
+    referenceImages: [
+      {
+        uri: input.promptImage,
+      },
+    ],
   });
 }
 
@@ -104,7 +178,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   try {
-    const task = await createVideoTask(parsed.data);
+    let task;
+    
+    if (parsed.data.mode === 'image-generation') {
+      if (!parsed.data.promptImage) {
+        return res.status(400).json({ error: 'promptImage required for image-generation mode' });
+      }
+      if (!parsed.data.promptText) {
+        return res.status(400).json({ error: 'promptText required for image-generation mode' });
+      }
+      task = await createImageTask({
+        promptImage: parsed.data.promptImage,
+        promptText: parsed.data.promptText,
+        model: parsed.data.model,
+      });
+    } else {
+      task = await createVideoTask(parsed.data);
+    }
+    
     return res.status(200).json({ taskId: task.id, status: 'processing' });
   } catch (error) {
     console.error('Error creating Runway task:', error);

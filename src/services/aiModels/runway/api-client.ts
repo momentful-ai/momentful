@@ -50,9 +50,17 @@ function parseRunwayError(errorData: unknown): string | null {
 }
 
 export interface CreateJobRequest {
-  mode: 'image-to-video' | 'text-to-video';
+  mode: 'image-to-video' | 'text-to-video' | 'image-generation';
   promptText?: string;
   promptImage?: string;
+  model?: string;
+}
+
+export interface CreateImageJobRequest {
+  mode: 'image-generation';
+  promptImage: string;
+  promptText: string;
+  model?: string;
 }
 
 export interface JobResponse {
@@ -98,6 +106,13 @@ export async function createRunwayJob(data: CreateJobRequest): Promise<JobRespon
 }
 
 /**
+ * Create a new image generation job
+ */
+export async function createRunwayImageJob(data: CreateImageJobRequest): Promise<JobResponse> {
+  return createRunwayJob(data);
+}
+
+/**
  * Get the status of a video generation job
  */
 export async function getRunwayJobStatus(taskId: string): Promise<JobStatusResponse> {
@@ -122,6 +137,52 @@ export async function getRunwayJobStatus(taskId: string): Promise<JobStatusRespo
   }
 
   return response.json();
+}
+
+/**
+ * Extract image URL from Runway job status response
+ * Handles different output formats (string URL, array of URLs, or nested object)
+ */
+export function extractImageUrl(statusResponse: JobStatusResponse): string | null {
+  if (!statusResponse.output) {
+    return null;
+  }
+
+  // If output is a string URL, return it
+  if (typeof statusResponse.output === 'string') {
+    return statusResponse.output;
+  }
+
+  // If output is an array, return the first URL
+  if (Array.isArray(statusResponse.output)) {
+    if (statusResponse.output.length > 0) {
+      const firstOutput = statusResponse.output[0];
+      if (typeof firstOutput === 'string') {
+        return firstOutput;
+      }
+      // Handle array of objects with URL property
+      if (typeof firstOutput === 'object' && firstOutput !== null && 'url' in firstOutput) {
+        return (firstOutput as { url: string }).url;
+      }
+    }
+    return null;
+  }
+
+  // If output is an object, try to extract URL from common properties
+  if (typeof statusResponse.output === 'object' && statusResponse.output !== null) {
+    const outputObj = statusResponse.output as Record<string, unknown>;
+    if ('url' in outputObj && typeof outputObj.url === 'string') {
+      return outputObj.url;
+    }
+    if ('imageUrl' in outputObj && typeof outputObj.imageUrl === 'string') {
+      return outputObj.imageUrl;
+    }
+    if ('image_url' in outputObj && typeof outputObj.image_url === 'string') {
+      return outputObj.image_url;
+    }
+  }
+
+  return null;
 }
 
 /**
