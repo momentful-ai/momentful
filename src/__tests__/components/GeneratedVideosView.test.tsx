@@ -55,13 +55,12 @@ describe('GeneratedVideosView', () => {
       scene_type: 'product-showcase',
       camera_movement: 'static',
       storage_path: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      thumbnail_url: null,
+      thumbnail_url: undefined,
       duration: 30,
       status: 'completed',
       version: 1,
-      parent_id: null,
-      runway_task_id: null,
+      parent_id: undefined,
+      runway_task_id: undefined,
       created_at: '2025-10-20T15:59:30.165+00:00',
       completed_at: '2025-10-20T15:59:30.166+00:00',
     },
@@ -168,10 +167,9 @@ describe('GeneratedVideosView', () => {
     const processingVideo: GeneratedVideo = {
       ...mockVideos[0],
       status: 'processing',
-      storage_path: null,
-      video_url: null,
-      duration: null,
-      completed_at: null,
+      storage_path: undefined,
+      duration: undefined,
+      completed_at: undefined,
     };
 
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={[processingVideo]} />);
@@ -187,8 +185,7 @@ describe('GeneratedVideosView', () => {
     const failedVideo: GeneratedVideo = {
       ...mockVideos[0],
       status: 'failed',
-      storage_path: null,
-      video_url: null,
+      storage_path: undefined,
     };
 
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={[failedVideo]} />);

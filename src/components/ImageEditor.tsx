@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Wand2, ArrowLeft, Sparkles, History } from 'lucide-react';
+import { Wand2, ArrowLeft, Sparkles, History, Crop } from 'lucide-react';
 import { MediaAsset } from '../types';
 import { imageModels } from '../data/aiModels';
 import { database } from '../lib/database';
@@ -10,6 +10,15 @@ import {
   pollJobStatus,
   extractImageUrl,
 } from '../services/aiModels/runway/api-client';
+
+// Aspect ratio options for image generation - mapped to Runway SDK ratios
+const ASPECT_RATIOS = [
+  { id: '1280:720', label: '16:9', description: 'Landscape (YouTube, Web)', runwayRatio: '1280:720' },
+  { id: '720:1280', label: '9:16', description: 'Portrait (TikTok, Stories)', runwayRatio: '720:1280' },
+  { id: '1024:1024', label: '1:1', description: 'Square (Instagram Feed)', runwayRatio: '1024:1024' },
+  { id: '1920:1080', label: '16:9 (HD)', description: 'Full HD Landscape', runwayRatio: '1920:1080' },
+  { id: '1080:1920', label: '9:16 (HD)', description: 'Full HD Portrait', runwayRatio: '1080:1920' },
+] as const;
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -24,6 +33,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
   const [prompt, setPrompt] = useState('');
   const [context, setContext] = useState('');
+  const [selectedRatio, setSelectedRatio] = useState<string>(ASPECT_RATIOS[0].id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
@@ -162,12 +172,17 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
 
       showToast('Starting image generation...', 'info');
 
+      // Get the Runway ratio from selected aspect ratio
+      const selectedRatioOption = ASPECT_RATIOS.find((r) => r.id === selectedRatio);
+      const runwayRatio = selectedRatioOption?.runwayRatio || ASPECT_RATIOS[0].runwayRatio;
+
       // Create Runway image generation job
       const { taskId } = await createRunwayImageJob({
         mode: 'image-generation',
         promptImage: imageUrl,
         promptText: enhancedPrompt,
-        model: 'gen4_image',
+        model: 'gen4_image_turbo',
+        ratio: runwayRatio,
       });
 
       // Poll for completion
@@ -194,7 +209,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       showToast('Image generated! Uploading...', 'info');
 
       // Download and upload to storage
-      const { storagePath, width, height } = await downloadAndUploadImage(
+      const { storagePath } = await downloadAndUploadImage(
         generatedImageUrl,
         projectId
       );
@@ -241,12 +256,28 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       // Get dimensions from the generated image
       const { width, height } = await getImageDimensionsFromUrl(editedImageUrl);
 
+      // Parse context safely - handle empty string and invalid JSON
+      let parsedContext = {};
+      if (context && typeof context === 'string') {
+        try {
+          const trimmed = context.trim();
+          if (trimmed) {
+            parsedContext = JSON.parse(trimmed);
+          }
+        } catch {
+          // If JSON parsing fails, treat context as a plain string and wrap it
+          parsedContext = { text: context };
+        }
+      } else if (context && typeof context === 'object') {
+        parsedContext = context;
+      }
+
       await database.editedImages.create({
         project_id: projectId,
         user_id: userId,
         source_asset_id: asset.id,
         prompt,
-        context: typeof context === 'string' ? JSON.parse(context) : (context || {}),
+        context: parsedContext,
         ai_model: selectedModel,
         storage_path: generatedStoragePath,
         width,
@@ -428,6 +459,36 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
                         <div className="w-1.5 h-1.5 bg-primary-foreground rounded-full" />
                       </div>
                     )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-6 border-b border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Crop className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Aspect Ratio</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose the output aspect ratio for your edited image
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {ASPECT_RATIOS.map((ratio) => (
+                <button
+                  key={ratio.id}
+                  onClick={() => setSelectedRatio(ratio.id)}
+                  className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${
+                    selectedRatio === ratio.id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-border/70'
+                  }`}
+                >
+                  <div className="font-medium text-foreground text-sm mb-0.5">
+                    {ratio.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {ratio.description}
                   </div>
                 </button>
               ))}

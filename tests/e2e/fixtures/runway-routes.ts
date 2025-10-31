@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { test as base } from '@playwright/test';
 
 /**
@@ -5,7 +6,7 @@ import { test as base } from '@playwright/test';
  * This ensures E2E tests are deterministic, fast, and don't incur API costs.
  */
 export const test = base.extend({
-  context: async ({ context }, use) => {
+  context: async ({ context }, useFixture) => {
     // Mock POST /api/runway/jobs (create job)
     await context.route('**/api/runway/jobs', async route => {
       await route.fulfill({
@@ -55,7 +56,7 @@ export const test = base.extend({
     // Also block any other potential external API calls (safety net)
     await context.route('https://api.replicate.com/**', route => route.abort());
 
-    await use(context);
+    await useFixture(context);
   },
 });
 
@@ -63,7 +64,7 @@ export const test = base.extend({
  * Alternative fixture for testing failure scenarios
  */
 export const testFailure = base.extend({
-  context: async ({ context }, use) => {
+  context: async ({ context }, useFixture) => {
     // Mock POST /api/runway/jobs (create job)
     await context.route('**/api/runway/jobs', async route => {
       await route.fulfill({
@@ -92,6 +93,6 @@ export const testFailure = base.extend({
     // Hard block any accidental calls to real Runway API
     await context.route('https://api.runwayml.com/**', route => route.abort());
 
-    await use(context);
+    await useFixture(context);
   },
 });

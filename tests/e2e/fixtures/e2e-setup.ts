@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { test as base } from '@playwright/test';
 
 /**
@@ -9,7 +10,17 @@ import { test as base } from '@playwright/test';
  * This ensures E2E tests are deterministic, fast, and don't incur API costs.
  */
 export const test = base.extend({
-  context: async ({ context }, use) => {
+  page: async ({ page }, use) => {
+    // Set up authentication bypass BEFORE the app loads
+    await page.addInitScript(() => {
+      // Set bypass mode in localStorage before React app initializes
+      window.localStorage.setItem('DEV_AUTH_MODE', 'bypass');
+    });
+    
+    // Use the page from base fixture
+    await use(page);
+  },
+  context: async ({ context }, useFixture) => {
     // === RUNWAY API MOCKS ===
 
     // Mock POST /api/runway/jobs (create job)
@@ -200,7 +211,7 @@ export const test = base.extend({
       }
     });
 
-    await use(context);
+    await useFixture(context);
   },
 });
 
@@ -208,7 +219,7 @@ export const test = base.extend({
  * Alternative fixture for testing failure scenarios
  */
 export const testFailure = base.extend({
-  context: async ({ context }, use) => {
+  context: async ({ context }, useFixture) => {
     // === RUNWAY API MOCKS (FAILURE) ===
 
     // Mock POST /api/runway/jobs (create job)
@@ -318,6 +329,6 @@ export const testFailure = base.extend({
       });
     });
 
-    await use(context);
+    await useFixture(context);
   },
 });

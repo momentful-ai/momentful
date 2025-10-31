@@ -61,6 +61,7 @@ export interface CreateImageJobRequest {
   promptImage: string;
   promptText: string;
   model?: string;
+  ratio: string;
 }
 
 export interface JobResponse {

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import RunwayML from '@runwayml/sdk';
 import { config } from 'dotenv';
-import { createJobSchema } from '../../validation';
+import { createJobSchema } from '../../validation.js';
 
 /**
  * Extract meaningful error message from Runway API error responses
@@ -157,6 +157,7 @@ export async function createImageTask(input: {
     referenceImages: [
       {
         uri: input.promptImage,
+        tag: 'source',
       },
     ],
   });
@@ -187,10 +188,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!parsed.data.promptText) {
         return res.status(400).json({ error: 'promptText required for image-generation mode' });
       }
+      if (!parsed.data.ratio) {
+        return res.status(400).json({ error: 'ratio required for image-generation mode' });
+      }
       task = await createImageTask({
         promptImage: parsed.data.promptImage,
         promptText: parsed.data.promptText,
         model: parsed.data.model,
+        ratio: parsed.data.ratio,
       });
     } else {
       task = await createVideoTask(parsed.data);
