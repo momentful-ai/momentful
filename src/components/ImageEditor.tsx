@@ -5,6 +5,11 @@ import { imageModels } from '../data/aiModels';
 import { database } from '../lib/database';
 import { useUserId } from '../hooks/useUserId';
 import { useToast } from '../hooks/useToast';
+import {
+  createRunwayImageJob,
+  pollJobStatus,
+  extractImageUrl,
+} from '../services/aiModels/runway/api-client';
 
 interface ImageEditorProps {
   asset: MediaAsset;
@@ -22,6 +27,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
+  const [generatedStoragePath, setGeneratedStoragePath] = useState<string | null>(null);
   const [versions, setVersions] = useState<Array<{ prompt: string; model: string; timestamp: string }>>([]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
@@ -60,26 +66,164 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
     return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
+  /**
+   * Get image dimensions from a URL
+   */
+  const getImageDimensionsFromUrl = (url: string): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
+  /**
+   * Download image from URL and upload to Supabase storage
+   */
+  const downloadAndUploadImage = async (
+    imageUrl: string,
+    projectId: string
+  ): Promise<{ storagePath: string; width: number; height: number }> => {
+    if (!userId) {
+      throw new Error('User ID is required to upload images');
+    }
+
+    // Download the image
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const timestamp = Date.now();
+    const fileName = `edited-${timestamp}.png`;
+    // Use standardized path format: userId/projectId/filename
+    const storagePath = `${userId}/${projectId}/${fileName}`;
+
+    // Convert blob to File
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    // Upload to Supabase storage
+    await database.storage.upload('user-uploads', storagePath, file);
+
+    // Get image dimensions
+    const { width, height } = await getImageDimensionsFromUrl(imageUrl);
+
+    return { storagePath, width, height };
+  };
+
+  /**
+   * Build enhanced prompt for product image generation
+   */
+  const buildEnhancedPrompt = (userPrompt: string, context: string): string => {
+    let enhancedPrompt = userPrompt.trim();
+
+    // Add context if provided
+    if (context.trim()) {
+      enhancedPrompt = `${context.trim()}. ${enhancedPrompt}`;
+    }
+
+    // Append enhancement instructions for product images
+    enhancedPrompt += '. Remove background clutter, create studio-quality lighting, professional product photography, white background, sharp focus';
+
+    return enhancedPrompt;
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
+    setShowComparison(false);
+    setEditedImageUrl(null);
+    setGeneratedStoragePath(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      // Only Runway Gen-4 Turbo is currently implemented
+      if (selectedModel !== 'runway-gen4-turbo') {
+        showToast(`${selectedModel} is not yet implemented. Please use Runway Gen-4 Turbo.`, 'warning');
+        setIsGenerating(false);
+        return;
+      }
 
-    setEditedImageUrl(getAssetUrl(asset.storage_path));
-    setShowComparison(true);
+      if (!userId) {
+        showToast('User must be logged in to generate images', 'error');
+        setIsGenerating(false);
+        return;
+      }
 
-    setVersions([
-      {
-        prompt,
-        model: selectedModel,
-        timestamp: new Date().toISOString(),
-      },
-      ...versions,
-    ]);
+      // Get source image URL
+      const imageUrl = getAssetUrl(asset.storage_path);
 
-    setIsGenerating(false);
+      // Build enhanced prompt
+      const enhancedPrompt = buildEnhancedPrompt(prompt, context);
+
+      showToast('Starting image generation...', 'info');
+
+      // Create Runway image generation job
+      const { taskId } = await createRunwayImageJob({
+        mode: 'image-generation',
+        promptImage: imageUrl,
+        promptText: enhancedPrompt,
+        model: 'gen4_image',
+      });
+
+      // Poll for completion
+      showToast('Generating image...', 'info');
+      const result = await pollJobStatus(
+        taskId,
+        (status, progress) => {
+          if (progress !== undefined) {
+            showToast(`Generating... ${progress}%`, 'info');
+          } else {
+            showToast(`Status: ${status}`, 'info');
+          }
+        },
+        60, // maxAttempts
+        2000 // intervalMs
+      );
+
+      // Extract image URL from response
+      const generatedImageUrl = extractImageUrl(result);
+      if (!generatedImageUrl) {
+        throw new Error('Failed to extract image URL from Runway response');
+      }
+
+      showToast('Image generated! Uploading...', 'info');
+
+      // Download and upload to storage
+      const { storagePath, width, height } = await downloadAndUploadImage(
+        generatedImageUrl,
+        projectId
+      );
+
+      // Update state with new image
+      const uploadedImageUrl = getAssetUrl(storagePath);
+      setEditedImageUrl(uploadedImageUrl);
+      setGeneratedStoragePath(storagePath);
+      setShowComparison(true);
+
+      // Add to version history
+      setVersions([
+        {
+          prompt,
+          model: selectedModel,
+          timestamp: new Date().toISOString(),
+        },
+        ...versions,
+      ]);
+
+      showToast('Image generated successfully!', 'success');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to generate image. Please try again.';
+      showToast(errorMessage, 'error');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSave = async () => {
@@ -88,7 +232,15 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       return;
     }
 
+    if (!generatedStoragePath || !editedImageUrl) {
+      showToast('Please generate an image before saving', 'warning');
+      return;
+    }
+
     try {
+      // Get dimensions from the generated image
+      const { width, height } = await getImageDimensionsFromUrl(editedImageUrl);
+
       await database.editedImages.create({
         project_id: projectId,
         user_id: userId,
@@ -96,9 +248,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         prompt,
         context: typeof context === 'string' ? JSON.parse(context) : (context || {}),
         ai_model: selectedModel,
-        storage_path: asset.storage_path,
-        width: asset.width || 0,
-        height: asset.height || 0,
+        storage_path: generatedStoragePath,
+        width,
+        height,
       });
 
       showToast('Image saved successfully', 'success');

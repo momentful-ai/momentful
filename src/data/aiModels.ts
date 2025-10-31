@@ -2,6 +2,13 @@ import { AIModel } from '../types';
 
 export const imageModels: AIModel[] = [
   {
+    id: 'runway-gen4-turbo',
+    name: 'Runway Gen-4 Turbo',
+    description: 'Best for transforming product shots into studio-quality images',
+    type: 'image',
+    provider: 'Runway',
+  },
+  {
     id: 'stable-diffusion-xl',
     name: 'Stable Diffusion XL',
     description: 'Best for realistic product photos and detailed edits',

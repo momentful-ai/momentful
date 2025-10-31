@@ -21,6 +21,7 @@ export interface EditedImage {
   ai_model: string;
   storage_path: string;
   thumbnail_url: string | null;
+  edited_url: string;
   width: number;
   height: number;
   version: number;
@@ -167,7 +168,10 @@ export const database = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map((row) => ({
+        ...row,
+        edited_url: database.storage.getPublicUrl('user-uploads', row.storage_path),
+      }));
     },
 
     async create(image: {
@@ -191,7 +195,10 @@ export const database = {
         .single();
 
       if (error) throw error;
-      return data;
+      return {
+        ...data,
+        edited_url: database.storage.getPublicUrl('user-uploads', data.storage_path),
+      };
     },
 
     async delete(imageId: string) {
