@@ -225,6 +225,7 @@ export const database = {
       scene_type?: string;
       camera_movement?: string;
       runway_task_id?: string;
+      video_url?: string;
       storage_path?: string;
       status?: 'processing' | 'completed' | 'failed';
       completed_at?: string;

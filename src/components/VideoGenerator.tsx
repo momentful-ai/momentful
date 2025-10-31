@@ -234,6 +234,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           scene_type: sceneType,
           camera_movement: cameraMovement,
           runway_task_id: runwayTaskId,
+          video_url: runwayVideoUrl,
           storage_path: runwayVideoUrl, // Store the direct Runway URL
           status: 'completed',
           completed_at: new Date().toISOString(),
@@ -261,10 +262,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     }
   };
 
-  const handleSave = async () => {
-    if (!generatedVideoUrl) return;
-    onSave();
-  };
 
   const removeSource = (id: string) => {
     setSelectedSources(selectedSources.filter((s) => s.id !== id));
@@ -427,13 +424,6 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
               className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!generatedVideoUrl}
-              className="px-6 py-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-colors"
-            >
-              Save to Project
             </button>
           </div>
         </div>

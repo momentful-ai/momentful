@@ -42,7 +42,7 @@ async function insertVideosIntoCorrectProject() {
         aspect_ratio: '9:16',
         scene_type: 'product-showcase',
         camera_movement: 'slow-pan',
-        storage_path: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        storage_path: 'https://dnznrvs05pmza.cloudfront.net/veo3.1/projects/vertex-ai-claude-431722/locations/us-central1/publishers/google/models/veo-3.1-fast-generate-preview/operations/642e138d-84e0-46d9-97c3-656970f63d42/showcase_this_necklace_illuminated_in_a_dark_room.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYTJkN2I5YjhlZTc0Mjg3YiIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc2MTA5MTIwMH0.yYT8k8EWwwzjCEXW2ECQmpZusaRN3KwXYZ0eIR4w2Lo',
         video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
         status: 'completed',
         duration: 30,
