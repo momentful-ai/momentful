@@ -1,9 +1,9 @@
 import { Download, Share2, Film, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { GeneratedVideo } from '../types';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { formatDate } from '../lib/utils';
+import { GeneratedVideo } from '../../types';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { formatDate } from '../../lib/utils';
 
 interface GeneratedVideosViewProps {
   videos: GeneratedVideo[];

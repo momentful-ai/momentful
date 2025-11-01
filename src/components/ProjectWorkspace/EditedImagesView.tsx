@@ -1,9 +1,9 @@
 import { Download, Share2, Image as ImageIcon } from 'lucide-react';
-import { EditedImage } from '../types';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { formatDate } from '../lib/utils';
+import { EditedImage } from '../../types';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { formatDate } from '../../lib/utils';
 
 interface EditedImagesViewProps {
   images: EditedImage[];

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ProjectWorkspace } from '../../components/ProjectWorkspace';
+import { ProjectWorkspace } from '../../components/ProjectWorkspace/ProjectWorkspace';
 import { database } from '../../lib/database';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import { EditedImage, MediaAsset } from '../../types';
