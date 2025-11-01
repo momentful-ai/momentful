@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { IMAGE_ASPECT_RATIOS } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
@@ -22,6 +23,7 @@ import { ImageEditorProps, VersionHistoryItem } from './types';
 
 export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorProps) {
   const userId = useUserId();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
   const [prompt, setPrompt] = useState('');
@@ -248,6 +250,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           width,
           height,
         });
+
+        // Invalidate edited images query to refresh the list
+        await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
 
         showToast('Image generated and saved successfully!', 'success');
         // Automatically refresh parent component to show the new edited image

@@ -4,20 +4,27 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { formatDate } from '../../lib/utils';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 
 interface GeneratedVideosViewProps {
-  videos: GeneratedVideo[];
+  projectId: string;
   viewMode: 'grid' | 'list';
   onExport: (video: GeneratedVideo) => void;
   onPublish: (video: GeneratedVideo) => void;
 }
 
 export function GeneratedVideosView({
-  videos,
+  projectId,
   viewMode,
   onExport,
   onPublish,
 }: GeneratedVideosViewProps) {
+  const { data: videos = [], isLoading } = useGeneratedVideos(projectId);
+
+  if (isLoading) {
+    return <MediaLibrarySkeleton />;
+  }
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'processing':

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
-import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
+import { Project, MediaAsset } from '../../types';
 import { database } from '../../lib/database';
 import { FileUpload } from '../FileUpload';
 import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
@@ -12,12 +12,13 @@ import { GeneratedVideosView } from './GeneratedVideosView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 import { mergeName } from '../../lib/utils';
-import { updateProjectVideoStatuses } from '../../services/aiModels/runway';
 import { downloadBulkAsZip } from '../../lib/download';
 import { getAssetUrl } from '../../lib/media';
 import { useToast } from '../../hooks/useToast';
+import { useMediaAssets } from '../../hooks/useMediaAssets';
+import { useEditedImages } from '../../hooks/useEditedImages';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -40,52 +41,26 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const inputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>(defaultTab);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
-  const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
-  const [generatedVideos, setGeneratedVideos] = useState<GeneratedVideo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
   const [exportAsset, setExportAsset] = useState<{ id: string; type: 'video' | 'image'; url: string } | null>(null);
   const [publishAsset, setPublishAsset] = useState<{ id: string; type: 'video' | 'image' } | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const { showToast } = useToast();
 
-  const loadProjectData = useCallback(async () => {
-    try {
-      setLoading(true);
+  // Use React Query hooks with lazy loading based on active tab
+  // React Query shares cache between queries with the same key, so enabling all queries
+  // for counts won't cause duplicate fetches - they'll use the same cache entry.
+  // With localStorage persistence, cached data is available immediately on mount.
+  const { data: mediaAssets = [] } = useMediaAssets(project.id, { enabled: activeTab === 'media' });
+  const { data: editedImages = [] } = useEditedImages(project.id, { enabled: activeTab === 'edited' });
+  const { data: generatedVideos = [] } = useGeneratedVideos(project.id, { enabled: activeTab === 'videos' });
 
-      const [mediaAssets, editedImages, videos] = await Promise.all([
-        database.mediaAssets.list(project.id),
-        database.editedImages.list(project.id),
-        database.generatedVideos.list(project.id),
-      ]);
-
-      setMediaAssets(mediaAssets);
-      setEditedImages(editedImages);
-      setGeneratedVideos(videos);
-
-      // Update video statuses from Runway for videos that have Runway task IDs
-      try {
-        await updateProjectVideoStatuses(project.id);
-        // Refresh videos after updating statuses
-        const updatedVideos = await database.generatedVideos.list(project.id);
-        setGeneratedVideos(updatedVideos);
-      } catch (error) {
-        console.error('Error updating video statuses from Runway:', error);
-        // Don't show error to user, just log it - videos will still work from local storage
-      }
-    } catch (error) {
-      console.error('Error loading project data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [project.id]);
-
-  useEffect(() => {
-    loadProjectData();
-  }, [loadProjectData]);
+  // Load counts for all tabs - these queries share cache with the active tab queries above
+  // They'll use cached data immediately and won't refetch if data is fresh (staleTime: 5min)
+  const { data: mediaAssetsForCount = [] } = useMediaAssets(project.id, { enabled: true });
+  const { data: editedImagesForCount = [] } = useEditedImages(project.id, { enabled: true });
+  const { data: generatedVideosForCount = [] } = useGeneratedVideos(project.id, { enabled: true });
 
   useEffect(() => {
     setCurrentProject(project);
@@ -96,12 +71,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     // Update active tab when defaultTab prop changes
     if (defaultTab) {
       setActiveTab(defaultTab);
-      // Also refresh data when switching to edited tab from editor
-      if (defaultTab === 'edited') {
-        loadProjectData();
-      }
     }
-  }, [defaultTab, loadProjectData]);
+  }, [defaultTab]);
 
   useEffect(() => {
     // Notify parent when component is mounted/remounted
@@ -259,10 +230,10 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   }, [activeTab, mediaAssets.length, editedImages.length, generatedVideos]);
 
   const tabCounts = useMemo(() => ({
-    media: mediaAssets.length,
-    edited: editedImages.length,
-    videos: generatedVideos.length,
-  }), [mediaAssets.length, editedImages.length, generatedVideos.length]);
+    media: mediaAssetsForCount.length,
+    edited: editedImagesForCount.length,
+    videos: generatedVideosForCount.length,
+  }), [mediaAssetsForCount.length, editedImagesForCount.length, generatedVideosForCount.length]);
 
   const tabs = useMemo(() => [
     { id: 'media' as const, label: 'Media Library', count: tabCounts.media },
@@ -441,39 +412,34 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         </div>
 
         <div className="p-6">
-          {loading ? <MediaLibrarySkeleton/> : (
-            <>
-              {activeTab === 'media' && (
-                <div key="media-tab" className="animate-fade-in">
-                  <MemoizedMediaLibrary
-                    key={refreshKey}
-                    projectId={project.id}
-                    onEditImage={onEditImage}
-                    viewMode={viewMode}
-                  />
-                </div>
-              )}
-              {activeTab === 'edited' && (
-                <div key="edited-tab" className="animate-fade-in">
-                  <MemoizedEditedImagesView
-                    images={editedImages}
-                    viewMode={viewMode}
-                    onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
-                    onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
-                  />
-                </div>
-              )}
-              {activeTab === 'videos' && (
-                <div key="videos-tab" className="animate-fade-in">
-                  <MemoizedGeneratedVideosView
-                    videos={generatedVideos}
-                    viewMode={viewMode}
-                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
-                    onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
-                  />
-                </div>
-              )}
-            </>
+          {activeTab === 'media' && (
+            <div key="media-tab" className="animate-fade-in">
+              <MemoizedMediaLibrary
+                projectId={project.id}
+                onEditImage={onEditImage}
+                viewMode={viewMode}
+              />
+            </div>
+          )}
+          {activeTab === 'edited' && (
+            <div key="edited-tab" className="animate-fade-in">
+              <MemoizedEditedImagesView
+                projectId={project.id}
+                viewMode={viewMode}
+                onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
+                onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
+              />
+            </div>
+          )}
+          {activeTab === 'videos' && (
+            <div key="videos-tab" className="animate-fade-in">
+              <MemoizedGeneratedVideosView
+                projectId={project.id}
+                viewMode={viewMode}
+                onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
+                onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
+              />
+            </div>
           )}
         </div>
       </Card>
@@ -483,8 +449,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           projectId={project.id}
           onUploadComplete={() => {
             setShowUploadModal(false);
-            setRefreshKey((prev) => prev + 1);
-            loadProjectData();
+            // Cache invalidation handled by useUploadMedia hook
           }}
           onClose={() => setShowUploadModal(false)}
         />
@@ -496,7 +461,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           onClose={() => setShowVideoGenerator(false)}
           onSave={() => {
             setShowVideoGenerator(false);
-            loadProjectData();
+            // Cache invalidation handled by VideoGenerator
           }}
         />
       )}

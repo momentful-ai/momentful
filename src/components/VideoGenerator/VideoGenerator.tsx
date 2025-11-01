@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
+import { useEditedImages } from '../../hooks/useEditedImages';
+import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { videoModels } from '../../data/aiModels';
-import { EditedImage, MediaAsset } from '../../types';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import { VideoGeneratorHeader } from './VideoGeneratorHeader';
 import { VideoGeneratorLeftPanel } from './VideoGeneratorLeftPanel';
@@ -26,34 +27,20 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<boolean>(false);
-  const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
-  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
-  const [, setLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'add' | 'remove'>('add');
   const selectionStartRef = useRef<{ id: string; type: 'edited_image' | 'media_asset' } | null>(null);
 
-  const loadSources = useCallback(async () => {
-    try {
-      const [editedImagesData, mediaAssetsData] = await Promise.all([
-        database.editedImages.list(projectId),
-        database.mediaAssets.list(projectId),
-      ]);
+  // Use React Query hooks to load sources
+  const { data: editedImagesData = [] } = useEditedImages(projectId);
+  const { data: mediaAssetsData = [] } = useMediaAssets(projectId);
 
-      setEditedImages(editedImagesData || []);
-      // Filter media assets to only include images
-      const imageAssets = (mediaAssetsData || []).filter(asset => asset.file_type === 'image');
-      setMediaAssets(imageAssets);
-    } catch (error) {
-      console.error('Error loading sources:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    loadSources();
-  }, [loadSources]);
+  // Filter media assets to only include images
+  const editedImages = editedImagesData;
+  const mediaAssets = useMemo(() => 
+    (mediaAssetsData || []).filter(asset => asset.file_type === 'image'),
+    [mediaAssetsData]
+  );
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
@@ -172,6 +159,9 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
         console.log('Generated video URL:', runwayVideoUrl);
         setGeneratedVideoUrl(runwayVideoUrl);
+
+        // Invalidate generated videos query to refresh the list
+        await queryClient.invalidateQueries({ queryKey: ['generated-videos', projectId] });
 
         showToast('Video is ready to view!', 'success');
 
@@ -301,7 +291,7 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
       }
     }
 
-    // Invalidate queries to refresh the UI
+    // Cache invalidation handled by useUploadMedia hook (if used) or manual invalidation
     await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
   };
 
@@ -324,7 +314,10 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           onMouseDown={handleImageMouseDown}
           onMouseEnter={handleImageMouseEnter}
           onFileDrop={handleFileDrop}
-          onRefresh={loadSources}
+          onRefresh={() => {
+            queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
+            queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
+          }}
         />
 
         <div className="flex-1 flex flex-col">

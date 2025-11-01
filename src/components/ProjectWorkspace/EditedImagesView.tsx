@@ -4,20 +4,28 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { formatDate } from '../../lib/utils';
+import { useEditedImages } from '../../hooks/useEditedImages';
+import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 
 interface EditedImagesViewProps {
-  images: EditedImage[];
+  projectId: string;
   viewMode: 'grid' | 'list';
   onExport: (image: EditedImage) => void;
   onPublish: (image: EditedImage) => void;
 }
 
 export function EditedImagesView({
-  images,
+  projectId,
   viewMode,
   onExport,
   onPublish,
 }: EditedImagesViewProps) {
+  const { data: images = [], isLoading } = useEditedImages(projectId);
+
+  if (isLoading) {
+    return <MediaLibrarySkeleton />;
+  }
+
   if (images.length === 0) {
     return (
       <Card className="border-2 border-dashed p-12 text-center">
