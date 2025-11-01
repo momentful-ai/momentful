@@ -24,6 +24,7 @@ dist-ssr
 .vercel
 dev-server.js
 bin/supabase
-test-results/
-coverage/
-playwright-report/
+test-results/*
+coverage/*
+playwright-report/*
+playwright-report/index.html
