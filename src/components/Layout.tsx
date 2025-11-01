@@ -29,7 +29,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <a href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
-                <div className="gradient-primary p-2 rounded-xl shadow-lg">
+                <div className="gradient-primary p-2 shadow-lg" style={{ borderRadius: '8px' }}>
                   <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <h1 className="text-lg sm:text-xl font-bold text-gradient">

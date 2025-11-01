@@ -66,7 +66,7 @@ describe('useTheme', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(getByTestId('theme')).toHaveTextContent('light');
-    expect(localStorage.getItem('visual-studio-theme')).toBe('light');
+    expect(localStorage.getItem('momentful-theme')).toBe('light');
   });
 
   it('updates theme through setTheme', async () => {

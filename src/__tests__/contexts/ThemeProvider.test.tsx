@@ -55,7 +55,7 @@ describe('ThemeProvider', () => {
   });
 
   it('loads theme from localStorage', () => {
-    localStorage.setItem('visual-studio-theme', 'dark');
+    localStorage.setItem('momentful-theme', 'dark');
 
     const { getByTestId } = render(
       <ThemeProvider>
@@ -102,7 +102,7 @@ describe('ThemeProvider', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(getByTestId('theme-value')).toHaveTextContent('dark');
-    expect(localStorage.getItem('visual-studio-theme')).toBe('dark');
+    expect(localStorage.getItem('momentful-theme')).toBe('dark');
   });
 
   it('applies dark class to document root when theme is dark', () => {

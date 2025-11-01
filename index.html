@@ -16,6 +16,9 @@
         <span>momentful</span>
       </a>
       <div class="nav-buttons">
+        <button id="theme-toggle" class="btn-theme-toggle" aria-label="Toggle theme">
+          <span class="theme-icon" id="theme-icon">🌙</span>
+        </button>
         <a href="/app" class="btn btn-primary">Go To Dashboard</a>
       </div>
     </nav>
@@ -86,6 +89,91 @@
   <footer>
     <p>&copy; 2024 momentful. All rights reserved.</p>
   </footer>
+
+  <script>
+    (function() {
+      const THEME_KEY = 'momentful-theme';
+      const themeToggle = document.getElementById('theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+
+      // Get current theme from localStorage or default to 'light'
+      function getStoredTheme() {
+        return localStorage.getItem(THEME_KEY) || 'light';
+      }
+
+      // Apply theme class to html element
+      function applyTheme(theme) {
+        const html = document.documentElement;
+        html.classList.remove('light', 'dark');
+        
+        if (theme === 'system') {
+          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          html.classList.add(systemTheme);
+          return systemTheme;
+        }
+        
+        html.classList.add(theme);
+        return theme;
+      }
+
+      // Get effective theme (resolves 'system' to actual theme)
+      function getEffectiveTheme() {
+        const stored = getStoredTheme();
+        if (stored === 'system') {
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return stored;
+      }
+
+      // Update theme icon based on effective theme
+      function updateThemeIcon() {
+        const effectiveTheme = getEffectiveTheme();
+        themeIcon.textContent = effectiveTheme === 'dark' ? '☀️' : '🌙';
+      }
+
+      // Toggle theme: light → dark → light
+      function toggleTheme() {
+        const current = getStoredTheme();
+        const newTheme = current === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(THEME_KEY, newTheme);
+        applyTheme(newTheme);
+        updateThemeIcon();
+      }
+
+      // Initialize theme on page load
+      function initTheme() {
+        const storedTheme = getStoredTheme();
+        applyTheme(storedTheme);
+        updateThemeIcon();
+      }
+
+      // Listen to system theme changes if theme is 'system'
+      function watchSystemTheme() {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = () => {
+          if (getStoredTheme() === 'system') {
+            applyTheme('system');
+            updateThemeIcon();
+          }
+        };
+        
+        if (mediaQuery.addEventListener) {
+          mediaQuery.addEventListener('change', handleChange);
+        } else {
+          mediaQuery.addListener(handleChange);
+        }
+      }
+
+      // Initialize on page load
+      initTheme();
+      watchSystemTheme();
+
+      // Add click handler to toggle button
+      if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+      }
+    })();
+  </script>
 
   </body>
 </html>

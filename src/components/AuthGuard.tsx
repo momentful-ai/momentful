@@ -88,11 +88,32 @@ export function AuthGuard({ children }: AuthGuardProps) {
         <div className={`min-h-screen bg-gradient-to-br ${
           isDarkTheme ? 'from-slate-900 to-slate-800' : 'from-slate-50 to-slate-100'
         } flex items-center justify-center p-4 relative`}>
+          <a 
+            href="/" 
+            className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-3 no-underline font-bold text-2xl z-10 transition-transform duration-300 hover:scale-105"
+            style={{
+              color: isDarkTheme ? '#f9fafb' : '#1f2937',
+            }}
+          >
+            <div 
+              className="flex items-center justify-center text-white"
+              style={{
+                width: '32px',
+                height: '32px',
+                background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+                borderRadius: '8px',
+                fontSize: '1.2rem',
+              }}
+            >
+              ✨
+            </div>
+            <span>momentful</span>
+          </a>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setTheme(isDarkTheme ? 'light' : 'dark')}
-            className="absolute top-16 right-4 rounded-full"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 rounded-full"
             aria-label="Toggle theme"
           >
             {isDarkTheme ? (
