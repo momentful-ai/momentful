@@ -109,6 +109,102 @@ export async function pollReplicatePrediction(
 }
 
 /**
+ * Map aspect ratio to Flux Pro compatible format
+ * Flux Pro accepts aspect ratio as width and height
+ */
+function mapAspectRatioToFlux(ratio: string): { width: number; height: number } | undefined {
+  const ratioMap: Record<string, { width: number; height: number }> = {
+    '1280:720': { width: 1280, height: 720 },
+    '720:1280': { width: 720, height: 1280 },
+    '1024:1024': { width: 1024, height: 1024 },
+    '1920:1080': { width: 1920, height: 1080 },
+    '1080:1920': { width: 1080, height: 1920 },
+  };
+
+  return ratioMap[ratio];
+}
+
+export interface CreateReplicateImageJobRequest {
+  imageUrl: string;
+  prompt: string;
+  aspectRatio?: string;
+}
+
+/**
+ * Create a new image-to-image generation job using Flux Pro
+ */
+export async function createReplicateImageJob(
+  request: CreateReplicateImageJobRequest
+): Promise<{ id: string; status: string }> {
+  const { imageUrl, prompt, aspectRatio } = request;
+
+  const input: Record<string, unknown> = {
+    image: imageUrl,
+    prompt: prompt,
+  };
+
+  // Add aspect ratio if provided and mapped
+  if (aspectRatio) {
+    const fluxRatio = mapAspectRatioToFlux(aspectRatio);
+    if (fluxRatio) {
+      input.width = fluxRatio.width;
+      input.height = fluxRatio.height;
+    }
+  }
+
+  return createReplicatePrediction({
+    version: ReplicateModels.FLUX_PRO,
+    input,
+  });
+}
+
+/**
+ * Extract image URL from Replicate prediction output
+ * Handles different output formats (string URL, array of URLs, or nested object)
+ */
+export function extractImageUrl(prediction: ReplicatePrediction): string | null {
+  if (!prediction.output) {
+    return null;
+  }
+
+  // If output is a string URL, return it
+  if (typeof prediction.output === 'string') {
+    return prediction.output;
+  }
+
+  // If output is an array, return the first URL
+  if (Array.isArray(prediction.output)) {
+    if (prediction.output.length > 0) {
+      const firstOutput = prediction.output[0];
+      if (typeof firstOutput === 'string') {
+        return firstOutput;
+      }
+      // Handle array of objects with URL property
+      if (typeof firstOutput === 'object' && firstOutput !== null && 'url' in firstOutput) {
+        return (firstOutput as { url: string }).url;
+      }
+    }
+    return null;
+  }
+
+  // If output is an object, try to extract URL from common properties
+  if (typeof prediction.output === 'object' && prediction.output !== null) {
+    const outputObj = prediction.output as Record<string, unknown>;
+    if ('url' in outputObj && typeof outputObj.url === 'string') {
+      return outputObj.url;
+    }
+    if ('imageUrl' in outputObj && typeof outputObj.imageUrl === 'string') {
+      return outputObj.imageUrl;
+    }
+    if ('image_url' in outputObj && typeof outputObj.image_url === 'string') {
+      return outputObj.image_url;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Common model helpers
  */
 export const ReplicateModels = {
@@ -117,6 +213,9 @@ export const ReplicateModels = {
 
   // Video generation models (examples)
   STABLE_VIDEO_DIFFUSION: 'stability-ai/stable-video-diffusion:3f0455e4619daac51287dedb1a3f5dbe6bc8d0a1e6e715b9a49c7d61b7c1b8a8',
+
+  // Flux Pro for image-to-image generation
+  FLUX_PRO: 'black-forest-labs/flux-1.1-pro',
 
   // Add more models as needed
 } as const;

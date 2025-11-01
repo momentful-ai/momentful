@@ -125,6 +125,7 @@ describe('ImageEditor', () => {
       context: {},
       ai_model: 'runway-gen4-turbo',
       storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
+      edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
       width: 1920,
       height: 1080,
       version: 1,
@@ -345,7 +346,7 @@ describe('ImageEditor', () => {
       expect(RunwayAPI.extractImageUrl).toHaveBeenCalled();
     });
 
-    it('uploads generated image to storage and saves to database', async () => {
+    it('uploads generated image to storage and saves to database immediately', async () => {
       const user = userEvent.setup();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -365,66 +366,111 @@ describe('ImageEditor', () => {
         { timeout: 5000 }
       );
 
+      // Verify the edited image is saved to database immediately after upload
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+              project_id: 'test-project',
+              user_id: 'test-user-id',
+              source_asset_id: 'asset-1',
+              prompt: 'Test prompt',
+              ai_model: 'runway-gen4-turbo',
+              storage_path: expect.stringContaining('test-user-id/test-project/edited-'),
+              width: 1920,
+              height: 1080,
+            })
+          );
+        },
+        { timeout: 5000 }
+      );
+
       // Verify the comparison view is shown
       await waitFor(() => {
         expect(screen.getByText('Original')).toBeInTheDocument();
         expect(screen.getByText('AI Edited')).toBeInTheDocument();
       });
+
+      // Verify success toast indicates both generation and save
+      expect(mockShowToast).toHaveBeenCalledWith('Image generated and saved successfully!', 'success');
+      
+      // Verify onSave callback is called automatically after successful save
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
     });
 
-    it('saves edited image to database when Save button is clicked', async () => {
+    it('calls onSave automatically after successful save', async () => {
       const user = userEvent.setup();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      // Generate an image first
+      // Generate an image (which automatically saves)
       const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
 
-      // Wait for generation to complete
+      // Wait for generation and automatic save to complete
       await waitFor(
         () => {
-          expect(screen.getByText('Save to Project')).not.toBeDisabled();
+          expect(database.editedImages.create).toHaveBeenCalled();
+          expect(mockOnSave).toHaveBeenCalledTimes(1);
         },
         { timeout: 5000 }
       );
 
-      // Click save button
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
-
-      // Verify database create was called
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            project_id: 'test-project',
-            user_id: 'test-user-id',
-            source_asset_id: 'asset-1',
-            prompt: 'Test prompt',
-            ai_model: 'runway-gen4-turbo',
-          })
-        );
-      });
-
-      // Verify onSave callback was called
+      // Verify onSave was called automatically
       expect(mockOnSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows warning when save fails during generation', async () => {
+      const user = userEvent.setup();
+      
+      // Mock initial save failure
+      vi.mocked(database.editedImages.create).mockRejectedValueOnce(new Error('Database error'));
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Generate an image (save will fail)
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for generation to complete (save will fail but generation succeeds)
+      await waitFor(
+        () => {
+          expect(mockShowToast).toHaveBeenCalledWith(
+            'Image generated but failed to save. You can generate again to retry.',
+            'warning'
+          );
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify onSave was NOT called when save fails
+      expect(mockOnSave).not.toHaveBeenCalled();
+
+      // Verify comparison view is still shown
+      expect(screen.getByText('Original')).toBeInTheDocument();
+      expect(screen.getByText('AI Edited')).toBeInTheDocument();
     });
   });
 
-  describe('Save to Project Button - Context Parsing', () => {
+  describe('Context Parsing', () => {
     const generateImageAndWaitForSave = async (user: ReturnType<typeof userEvent.setup>) => {
       const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
 
-      // Wait for generation to complete
+      // Wait for generation and automatic save to complete
       await waitFor(
         () => {
-          expect(screen.getByText('Save to Project')).not.toBeDisabled();
+          expect(database.editedImages.create).toHaveBeenCalled();
+          expect(mockOnSave).toHaveBeenCalled();
         },
         { timeout: 5000 }
       );
@@ -438,21 +484,15 @@ describe('ImageEditor', () => {
 
       await generateImageAndWaitForSave(user);
 
-      // Leave context empty (default empty string)
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
+      // Verify context was saved as empty object during automatic save
+      expect(database.editedImages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {},
+        })
+      );
 
-      // Verify context is saved as empty object (not parsed JSON)
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            context: {},
-          })
-        );
-      });
-
+      // Verify onSave was called automatically
       expect(mockOnSave).toHaveBeenCalledTimes(1);
-      expect(mockShowToast).toHaveBeenCalledWith('Image saved successfully', 'success');
     });
 
     it('saves with whitespace-only context as empty object', async () => {
@@ -461,25 +501,30 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      await generateImageAndWaitForSave(user);
-
-      // Enter only whitespace in context
+      // Enter only whitespace in context BEFORE generation
       const contextInput = screen.getByPlaceholderText(/Optional context about the image/);
       await user.type(contextInput, '   ');
 
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
 
-      // Verify context is saved as empty object
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            context: {},
-          })
-        );
-      });
+      // Wait for generation and automatic save
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
 
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      // Verify context is saved as empty object during automatic save
+      expect(database.editedImages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {},
+        })
+      );
     });
 
     it('saves with valid JSON context string correctly parsed', async () => {
@@ -488,31 +533,34 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      await generateImageAndWaitForSave(user);
-
-      // Enter valid JSON in context
+      // Enter valid JSON in context BEFORE generation
       const contextInput = screen.getByPlaceholderText(/Optional context about the image/) as HTMLInputElement;
-      await user.clear(contextInput);
-      // Use paste to handle JSON syntax properly
       await user.click(contextInput);
       await user.paste('{"type": "product", "category": "electronics"}');
 
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
 
-      // Verify context is parsed correctly
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            context: {
-              type: 'product',
-              category: 'electronics',
-            },
-          })
-        );
-      });
+      // Wait for generation and automatic save
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
 
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      // Verify context is parsed correctly during automatic save
+      expect(database.editedImages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            type: 'product',
+            category: 'electronics',
+          },
+        })
+      );
     });
 
     it('saves with invalid JSON context string wrapped in object', async () => {
@@ -521,28 +569,32 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      await generateImageAndWaitForSave(user);
-
-      // Enter invalid JSON in context (plain text)
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/) as HTMLInputElement;
-      await user.clear(contextInput);
+      // Enter invalid JSON in context (plain text) BEFORE generation
+      const contextInput = screen.getByPlaceholderText(/Optional context about the image/);
       await user.type(contextInput, 'This is a product photo');
 
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
 
-      // Verify invalid JSON is wrapped in object with 'text' key
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            context: {
-              text: 'This is a product photo',
-            },
-          })
-        );
-      });
+      // Wait for generation and automatic save
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
 
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      // Verify invalid JSON is wrapped in object with 'text' key during automatic save
+      expect(database.editedImages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            text: 'This is a product photo',
+          },
+        })
+      );
     });
 
     it('saves with malformed JSON context string wrapped in object', async () => {
@@ -551,56 +603,36 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      await generateImageAndWaitForSave(user);
-
-      // Enter malformed JSON (missing closing brace)
+      // Enter malformed JSON (missing closing brace) BEFORE generation
       const contextInput = screen.getByPlaceholderText(/Optional context about the image/) as HTMLInputElement;
-      await user.clear(contextInput);
-      // Use paste to handle JSON syntax properly
       await user.click(contextInput);
       await user.paste('{"type": "product"');
 
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
 
-      // Verify malformed JSON is wrapped in object with 'text' key
-      await waitFor(() => {
-        expect(database.editedImages.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            context: {
-              text: '{"type": "product"',
-            },
-          })
-        );
-      });
-
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
-    });
-
-    it('handles database save error gracefully', async () => {
-      const user = userEvent.setup();
-      const dbError = new Error('Database connection failed');
-      vi.mocked(database.editedImages.create).mockRejectedValueOnce(dbError);
-
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      // Wait for generation and automatic save
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
       );
 
-      await generateImageAndWaitForSave(user);
-
-      const saveButton = screen.getByText('Save to Project');
-      await user.click(saveButton);
-
-      // Verify error toast is shown
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Failed to save edited image. Please try again.', 'error');
-      });
-
-      // Verify onSave callback was NOT called on error
-      expect(mockOnSave).not.toHaveBeenCalled();
+      // Verify malformed JSON is wrapped in object with 'text' key during automatic save
+      expect(database.editedImages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            text: '{"type": "product"',
+          },
+        })
+      );
     });
 
-    it('validates user is logged in before saving', async () => {
+    it('validates user is logged in before generation', async () => {
       const user = userEvent.setup();
       // Mock useUserId to return null (not logged in) from the start
       // This will prevent generation, but we can still test the save validation
@@ -625,21 +657,6 @@ describe('ImageEditor', () => {
       mockUseUserId.mockReturnValue('test-user-id');
     });
 
-    it('validates image is generated before saving', async () => {
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Don't generate an image, just check button state
-      const saveButton = screen.getByText('Save to Project');
-      
-      // Button should be disabled if no image generated
-      expect(saveButton).toBeDisabled();
-
-      // Verify database was not called (button is disabled so click won't work)
-      expect(database.editedImages.create).not.toHaveBeenCalled();
-      expect(mockOnSave).not.toHaveBeenCalled();
-    });
   });
 
   describe('Error Handling', () => {
@@ -682,15 +699,6 @@ describe('ImageEditor', () => {
       });
     });
 
-    it('shows warning when user tries to save without generating', async () => {
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Save button should be disabled initially
-      const saveButton = screen.getByText('Save to Project');
-      expect(saveButton).toBeDisabled();
-    });
   });
 
   describe('Version History', () => {

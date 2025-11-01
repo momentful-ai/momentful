@@ -10,6 +10,7 @@ import { MediaLibraryView } from './MediaLibrary/MediaLibraryView';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { MediaAsset } from '../types';
+import { downloadFile } from '../lib/download';
 
 interface MediaLibraryProps {
   projectId: string;
@@ -58,6 +59,17 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
     setAssetToDelete(null);
   };
 
+  const handleDownload = async (asset: MediaAsset) => {
+    try {
+      const url = getAssetUrl(asset.storage_path);
+      await downloadFile(url, asset.file_name);
+      showToast(`Downloaded ${asset.file_name}`, 'success');
+    } catch (error) {
+      console.error('Error downloading asset:', error);
+      showToast(`Failed to download ${asset.file_name}`, 'error');
+    }
+  };
+
 
   if (isLoading) {
     return <MediaLibrarySkeleton />;
@@ -85,6 +97,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
         onRequestDelete={(assetId, storagePath) => {
           setAssetToDelete({ id: assetId, path: storagePath });
         }}
+        onDownload={handleDownload}
         getAssetUrl={getAssetUrl}
       />
 

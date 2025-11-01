@@ -10,6 +10,11 @@ import {
   pollJobStatus,
   extractImageUrl,
 } from '../services/aiModels/runway/api-client';
+import {
+  createReplicateImageJob,
+  pollReplicatePrediction,
+  extractImageUrl as extractReplicateImageUrl,
+} from '../services/aiModels/replicate/api-client';
 
 // Aspect ratio options for image generation - mapped to Runway SDK ratios
 const ASPECT_RATIOS = [
@@ -37,7 +42,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
-  const [generatedStoragePath, setGeneratedStoragePath] = useState<string | null>(null);
   const [versions, setVersions] = useState<Array<{ prompt: string; model: string; timestamp: string }>>([]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
@@ -148,16 +152,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
     setIsGenerating(true);
     setShowComparison(false);
     setEditedImageUrl(null);
-    setGeneratedStoragePath(null);
 
     try {
-      // Only Runway Gen-4 Turbo is currently implemented
-      if (selectedModel !== 'runway-gen4-turbo') {
-        showToast(`${selectedModel} is not yet implemented. Please use Runway Gen-4 Turbo.`, 'warning');
-        setIsGenerating(false);
-        return;
-      }
-
       if (!userId) {
         showToast('User must be logged in to generate images', 'error');
         setIsGenerating(false);
@@ -172,44 +168,85 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
 
       showToast('Starting image generation...', 'info');
 
-      // Get the Runway ratio from selected aspect ratio
-      const selectedRatioOption = ASPECT_RATIOS.find((r) => r.id === selectedRatio);
-      const runwayRatio = selectedRatioOption?.runwayRatio || ASPECT_RATIOS[0].runwayRatio;
+      let generatedImageUrl: string | null = null;
 
-      // Create Runway image generation job
-      const { taskId } = await createRunwayImageJob({
-        mode: 'image-generation',
-        promptImage: imageUrl,
-        promptText: enhancedPrompt,
-        model: 'gen4_image_turbo',
-        ratio: runwayRatio,
-      });
+      // Handle Runway Gen-4 Turbo
+      if (selectedModel === 'runway-gen4-turbo') {
+        // Get the Runway ratio from selected aspect ratio
+        const selectedRatioOption = ASPECT_RATIOS.find((r) => r.id === selectedRatio);
+        const runwayRatio = selectedRatioOption?.runwayRatio || ASPECT_RATIOS[0].runwayRatio;
 
-      // Poll for completion
-      showToast('Generating image...', 'info');
-      const result = await pollJobStatus(
-        taskId,
-        (status, progress) => {
-          if (progress !== undefined) {
-            showToast(`Generating... ${progress}%`, 'info');
-          } else {
-            showToast(`Status: ${status}`, 'info');
-          }
-        },
-        60, // maxAttempts
-        2000 // intervalMs
-      );
+        // Create Runway image generation job
+        const { taskId } = await createRunwayImageJob({
+          mode: 'image-generation',
+          promptImage: imageUrl,
+          promptText: enhancedPrompt,
+          model: 'gen4_image_turbo',
+          ratio: runwayRatio,
+        });
 
-      // Extract image URL from response
-      const generatedImageUrl = extractImageUrl(result);
-      if (!generatedImageUrl) {
-        throw new Error('Failed to extract image URL from Runway response');
+        // Poll for completion
+        showToast('Generating image...', 'info');
+        const result = await pollJobStatus(
+          taskId,
+          (status, progress) => {
+            if (progress !== undefined) {
+              showToast(`Generating... ${progress}%`, 'info');
+            } else {
+              showToast(`Status: ${status}`, 'info');
+            }
+          },
+          60, // maxAttempts
+          2000 // intervalMs
+        );
+
+        // Extract image URL from response
+        generatedImageUrl = extractImageUrl(result);
+        if (!generatedImageUrl) {
+          throw new Error('Failed to extract image URL from Runway response');
+        }
+      }
+      // Handle Replicate Flux Pro
+      else if (selectedModel === 'flux-pro') {
+        // Create Replicate image generation job
+        const { id: predictionId } = await createReplicateImageJob({
+          imageUrl,
+          prompt: enhancedPrompt,
+          aspectRatio: selectedRatio,
+        });
+
+        // Poll for completion
+        showToast('Generating image...', 'info');
+        const result = await pollReplicatePrediction(
+          predictionId,
+          (prediction) => {
+            if (prediction.status === 'processing' || prediction.status === 'starting') {
+              showToast(`Generating... ${prediction.status}`, 'info');
+            } else if (prediction.status === 'succeeded') {
+              showToast('Generation complete!', 'success');
+            }
+          },
+          120, // maxAttempts (4 minutes)
+          2000 // intervalMs
+        );
+
+        // Extract image URL from response
+        generatedImageUrl = extractReplicateImageUrl(result);
+        if (!generatedImageUrl) {
+          throw new Error('Failed to extract image URL from Replicate response');
+        }
+      }
+      // Unsupported model
+      else {
+        showToast(`${selectedModel} is not yet implemented. Please use Runway Gen-4 Turbo or Flux Pro.`, 'warning');
+        setIsGenerating(false);
+        return;
       }
 
       showToast('Image generated! Uploading...', 'info');
 
       // Download and upload to storage
-      const { storagePath } = await downloadAndUploadImage(
+      const { storagePath, width, height } = await downloadAndUploadImage(
         generatedImageUrl,
         projectId
       );
@@ -217,8 +254,45 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
       // Update state with new image
       const uploadedImageUrl = getAssetUrl(storagePath);
       setEditedImageUrl(uploadedImageUrl);
-      setGeneratedStoragePath(storagePath);
       setShowComparison(true);
+
+      // Save to database immediately
+      try {
+        // Parse context safely - handle empty string and invalid JSON
+        let parsedContext = {};
+        if (context && typeof context === 'string') {
+          try {
+            const trimmed = context.trim();
+            if (trimmed) {
+              parsedContext = JSON.parse(trimmed);
+            }
+          } catch {
+            // If JSON parsing fails, treat context as a plain string and wrap it
+            parsedContext = { text: context };
+          }
+        } else if (context && typeof context === 'object') {
+          parsedContext = context;
+        }
+
+        await database.editedImages.create({
+          project_id: projectId,
+          user_id: userId,
+          source_asset_id: asset.id,
+          prompt,
+          context: parsedContext,
+          ai_model: selectedModel,
+          storage_path: storagePath,
+          width,
+          height,
+        });
+
+        showToast('Image generated and saved successfully!', 'success');
+        // Automatically refresh parent component to show the new edited image
+        onSave();
+      } catch (saveError) {
+        console.error('Error saving edited image:', saveError);
+        showToast('Image generated but failed to save. You can generate again to retry.', 'warning');
+      }
 
       // Add to version history
       setVersions([
@@ -229,8 +303,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         },
         ...versions,
       ]);
-
-      showToast('Image generated successfully!', 'success');
     } catch (error) {
       console.error('Error generating image:', error);
       const errorMessage =
@@ -241,56 +313,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
     }
   };
 
-  const handleSave = async () => {
-    if (!userId) {
-      showToast('User must be logged in to save images', 'error');
-      return;
-    }
-
-    if (!generatedStoragePath || !editedImageUrl) {
-      showToast('Please generate an image before saving', 'warning');
-      return;
-    }
-
-    try {
-      // Get dimensions from the generated image
-      const { width, height } = await getImageDimensionsFromUrl(editedImageUrl);
-
-      // Parse context safely - handle empty string and invalid JSON
-      let parsedContext = {};
-      if (context && typeof context === 'string') {
-        try {
-          const trimmed = context.trim();
-          if (trimmed) {
-            parsedContext = JSON.parse(trimmed);
-          }
-        } catch {
-          // If JSON parsing fails, treat context as a plain string and wrap it
-          parsedContext = { text: context };
-        }
-      } else if (context && typeof context === 'object') {
-        parsedContext = context;
-      }
-
-      await database.editedImages.create({
-        project_id: projectId,
-        user_id: userId,
-        source_asset_id: asset.id,
-        prompt,
-        context: parsedContext,
-        ai_model: selectedModel,
-        storage_path: generatedStoragePath,
-        width,
-        height,
-      });
-
-      showToast('Image saved successfully', 'success');
-      onSave();
-    } catch (error) {
-      console.error('Error saving edited image:', error);
-      showToast('Failed to save edited image. Please try again.', 'error');
-    }
-  };
 
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
 
@@ -314,14 +336,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
               onClick={onClose}
               className="px-4 py-2 text-muted-foreground hover:text-foreground transition-all hover:scale-105"
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!showComparison}
-              className="px-6 py-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95"
-            >
-              Save to Project
+              Close
             </button>
           </div>
         </div>

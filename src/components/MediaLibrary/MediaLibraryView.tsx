@@ -14,6 +14,7 @@ interface MediaLibraryViewProps {
   onDrop: (files: File[]) => void;
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
   onRequestDelete: (assetId: string, storagePath: string) => void;
+  onDownload?: (asset: MediaAsset) => void;
   getAssetUrl: (storagePath: string) => string;
 }
 
@@ -24,6 +25,7 @@ export function MediaLibraryView({
   onDrop,
   onEditImage,
   onRequestDelete,
+  onDownload,
   getAssetUrl,
 }: MediaLibraryViewProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -53,6 +55,7 @@ export function MediaLibraryView({
       }}
       onEditImage={onEditImage ? (asset) => onEditImage(asset, '') : undefined}
       onRequestDelete={() => onRequestDelete(asset.id, asset.storage_path)}
+      onDownload={onDownload}
       getAssetUrl={getAssetUrl}
     />
   );

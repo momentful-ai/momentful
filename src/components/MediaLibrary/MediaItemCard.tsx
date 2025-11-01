@@ -1,4 +1,4 @@
-import { Trash2, Film, Clock, Wand2 } from 'lucide-react';
+import { Trash2, Film, Clock, Wand2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -12,6 +12,7 @@ interface MediaItemCardProps {
   onClick: () => void;
   onEditImage?: (asset: MediaAsset) => void;
   onRequestDelete: () => void;
+  onDownload?: (asset: MediaAsset) => void;
   getAssetUrl: (storagePath: string) => string;
 }
 
@@ -22,6 +23,7 @@ export function MediaItemCard({
   onClick,
   onEditImage,
   onRequestDelete,
+  onDownload,
   getAssetUrl,
 }: MediaItemCardProps) {
 
@@ -77,17 +79,33 @@ export function MediaItemCard({
           </div>
         )}
 
-        <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRequestDelete();
-          }}
-          size="icon"
-          variant="destructive"
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg h-8 w-8"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+          {onDownload && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownload(asset);
+              }}
+              size="icon"
+              variant="secondary"
+              className="glass shadow-lg h-9 w-9"
+              title="Download"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          )}
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestDelete();
+            }}
+            size="icon"
+            variant="destructive"
+            className="shadow-lg h-8 w-8"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className={mergeName('p-3', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
