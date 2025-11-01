@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -810,20 +810,47 @@ describe('VideoGenerator', () => {
   });
 
   describe('File Drop Functionality', () => {
+    let ImageConstructor: typeof Image;
+    let createObjectURLSpy: { mockRestore: () => void } | undefined;
+    
     beforeEach(() => {
+      // Save original Image constructor
+      ImageConstructor = global.Image;
+      
       // Mock Image constructor for dimension detection
       global.Image = class extends Image {
+        width = 800;
+        height = 600;
         constructor() {
           super();
-          setTimeout(() => {
-            this.width = 800;
-            this.height = 600;
+          // Use queueMicrotask to trigger onload after current execution
+          queueMicrotask(() => {
             if (this.onload) {
               this.onload({} as Event);
             }
-          }, 0);
+          });
         }
       } as typeof Image;
+
+      // Mock URL.createObjectURL (define it if it doesn't exist)
+      if (!global.URL.createObjectURL) {
+        global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url') as typeof URL.createObjectURL;
+      } else {
+        createObjectURLSpy = vi.spyOn(global.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+      }
+    });
+
+    afterEach(() => {
+      // Restore original Image constructor
+      global.Image = ImageConstructor;
+      if (createObjectURLSpy) {
+        createObjectURLSpy.mockRestore();
+      }
+      // Clean up URL.createObjectURL if we added it
+      const createObjectURLFn = global.URL.createObjectURL as ReturnType<typeof vi.fn> | undefined;
+      if (createObjectURLFn && typeof createObjectURLFn.mockRestore === 'function') {
+        createObjectURLFn.mockRestore();
+      }
     });
 
     it('handles file drop and uploads images', async () => {
@@ -831,7 +858,11 @@ describe('VideoGenerator', () => {
       const mockUpload = vi.mocked(database.storage.upload);
       const mockCreate = vi.mocked(database.mediaAssets.create);
 
-      mockUpload.mockResolvedValue(undefined);
+      mockUpload.mockResolvedValue({
+        id: 'upload-id-1',
+        path: `test-user-id/test-project/${Date.now()}-test-image.jpg`,
+        fullPath: `test-user-id/test-project/${Date.now()}-test-image.jpg`,
+      });
       mockCreate.mockResolvedValue({
         id: 'new-media-asset-1',
         project_id: 'test-project',
@@ -862,11 +893,21 @@ describe('VideoGenerator', () => {
       
       expect(contentArea).toBeInTheDocument();
 
-      // Create a dataTransfer object
+      // Create a dataTransfer object with proper FileList
       const dataTransfer = {
-        files: [mockFile],
+        files: [mockFile] as unknown as FileList,
         types: ['Files'],
-      };
+        items: [{
+          kind: 'file',
+          type: 'image/jpeg',
+          getAsFile: () => mockFile,
+        }] as unknown as DataTransferItemList,
+        dropEffect: 'copy',
+        effectAllowed: 'copy',
+        clearData: vi.fn(),
+        getData: vi.fn(),
+        setData: vi.fn(),
+      } as unknown as DataTransfer;
       
       // Simulate drop using fireEvent
       if (contentArea) {
@@ -875,10 +916,10 @@ describe('VideoGenerator', () => {
         });
       }
 
-      // Wait for upload to be called
+      // Wait for upload to be called - the onFileDrop prop handles the upload
       await waitFor(() => {
         expect(mockUpload).toHaveBeenCalled();
-      }, { timeout: 2000 });
+      }, { timeout: 3000 });
 
       // Verify file was uploaded
       expect(mockUpload).toHaveBeenCalledWith(
@@ -887,20 +928,24 @@ describe('VideoGenerator', () => {
         mockFile
       );
 
-      // Verify media asset was created
+      // Wait for Image to load and media asset to be created
+      // The Image mock uses queueMicrotask, so we need to wait for async operations
       await waitFor(() => {
-        expect(mockCreate).toHaveBeenCalledWith(
-          expect.objectContaining({
-            project_id: 'test-project',
-            user_id: 'test-user-id',
-            file_name: 'test-image.jpg',
-            file_type: 'image',
-            file_size: mockFile.size,
-            width: 800,
-            height: 600,
-          })
-        );
-      });
+        expect(mockCreate).toHaveBeenCalled();
+      }, { timeout: 3000 });
+
+      // Verify media asset was created with correct data
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          project_id: 'test-project',
+          user_id: 'test-user-id',
+          file_name: 'test-image.jpg',
+          file_type: 'image',
+          file_size: mockFile.size,
+          width: 800,
+          height: 600,
+        })
+      );
 
       // Verify sources were refreshed
       await waitFor(() => {
@@ -916,19 +961,23 @@ describe('VideoGenerator', () => {
       const mockCreate = vi.mocked(database.mediaAssets.create);
 
       global.Image = class extends Image {
+        width = 800;
+        height = 600;
         constructor() {
           super();
-          setTimeout(() => {
-            this.width = 800;
-            this.height = 600;
+          queueMicrotask(() => {
             if (this.onload) {
               this.onload({} as Event);
             }
-          }, 0);
+          });
         }
       } as typeof Image;
 
-      mockUpload.mockResolvedValue(undefined);
+      mockUpload.mockResolvedValue({
+        id: 'upload-id-2',
+        path: `test-user-id/test-project/${Date.now()}-test.jpg`,
+        fullPath: `test-user-id/test-project/${Date.now()}-test.jpg`,
+      });
       mockCreate.mockResolvedValue({
         id: 'new-media-asset-1',
         project_id: 'test-project',
@@ -956,9 +1005,14 @@ describe('VideoGenerator', () => {
       const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
 
       const dataTransfer = {
-        files: [mockImageFile, mockTextFile],
+        files: [mockImageFile, mockTextFile] as unknown as FileList,
         types: ['Files'],
-      };
+        dropEffect: 'copy',
+        effectAllowed: 'copy',
+        clearData: vi.fn(),
+        getData: vi.fn(),
+        setData: vi.fn(),
+      } as unknown as DataTransfer;
 
       if (contentArea) {
         fireEvent.drop(contentArea, { dataTransfer });
@@ -992,9 +1046,14 @@ describe('VideoGenerator', () => {
       const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
 
       const dataTransfer = {
-        files: [mockFile],
+        files: [mockFile] as unknown as FileList,
         types: ['Files'],
-      };
+        dropEffect: 'copy',
+        effectAllowed: 'copy',
+        clearData: vi.fn(),
+        getData: vi.fn(),
+        setData: vi.fn(),
+      } as unknown as DataTransfer;
 
       if (contentArea) {
         fireEvent.drop(contentArea, { dataTransfer });
@@ -1020,7 +1079,12 @@ describe('VideoGenerator', () => {
       // Simulate drag over
       const dataTransfer = {
         types: ['Files'],
-      };
+        dropEffect: 'copy',
+        effectAllowed: 'copy',
+        clearData: vi.fn(),
+        getData: vi.fn(),
+        setData: vi.fn(),
+      } as unknown as DataTransfer;
 
       if (contentArea) {
         fireEvent.dragOver(contentArea, { dataTransfer });

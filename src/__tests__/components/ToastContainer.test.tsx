@@ -157,7 +157,7 @@ describe('ToastContainer / ToastProvider', () => {
     );
 
     expect(contextValue).toBeDefined();
-    expect(contextValue.showToast).toBeInstanceOf(Function);
+    expect(contextValue?.showToast).toBeInstanceOf(Function);
   });
 });
 

@@ -46,7 +46,7 @@ describe('DevToolbar', () => {
   it('opens toolbar when button is clicked', async () => {
     const user = userEvent.setup({ delay: null });
     vi.mocked(isLocalhost).mockReturnValue(true);
-    vi.mocked(getLocalOverride).mockReturnValue(null);
+    vi.mocked(getLocalOverride).mockReturnValue(undefined);
 
     render(<DevToolbar />);
 
@@ -61,7 +61,7 @@ describe('DevToolbar', () => {
   it('closes toolbar when close button is clicked', async () => {
     const user = userEvent.setup({ delay: null });
     vi.mocked(isLocalhost).mockReturnValue(true);
-    vi.mocked(getLocalOverride).mockReturnValue(null);
+    vi.mocked(getLocalOverride).mockReturnValue(undefined);
 
     render(<DevToolbar />);
 
@@ -102,7 +102,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockImplementation((key) => {
       if (key === 'DEV_SUPABASE_BACKEND') return 'local';
-      return null;
+      return undefined;
     });
 
     render(<DevToolbar />);
@@ -164,7 +164,7 @@ describe('DevToolbar', () => {
     vi.mocked(getLocalOverride).mockImplementation((key) => {
       if (key === 'DEV_AUTH_MODE') return 'clerk';
       if (key === 'DEV_SUPABASE_BACKEND') return 'hosted';
-      return null;
+      return undefined;
     });
 
     render(<DevToolbar />);
