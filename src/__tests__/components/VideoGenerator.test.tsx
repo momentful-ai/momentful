@@ -9,6 +9,12 @@ import * as RunwayAPI from '../../services/aiModels/runway';
 import { GeneratedVideo } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+
+// Mock the useGeneratedVideos hook
+vi.mock('../../hooks/useGeneratedVideos', () => ({
+  useGeneratedVideos: vi.fn(),
+}));
 
 // Mock ResizeObserver for test environment
 Object.defineProperty(window, 'ResizeObserver', {
@@ -322,6 +328,12 @@ describe('VideoGenerator', () => {
   });
 
   describe('Integration with GeneratedVideosView', () => {
+    const mockUseGeneratedVideos = vi.mocked(useGeneratedVideos);
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
     it('GeneratedVideosView displays videos correctly when provided', () => {
       // Test that GeneratedVideosView properly displays the videos it receives
       const testVideos: GeneratedVideo[] = [
@@ -365,9 +377,16 @@ describe('VideoGenerator', () => {
         }
       ];
 
+      mockUseGeneratedVideos.mockReturnValue({
+        data: testVideos,
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as ReturnType<typeof useGeneratedVideos>);
+
       renderWithQueryClient(
         <GeneratedVideosView
-          videos={testVideos}
+          projectId="test-project"
           viewMode="grid"
           onExport={vi.fn()}
           onPublish={vi.fn()}
@@ -413,9 +432,16 @@ describe('VideoGenerator', () => {
         completed_at: '2025-10-20T15:59:30.166+00:00',
       };
 
+      mockUseGeneratedVideos.mockReturnValue({
+        data: [testVideo],
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as ReturnType<typeof useGeneratedVideos>);
+
       renderWithQueryClient(
         <GeneratedVideosView
-          videos={[testVideo]}
+          projectId="test-project"
           viewMode="grid"
           onExport={vi.fn()}
           onPublish={vi.fn()}
@@ -457,9 +483,16 @@ describe('VideoGenerator', () => {
           completed_at: undefined,
       };
 
+      mockUseGeneratedVideos.mockReturnValue({
+        data: [processingVideo],
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as ReturnType<typeof useGeneratedVideos>);
+
       renderWithQueryClient(
         <GeneratedVideosView
-          videos={[processingVideo]}
+          projectId="test-project"
           viewMode="grid"
           onExport={vi.fn()}
           onPublish={vi.fn()}
@@ -496,9 +529,16 @@ describe('VideoGenerator', () => {
           completed_at: undefined,
       };
 
+      mockUseGeneratedVideos.mockReturnValue({
+        data: [failedVideo],
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as ReturnType<typeof useGeneratedVideos>);
+
       renderWithQueryClient(
         <GeneratedVideosView
-          videos={[failedVideo]}
+          projectId="test-project"
           viewMode="grid"
           onExport={vi.fn()}
           onPublish={vi.fn()}
@@ -596,8 +636,11 @@ describe('VideoGenerator', () => {
         <VideoGenerator projectId="test-project-id" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      // Select an image source
-      const imageCard = screen.getByTestId(/media-item|edited-image/);
+      // Wait for and select an image source by alt text
+      await waitFor(() => {
+        expect(screen.getByAltText('A beautiful landscape')).toBeInTheDocument();
+      });
+      const imageCard = screen.getByAltText('A beautiful landscape');
       await user.click(imageCard);
 
       // Click generate button
@@ -626,8 +669,11 @@ describe('VideoGenerator', () => {
         <VideoGenerator projectId="" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      // Select an image source
-      const imageCard = screen.getByTestId(/media-item|edited-image/);
+      // Wait for and select an image source by alt text
+      await waitFor(() => {
+        expect(screen.getByAltText('A beautiful landscape')).toBeInTheDocument();
+      });
+      const imageCard = screen.getByAltText('A beautiful landscape');
       await user.click(imageCard);
 
       // Click generate button

@@ -23,7 +23,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
     // Setup mock request
     mockReq = {
       method: 'GET',
-      params: {},
+      query: {},
     };
 
     // Setup mock response
@@ -46,7 +46,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
       };
       mockGetRunwayTask.mockResolvedValue(mockTask);
 
-      mockReq.params = { id: 'task-123' };
+      mockReq.query = { id: 'task-123' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -67,7 +67,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
       };
       mockGetRunwayTask.mockResolvedValue(mockTask);
 
-      mockReq.params = { id: 'task-456' };
+      mockReq.query = { id: 'task-456' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -80,7 +80,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
     });
 
     it('returns 400 when id is missing', async () => {
-      mockReq.params = {};
+      mockReq.query = {};
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -95,7 +95,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
       const error = new Error('Task not found');
       mockGetRunwayTask.mockRejectedValue(error);
 
-      mockReq.params = { id: 'non-existent-task' };
+      mockReq.query = { id: 'non-existent-task' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -109,7 +109,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
   describe('Unsupported HTTP Methods', () => {
     it('returns 405 for POST method', async () => {
       mockReq.method = 'POST';
-      mockReq.params = { id: 'task-123' };
+      mockReq.query = { id: 'task-123' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -119,7 +119,7 @@ describe('Legacy Runway Jobs API [id] (runway-jobs-id.ts)', () => {
 
     it('returns 405 for PUT method', async () => {
       mockReq.method = 'PUT';
-      mockReq.params = { id: 'task-123' };
+      mockReq.query = { id: 'task-123' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 

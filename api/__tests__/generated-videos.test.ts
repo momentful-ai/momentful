@@ -245,6 +245,7 @@ describe('Generated Videos API', () => {
       mockReq.method = 'POST';
       mockReq.body = {
         project_id: 'project-123',
+        user_id: 'user-123',
         name: 'New Video',
       };
 
@@ -257,24 +258,15 @@ describe('Generated Videos API', () => {
     });
 
     it('handles invalid request body', async () => {
-      const dbError = { message: 'Invalid input', code: '23502' };
-
-      mockSupabaseClient.from.mockReturnValue(mockSupabaseClient);
-      mockSupabaseClient.insert.mockReturnValue(mockSupabaseClient);
-      mockSupabaseClient.select.mockReturnValue(mockSupabaseClient);
-      mockSupabaseClient.single.mockReturnValue({
-        data: null,
-        error: dbError,
-      });
-
+      // Invalid request body (missing required fields) should return 400 (validation error)
       mockReq.method = 'POST';
       mockReq.body = { invalid: 'data' };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'Failed to create generated video',
+        error: expect.stringContaining('project_id is required'),
       });
     });
   });

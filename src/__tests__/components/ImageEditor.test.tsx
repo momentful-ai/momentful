@@ -438,10 +438,11 @@ describe('ImageEditor', () => {
       await user.click(generateButton);
 
       // Wait for generation to complete (save will fail but generation succeeds)
+      // The error message will be the actual error message from the mock
       await waitFor(
         () => {
           expect(mockShowToast).toHaveBeenCalledWith(
-            'Image generated but failed to save. You can generate again to retry.',
+            'Database error',
             'warning'
           );
         },

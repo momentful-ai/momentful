@@ -1,8 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { UseQueryResult } from '@tanstack/react-query';
 import { GeneratedVideosView } from '../../components/ProjectWorkspace/GeneratedVideosView';
 import { GeneratedVideo } from '../../types';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+
+// Mock the useGeneratedVideos hook
+vi.mock('../../hooks/useGeneratedVideos', () => ({
+  useGeneratedVideos: vi.fn(),
+}));
+
+type UseGeneratedVideosResult = UseQueryResult<GeneratedVideo[], Error>;
 
 // Mock ResizeObserver for test environment
 Object.defineProperty(window, 'ResizeObserver', {
@@ -32,6 +41,7 @@ Object.defineProperty(HTMLVideoElement.prototype, 'load', {
 
 describe('GeneratedVideosView', () => {
   let queryClient: QueryClient;
+  const mockUseGeneratedVideos = vi.mocked(useGeneratedVideos);
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -41,6 +51,7 @@ describe('GeneratedVideosView', () => {
         },
       },
     });
+    vi.clearAllMocks();
   });
 
   // Mock video data that matches what we have in the database
@@ -67,7 +78,7 @@ describe('GeneratedVideosView', () => {
   ];
 
   const defaultProps = {
-    videos: mockVideos,
+    projectId: 'project-1',
     viewMode: 'grid' as const,
     onExport: vi.fn(),
     onPublish: vi.fn(),
@@ -81,14 +92,42 @@ describe('GeneratedVideosView', () => {
     );
   };
 
+  it('renders loading state when data is loading', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
+    renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
+
+    // Should show loading skeleton
+    expect(document.querySelector('[class*="animate-pulse"]')).toBeInTheDocument();
+  });
+
   it('renders empty state when no videos provided', () => {
-    renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={[]} />);
+    mockUseGeneratedVideos.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
+    renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     expect(screen.getByText('No generated videos yet')).toBeInTheDocument();
     expect(screen.getByText('Create professional marketing videos from your edited images.')).toBeInTheDocument();
   });
 
   it('renders videos in grid view', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Check that video card is rendered
@@ -105,6 +144,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('renders videos in list view', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} viewMode="list" />);
 
     expect(screen.getByText('Sample Test Video')).toBeInTheDocument();
@@ -115,6 +161,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('displays correct video status badge', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Check for completed status badge with duration
@@ -123,6 +176,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('displays video metadata correctly', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Check for AI model and creation date
@@ -133,6 +193,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('shows export and publish buttons for completed videos', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // For completed videos, export and publish buttons should be visible
@@ -144,6 +211,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('handles video loading errors gracefully', async () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     // Mock console.error to capture error logs
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -172,7 +246,14 @@ describe('GeneratedVideosView', () => {
       completed_at: undefined,
     };
 
-    renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={[processingVideo]} />);
+    mockUseGeneratedVideos.mockReturnValue({
+      data: [processingVideo],
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
+    renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Should show processing indicator instead of video
     expect(screen.getByText('Processing video...')).toBeInTheDocument();
@@ -188,7 +269,14 @@ describe('GeneratedVideosView', () => {
       storage_path: undefined,
     };
 
-    renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={[failedVideo]} />);
+    mockUseGeneratedVideos.mockReturnValue({
+      data: [failedVideo],
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
+    renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Should show error message instead of video
     expect(screen.getByText('Video generation failed')).toBeInTheDocument();
@@ -198,6 +286,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('calls onExport when export button is clicked', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     const onExport = vi.fn();
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} onExport={onExport} />);
 
@@ -208,6 +303,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('calls onPublish when publish button is clicked', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     const onPublish = vi.fn();
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} onPublish={onPublish} />);
 
@@ -218,6 +320,13 @@ describe('GeneratedVideosView', () => {
   });
 
   it('renders video with correct attributes', () => {
+    mockUseGeneratedVideos.mockReturnValue({
+      data: mockVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     const videoElement = document.querySelector('video');
@@ -239,7 +348,14 @@ describe('GeneratedVideosView', () => {
       },
     ];
 
-    renderWithQueryClient(<GeneratedVideosView {...defaultProps} videos={multipleVideos} />);
+    mockUseGeneratedVideos.mockReturnValue({
+      data: multipleVideos,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as UseGeneratedVideosResult);
+
+    renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     expect(screen.getByText('Sample Test Video')).toBeInTheDocument();
     expect(screen.getByText('Second Video')).toBeInTheDocument();

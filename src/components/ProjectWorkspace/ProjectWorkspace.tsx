@@ -412,34 +412,34 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         </div>
 
         <div className="p-6">
-          {activeTab === 'media' && (
-            <div key="media-tab" className="animate-fade-in">
-              <MemoizedMediaLibrary
+              {activeTab === 'media' && (
+                <div key="media-tab" className="animate-fade-in">
+                  <MemoizedMediaLibrary
+                    projectId={project.id}
+                    onEditImage={onEditImage}
+                    viewMode={viewMode}
+                  />
+                </div>
+              )}
+              {activeTab === 'edited' && (
+                <div key="edited-tab" className="animate-fade-in">
+                  <MemoizedEditedImagesView
                 projectId={project.id}
-                onEditImage={onEditImage}
-                viewMode={viewMode}
-              />
-            </div>
-          )}
-          {activeTab === 'edited' && (
-            <div key="edited-tab" className="animate-fade-in">
-              <MemoizedEditedImagesView
+                    viewMode={viewMode}
+                    onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
+                    onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
+                  />
+                </div>
+              )}
+              {activeTab === 'videos' && (
+                <div key="videos-tab" className="animate-fade-in">
+                  <MemoizedGeneratedVideosView
                 projectId={project.id}
-                viewMode={viewMode}
-                onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
-                onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
-              />
-            </div>
-          )}
-          {activeTab === 'videos' && (
-            <div key="videos-tab" className="animate-fade-in">
-              <MemoizedGeneratedVideosView
-                projectId={project.id}
-                viewMode={viewMode}
-                onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
-                onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
-              />
-            </div>
+                    viewMode={viewMode}
+                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
+                    onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
+                  />
+                </div>
           )}
         </div>
       </Card>
