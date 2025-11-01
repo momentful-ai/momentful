@@ -24,6 +24,13 @@ vi.mock('../../hooks/useBypassContext', () => ({
   useBypassContext: vi.fn(() => false),
 }));
 
+vi.mock('../../hooks/useTheme', () => ({
+  useTheme: vi.fn(() => ({
+    theme: 'light',
+    setTheme: vi.fn(),
+  })),
+}));
+
 // Import mocked modules to access mocks
 import { useBypassContext } from '../../hooks/useBypassContext';
 const mockUseBypassContext = vi.mocked(useBypassContext);
@@ -98,7 +105,7 @@ describe('AuthGuard', () => {
         }),
       })
     );
-    expect(screen.getByText('Welcome to Visual Studio')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to momentful!')).toBeInTheDocument();
     expect(screen.getByText('Create stunning marketing visuals with AI')).toBeInTheDocument();
   });
 
@@ -119,7 +126,7 @@ describe('AuthGuard', () => {
     );
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
-    expect(screen.queryByText('Welcome to Visual Studio')).not.toBeInTheDocument();
+    expect(screen.queryByText('Welcome to momentful')).not.toBeInTheDocument();
   });
 
   it('syncs Supabase auth when user signs in', async () => {

@@ -59,7 +59,7 @@ describe('Layout', () => {
       </Layout>
     );
 
-    expect(screen.getByText('Visual Studio')).toBeInTheDocument();
+    expect(screen.getByText('momentful')).toBeInTheDocument();
     expect(screen.getByText('Page Content')).toBeInTheDocument();
   });
 

@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { ThemeProvider } from './contexts/ThemeProvider';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace';
@@ -44,46 +43,44 @@ function App() {
   }, [returningFromEditor]);
 
   return (
-    <ThemeProvider defaultTheme="light">
-      <ToastProvider>
-        {view.type === 'editor' ? (
-          <div key="editor" className="animate-fade-in">
-            <ImageEditor
-              asset={view.asset}
-              projectId={view.projectId}
-              onClose={() => {
-                setReturningFromEditor(true);
-                setView({ type: 'project', project: view.project });
-              }}
-              onSave={() => {
-                setReturningFromEditor(true);
-                setView({ type: 'project', project: view.project });
-              }}
-            />
-          </div>
-        ) : (
-          <Layout>
-            {view.type === 'project' ? (
-              <div key={`project-${view.project.id}`} className="animate-fade-in">
-                <ProjectWorkspace
-                  key={`workspace-${returningFromEditor ? 'from-editor' : 'normal'}-${view.project.id}`}
-                  project={view.project}
-                  onBack={handleBackToDashboard}
-                  onUpdateProject={handleUpdateProject}
-                  onEditImage={handleEditImage}
-                  defaultTab={returningFromEditor ? 'edited' : undefined}
-                  onMounted={handleProjectWorkspaceMounted}
-                />
-              </div>
-            ) : (
-              <div key="dashboard" className="animate-fade-in">
-                <Dashboard onSelectProject={handleSelectProject} />
-              </div>
-            )}
-          </Layout>
-        )}
-      </ToastProvider>
-    </ThemeProvider>
+    <ToastProvider>
+      {view.type === 'editor' ? (
+        <div key="editor" className="animate-fade-in">
+          <ImageEditor
+            asset={view.asset}
+            projectId={view.projectId}
+            onClose={() => {
+              setReturningFromEditor(true);
+              setView({ type: 'project', project: view.project });
+            }}
+            onSave={() => {
+              setReturningFromEditor(true);
+              setView({ type: 'project', project: view.project });
+            }}
+          />
+        </div>
+      ) : (
+        <Layout>
+          {view.type === 'project' ? (
+            <div key={`project-${view.project.id}`} className="animate-fade-in">
+              <ProjectWorkspace
+                key={`workspace-${returningFromEditor ? 'from-editor' : 'normal'}-${view.project.id}`}
+                project={view.project}
+                onBack={handleBackToDashboard}
+                onUpdateProject={handleUpdateProject}
+                onEditImage={handleEditImage}
+                defaultTab={returningFromEditor ? 'edited' : undefined}
+                onMounted={handleProjectWorkspaceMounted}
+              />
+            </div>
+          ) : (
+            <div key="dashboard" className="animate-fade-in">
+              <Dashboard onSelectProject={handleSelectProject} />
+            </div>
+          )}
+        </Layout>
+      )}
+    </ToastProvider>
   );
 }
 

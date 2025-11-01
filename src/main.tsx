@@ -8,6 +8,7 @@ import App from './App.tsx';
 import './index.css';
 import { AuthGuard } from './components/AuthGuard';
 import { BypassProvider } from './contexts/BypassProvider.tsx';
+import { ThemeProvider } from './contexts/ThemeProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,14 +37,16 @@ if (!PUBLISHABLE_KEY) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BypassProvider>
-        <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-          <AuthGuard>
-            <App />
-          </AuthGuard>
-        </ClerkProvider>
-      </BypassProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="light">
+      <QueryClientProvider client={queryClient}>
+        <BypassProvider>
+          <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+            <AuthGuard>
+              <App />
+            </AuthGuard>
+          </ClerkProvider>
+        </BypassProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>
 );
