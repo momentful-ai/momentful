@@ -62,7 +62,6 @@ export const test = base.extend({
             id: 'edited-image-1',
             project_id: '46b73af3-0bc6-4c64-b665-555495e618fe',
             user_id: 'local-dev-user',
-            source_asset_id: null,
             prompt: 'A beautiful landscape',
             context: {},
             ai_model: 'stable-diffusion',

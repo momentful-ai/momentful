@@ -79,6 +79,7 @@ describe('MediaLibraryView', () => {
     assets: mockAssets,
     viewMode: 'grid' as const,
     isUploading: false,
+    projectId: 'project1',
     onDrop: vi.fn(),
     onRequestDelete: vi.fn(),
     getAssetUrl: (path: string) => `https://example.com/${path}`,
@@ -120,8 +121,8 @@ describe('MediaLibraryView', () => {
     const assetCard = screen.getByTestId('media-item-1');
     assetCard.click();
 
-    // Should call onEditImage for image assets
-    expect(onEditImage).toHaveBeenCalledWith(mockAssets[0], '');
+    // Should call onEditImage for image assets with projectId
+    expect(onEditImage).toHaveBeenCalledWith(mockAssets[0], 'project1');
   });
 
   it('handles delete request callback', () => {

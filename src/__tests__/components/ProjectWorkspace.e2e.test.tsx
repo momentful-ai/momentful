@@ -101,7 +101,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     id: 'edited-image-1',
     project_id: 'test-project',
     user_id: 'test-user-id',
-      source_asset_id: undefined,
     prompt: 'A beautiful landscape',
     context: {},
     ai_model: 'stable-diffusion',
@@ -274,7 +273,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         scene_type: 'product-showcase', // Default scene type
         camera_movement: 'static', // Default camera movement
         runway_task_id: 'runway-task-123',
-        video_url: 'https://example.com/generated-video-1.mp4',
         storage_path: 'https://example.com/generated-video-1.mp4',
         status: 'completed',
         completed_at: '2025-10-20T15:59:30.165Z',

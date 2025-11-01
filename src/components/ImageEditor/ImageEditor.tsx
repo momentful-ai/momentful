@@ -214,6 +214,14 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
 
       // Save to database immediately
       try {
+        // Validate required fields before saving
+        if (!projectId || !projectId.trim()) {
+          throw new Error('Project ID is required to save edited image');
+        }
+        if (!userId || !userId.trim()) {
+          throw new Error('User ID is required to save edited image');
+        }
+
         // Parse context safely - handle empty string and invalid JSON
         let parsedContext = {};
         if (context && typeof context === 'string') {
@@ -231,9 +239,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         }
 
         await database.editedImages.create({
-          project_id: projectId,
-          user_id: userId,
-          source_asset_id: asset.id,
+          project_id: projectId.trim(),
+          user_id: userId.trim(),
           prompt,
           context: parsedContext,
           ai_model: selectedModel,
@@ -247,7 +254,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
         onSave();
       } catch (saveError) {
         console.error('Error saving edited image:', saveError);
-        showToast('Image generated but failed to save. You can generate again to retry.', 'warning');
+        const errorMessage =
+          saveError instanceof Error
+            ? saveError.message
+            : 'Image generated but failed to save. You can generate again to retry.';
+        showToast(errorMessage, saveError instanceof Error && errorMessage.includes('required') ? 'error' : 'warning');
       }
 
       // Add to version history

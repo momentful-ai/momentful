@@ -120,7 +120,6 @@ describe('ImageEditor', () => {
       id: 'edited-image-1',
       project_id: 'test-project',
       user_id: 'test-user-id',
-      source_asset_id: 'asset-1',
       prompt: 'Test prompt',
       context: {},
       ai_model: 'runway-gen4-turbo',
@@ -373,7 +372,6 @@ describe('ImageEditor', () => {
             expect.objectContaining({
               project_id: 'test-project',
               user_id: 'test-user-id',
-              source_asset_id: 'asset-1',
               prompt: 'Test prompt',
               ai_model: 'runway-gen4-turbo',
               storage_path: expect.stringContaining('test-user-id/test-project/edited-'),
@@ -456,6 +454,64 @@ describe('ImageEditor', () => {
       // Verify comparison view is still shown
       expect(screen.getByText('Original')).toBeInTheDocument();
       expect(screen.getByText('AI Edited')).toBeInTheDocument();
+    });
+
+    it('asserts project_id is never empty when saving edited image', async () => {
+      const user = userEvent.setup();
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project-id" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for save to be called
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify project_id is present and not empty in the payload
+      const createCall = vi.mocked(database.editedImages.create).mock.calls[0][0];
+      expect(createCall.project_id).toBeDefined();
+      expect(createCall.project_id).toBe('test-project-id');
+      expect(createCall.project_id.trim()).not.toBe('');
+      expect(createCall.project_id.length).toBeGreaterThan(0);
+    });
+
+    it('throws error when projectId is empty string', async () => {
+      const user = userEvent.setup();
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for generation to complete, then check for error during save
+      // The image will be generated successfully, but save will fail due to empty projectId
+      await waitFor(
+        () => {
+          // Check if toast was called with error message about Project ID
+          const toastCalls = mockShowToast.mock.calls;
+          const hasProjectIdError = toastCalls.some(
+            call => call[0]?.includes('Project ID is required') && call[1] === 'error'
+          );
+          expect(hasProjectIdError).toBe(true);
+        },
+        { timeout: 10000 }
+      );
+
+      // Verify database.create was NOT called (validation prevents it)
+      expect(database.editedImages.create).not.toHaveBeenCalled();
     });
   });
 

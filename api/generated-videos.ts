@@ -45,9 +45,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
+      const { project_id, user_id } = req.body || {};
+
+      // Validate required fields
+      if (!project_id || typeof project_id !== 'string' || !project_id.trim()) {
+        return res.status(400).json({ error: 'project_id is required and cannot be empty' });
+      }
+      if (!user_id || typeof user_id !== 'string' || !user_id.trim()) {
+        return res.status(400).json({ error: 'user_id is required and cannot be empty' });
+      }
+
       const { data, error } = await supabase
         .from('generated_videos')
-        .insert(req.body)
+        .insert({
+          ...req.body,
+          project_id: project_id.trim(),
+          user_id: user_id.trim(),
+        })
         .select()
         .single();
 

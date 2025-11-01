@@ -92,6 +92,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
         assets={assets}
         viewMode={viewMode}
         isUploading={uploadMutation.isPending}
+        projectId={projectId}
         onDrop={handleFileUpload}
         onEditImage={onEditImage}
         onRequestDelete={(assetId, storagePath) => {

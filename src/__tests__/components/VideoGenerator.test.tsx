@@ -99,7 +99,6 @@ describe('VideoGenerator', () => {
       id: 'edited-image-1',
       project_id: 'test-project',
       user_id: 'test-user-id',
-      source_asset_id: null,
       prompt: 'A beautiful landscape',
       context: {},
       ai_model: 'stable-diffusion',
@@ -165,7 +164,6 @@ describe('VideoGenerator', () => {
       scene_type: 'product-showcase',
       camera_movement: 'static',
       storage_path: 'https://example.com/generated-video-1.mp4',
-      video_url: 'https://example.com/generated-video-1.mp4',
       thumbnail_url: null,
       duration: 30,
       status: 'completed',
@@ -294,7 +292,6 @@ describe('VideoGenerator', () => {
           scene_type: 'product-showcase', // Default scene type
           camera_movement: 'static', // Default camera movement
           runway_task_id: 'runway-task-123',
-          video_url: 'https://example.com/generated-video.mp4',
           storage_path: 'https://example.com/generated-video.mp4',
           status: 'completed',
           completed_at: expect.any(String), // Will be a specific timestamp
@@ -589,6 +586,68 @@ describe('VideoGenerator', () => {
 
       // This is verified through the GeneratedVideosView integration tests above
       // which confirm that videos are properly displayed when provided
+    });
+  });
+
+  describe('Project ID Validation', () => {
+    it('asserts project_id is never empty when saving generated video', async () => {
+      const user = userEvent.setup();
+      renderWithQueryClient(
+        <VideoGenerator projectId="test-project-id" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Select an image source
+      const imageCard = screen.getByTestId(/media-item|edited-image/);
+      await user.click(imageCard);
+
+      // Click generate button
+      const generateButton = screen.getByRole('button', { name: /Generate Video/i });
+      await user.click(generateButton);
+
+      // Wait for save to be called
+      await waitFor(
+        () => {
+          expect(database.generatedVideos.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify project_id is present and not empty in the payload
+      const createCall = vi.mocked(database.generatedVideos.create).mock.calls[0][0];
+      expect(createCall.project_id).toBeDefined();
+      expect(createCall.project_id).toBe('test-project-id');
+      expect(createCall.project_id.trim()).not.toBe('');
+      expect(createCall.project_id.length).toBeGreaterThan(0);
+    });
+
+    it('throws error when projectId is empty string', async () => {
+      const user = userEvent.setup();
+      renderWithQueryClient(
+        <VideoGenerator projectId="" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Select an image source
+      const imageCard = screen.getByTestId(/media-item|edited-image/);
+      await user.click(imageCard);
+
+      // Click generate button
+      const generateButton = screen.getByRole('button', { name: /Generate Video/i });
+      await user.click(generateButton);
+
+      // Wait for error toast - validation happens after video generation succeeds
+      await waitFor(
+        () => {
+          const toastCalls = mockShowToast.mock.calls;
+          const hasProjectIdError = toastCalls.some(
+            call => call[0]?.includes('Project ID is required') && call[1] === 'error'
+          );
+          expect(hasProjectIdError).toBe(true);
+        },
+        { timeout: 10000 }
+      );
+
+      // Verify database.create was NOT called (validation prevents it)
+      expect(database.generatedVideos.create).not.toHaveBeenCalled();
     });
   });
 

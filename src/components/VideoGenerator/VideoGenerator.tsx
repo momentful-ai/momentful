@@ -147,17 +147,24 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
         showToast('Video generated successfully!', 'success');
 
+        // Validate required fields before saving
+        if (!projectId || !projectId.trim()) {
+          throw new Error('Project ID is required to save generated video');
+        }
+        if (!userId || !userId.trim()) {
+          throw new Error('User ID is required to save generated video');
+        }
+
         // Save video metadata to database with Runway URL
         await database.generatedVideos.create({
-          project_id: projectId,
-          user_id: userId,
+          project_id: projectId.trim(),
+          user_id: userId.trim(),
           name: prompt || 'Untitled Video',
           ai_model: selectedModel,
           aspect_ratio: aspectRatio,
           scene_type: sceneType,
           camera_movement: cameraMovement,
           runway_task_id: runwayTaskId,
-          video_url: runwayVideoUrl,
           storage_path: runwayVideoUrl,
           status: 'completed',
           completed_at: new Date().toISOString(),
@@ -255,13 +262,20 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
   }, [isSelecting]);
 
   const handleFileDrop = async (files: File[]) => {
-    if (!userId) return;
+    if (!userId || !userId.trim()) {
+      showToast('User ID is required to upload files', 'error');
+      return;
+    }
+    if (!projectId || !projectId.trim()) {
+      showToast('Project ID is required to upload files', 'error');
+      return;
+    }
 
     for (const file of files) {
       try {
         const timestamp = Date.now();
         const fileName = `${timestamp}-${file.name}`;
-        const storagePath = `${userId}/${projectId}/${fileName}`;
+        const storagePath = `${userId.trim()}/${projectId.trim()}/${fileName}`;
 
         await database.storage.upload('user-uploads', storagePath, file);
 
@@ -273,8 +287,8 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
         });
 
         await database.mediaAssets.create({
-          project_id: projectId,
-          user_id: userId,
+          project_id: projectId.trim(),
+          user_id: userId.trim(),
           file_name: file.name,
           file_type: 'image',
           file_size: file.size,

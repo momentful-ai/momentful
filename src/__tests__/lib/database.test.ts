@@ -565,6 +565,103 @@ describe('database', () => {
         );
         expect(result).toBeDefined();
       });
+
+      it('throws error when project_id is empty', async () => {
+        await expect(
+          database.editedImages.create({
+            project_id: '',
+            user_id: 'user-1',
+            prompt: 'Test prompt',
+            ai_model: 'runway-gen4',
+            storage_path: 'path/to/edited.jpg',
+            width: 1920,
+            height: 1080,
+          })
+        ).rejects.toThrow('project_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('throws error when project_id is whitespace only', async () => {
+        await expect(
+          database.editedImages.create({
+            project_id: '   ',
+            user_id: 'user-1',
+            prompt: 'Test prompt',
+            ai_model: 'runway-gen4',
+            storage_path: 'path/to/edited.jpg',
+            width: 1920,
+            height: 1080,
+          })
+        ).rejects.toThrow('project_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('throws error when user_id is empty', async () => {
+        await expect(
+          database.editedImages.create({
+            project_id: 'project-1',
+            user_id: '',
+            prompt: 'Test prompt',
+            ai_model: 'runway-gen4',
+            storage_path: 'path/to/edited.jpg',
+            width: 1920,
+            height: 1080,
+          })
+        ).rejects.toThrow('user_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('asserts project_id is always present and non-empty in payload', async () => {
+        const mockImage = {
+          id: 'image-new',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          storage_path: 'path/to/edited.jpg',
+          prompt: 'Test prompt',
+          context: {},
+          ai_model: 'runway-gen4',
+          width: 1920,
+          height: 1080,
+        };
+
+        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.single.mockReturnValueOnce({
+          data: mockImage,
+          error: null,
+        });
+
+        const mockStorageBucket = {
+          getPublicUrl: vi.fn(() => ({
+            data: { publicUrl: 'https://example.com/user-uploads/path/to/edited.jpg' },
+          })),
+        };
+        mockSupabaseClient.storage.from.mockReturnValueOnce(mockStorageBucket);
+
+        await database.editedImages.create({
+          project_id: 'project-1',
+          user_id: 'user-1',
+          prompt: 'Test prompt',
+          ai_model: 'runway-gen4',
+          storage_path: 'path/to/edited.jpg',
+          width: 1920,
+          height: 1080,
+        });
+
+        // Verify the payload sent to database has non-empty project_id
+        const insertCall = mockSupabaseClient.insert.mock.calls[0][0];
+        expect(insertCall.project_id).toBeDefined();
+        expect(insertCall.project_id).toBe('project-1');
+        expect(insertCall.project_id.trim()).not.toBe('');
+        expect(insertCall.project_id.length).toBeGreaterThan(0);
+      });
     });
 
     describe('delete', () => {
@@ -653,6 +750,86 @@ describe('database', () => {
         });
 
         expect(result).toEqual(mockVideo);
+      });
+
+      it('throws error when project_id is empty', async () => {
+        await expect(
+          database.generatedVideos.create({
+            project_id: '',
+            user_id: 'user-1',
+            name: 'New Video',
+            ai_model: 'runway-gen2',
+            aspect_ratio: '16:9',
+          })
+        ).rejects.toThrow('project_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('throws error when project_id is whitespace only', async () => {
+        await expect(
+          database.generatedVideos.create({
+            project_id: '   ',
+            user_id: 'user-1',
+            name: 'New Video',
+            ai_model: 'runway-gen2',
+            aspect_ratio: '16:9',
+          })
+        ).rejects.toThrow('project_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('throws error when user_id is empty', async () => {
+        await expect(
+          database.generatedVideos.create({
+            project_id: 'project-1',
+            user_id: '',
+            name: 'New Video',
+            ai_model: 'runway-gen2',
+            aspect_ratio: '16:9',
+          })
+        ).rejects.toThrow('user_id is required and cannot be empty');
+
+        // Verify insert was never called
+        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+      });
+
+      it('asserts project_id is always present and non-empty in payload', async () => {
+        const mockVideo = {
+          id: 'video-new',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          name: 'New Video',
+          ai_model: 'runway-gen2',
+          aspect_ratio: '16:9',
+          status: 'processing' as const,
+        };
+
+        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
+        mockSupabaseClient.single.mockReturnValueOnce({
+          data: mockVideo,
+          error: null,
+        });
+
+        await database.generatedVideos.create({
+          project_id: 'project-1',
+          user_id: 'user-1',
+          name: 'New Video',
+          ai_model: 'runway-gen2',
+          aspect_ratio: '16:9',
+        });
+
+        // Verify the payload sent to database has non-empty project_id
+        const insertCall = mockSupabaseClient.insert.mock.calls[0][0];
+        expect(insertCall.project_id).toBeDefined();
+        expect(insertCall.project_id).toBe('project-1');
+        expect(insertCall.project_id.trim()).not.toBe('');
+        expect(insertCall.project_id.length).toBeGreaterThan(0);
       });
     });
 

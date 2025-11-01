@@ -11,6 +11,7 @@ interface MediaLibraryViewProps {
   assets: MediaAsset[];
   viewMode: 'grid' | 'list';
   isUploading: boolean;
+  projectId: string;
   onDrop: (files: File[]) => void;
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
   onRequestDelete: (assetId: string, storagePath: string) => void;
@@ -22,6 +23,7 @@ export function MediaLibraryView({
   assets,
   viewMode,
   isUploading,
+  projectId,
   onDrop,
   onEditImage,
   onRequestDelete,
@@ -50,10 +52,10 @@ export function MediaLibraryView({
       viewMode={viewMode}
       onClick={() => {
         if (asset.file_type === 'image' && onEditImage) {
-          onEditImage(asset, ''); // projectId will be passed from parent
+          onEditImage(asset, projectId);
         }
       }}
-      onEditImage={onEditImage ? (asset) => onEditImage(asset, '') : undefined}
+      onEditImage={onEditImage ? (asset) => onEditImage(asset, projectId) : undefined}
       onRequestDelete={() => onRequestDelete(asset.id, asset.storage_path)}
       onDownload={onDownload}
       getAssetUrl={getAssetUrl}
