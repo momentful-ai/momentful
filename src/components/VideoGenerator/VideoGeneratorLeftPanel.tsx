@@ -16,7 +16,7 @@ interface VideoGeneratorLeftPanelProps {
   onDragStart: (e: React.DragEvent, source: SelectedSource) => void;
   onMouseDown: (source: SelectedSource) => void;
   onMouseEnter: (source: SelectedSource) => void;
-  onFileDrop: (files: File[]) => Promise<void>;
+  onFileDrop?: (files: File[]) => Promise<void>;
   onRefresh: () => void;
 }
 
@@ -103,38 +103,46 @@ export function VideoGeneratorLeftPanel({
 
     setIsUploading(true);
 
-    for (const file of imageFiles) {
-      try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        const storagePath = `${userId}/${projectId}/${fileName}`;
+    try {
+      // If onFileDrop prop is provided, use it (for testing and parent control)
+      if (onFileDrop) {
+        await onFileDrop(imageFiles);
+      } else {
+        // Default implementation: upload files directly
+        for (const file of imageFiles) {
+          try {
+            const timestamp = Date.now();
+            const fileName = `${timestamp}-${file.name}`;
+            const storagePath = `${userId}/${projectId}/${fileName}`;
 
-        await database.storage.upload('user-uploads', storagePath, file);
+            await database.storage.upload('user-uploads', storagePath, file);
 
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
-        });
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = reject;
+              img.src = URL.createObjectURL(file);
+            });
 
-        await database.mediaAssets.create({
-          project_id: projectId,
-          user_id: userId,
-          file_name: file.name,
-          file_type: 'image',
-          file_size: file.size,
-          storage_path: storagePath,
-          width: img.width,
-          height: img.height,
-        });
-      } catch (error) {
-        console.error('Error uploading file:', error);
+            await database.mediaAssets.create({
+              project_id: projectId,
+              user_id: userId,
+              file_name: file.name,
+              file_type: 'image',
+              file_size: file.size,
+              storage_path: storagePath,
+              width: img.width,
+              height: img.height,
+            });
+          } catch (error) {
+            console.error('Error uploading file:', error);
+          }
+        }
       }
+    } finally {
+      setIsUploading(false);
+      onRefresh();
     }
-
-    setIsUploading(false);
-    onRefresh();
   };
 
   return (

@@ -24,5 +24,15 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    // Specific configuration for API files
+    // TypeScript compiler will catch missing .js extensions with node16 resolution
+    files: ['api/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
   }
 );

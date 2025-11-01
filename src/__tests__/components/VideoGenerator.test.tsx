@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VideoGenerator } from '../../components/VideoGenerator';
@@ -44,6 +44,7 @@ vi.mock('../../lib/database', () => ({
     },
     mediaAssets: {
       list: vi.fn(),
+      create: vi.fn(),
     },
     generatedVideos: {
       create: vi.fn(),
@@ -54,6 +55,17 @@ vi.mock('../../lib/database', () => ({
     },
   },
 }));
+
+// Mock media utilities - preserve original exports and mock only what we need
+vi.mock('../../lib/media', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/media')>();
+  return {
+    ...actual,
+    isAcceptableImageFile: vi.fn((file: File) => {
+      return ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type);
+    }),
+  };
+});
 
 // Mock the Runway API
 vi.mock('../../services/aiModels/runway', () => ({
@@ -794,6 +806,230 @@ describe('VideoGenerator', () => {
       // Verify tabs exist - tab switching functionality is tested in integration tests
       const tabs = screen.queryAllByText(/Media Library|Edited Images/i);
       expect(tabs.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('File Drop Functionality', () => {
+    beforeEach(() => {
+      // Mock Image constructor for dimension detection
+      global.Image = class extends Image {
+        constructor() {
+          super();
+          setTimeout(() => {
+            this.width = 800;
+            this.height = 600;
+            if (this.onload) {
+              this.onload({} as Event);
+            }
+          }, 0);
+        }
+      } as typeof Image;
+    });
+
+    it('handles file drop and uploads images', async () => {
+      const mockFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' });
+      const mockUpload = vi.mocked(database.storage.upload);
+      const mockCreate = vi.mocked(database.mediaAssets.create);
+
+      mockUpload.mockResolvedValue(undefined);
+      mockCreate.mockResolvedValue({
+        id: 'new-media-asset-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        file_name: 'test-image.jpg',
+        file_type: 'image',
+        file_size: mockFile.size,
+        storage_path: 'user-uploads/test-user-id/test-project/123-test-image.jpg',
+        thumbnail_url: null,
+        width: 800,
+        height: 600,
+        duration: undefined,
+        sort_order: 1,
+        created_at: '2025-10-20T15:59:30.165+00:00',
+      });
+
+      const { container } = renderWithQueryClient(
+        <VideoGenerator projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Video Generator')).toBeInTheDocument();
+      });
+
+      // Get the drop zone (the content area with onDrop handler)
+      // The drop zone is the div with overflow-y-auto class inside the aside
+      const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
+      
+      expect(contentArea).toBeInTheDocument();
+
+      // Create a dataTransfer object
+      const dataTransfer = {
+        files: [mockFile],
+        types: ['Files'],
+      };
+      
+      // Simulate drop using fireEvent
+      if (contentArea) {
+        fireEvent.drop(contentArea, {
+          dataTransfer,
+        });
+      }
+
+      // Wait for upload to be called
+      await waitFor(() => {
+        expect(mockUpload).toHaveBeenCalled();
+      }, { timeout: 2000 });
+
+      // Verify file was uploaded
+      expect(mockUpload).toHaveBeenCalledWith(
+        'user-uploads',
+        expect.stringMatching(/test-user-id\/test-project\/\d+-test-image\.jpg/),
+        mockFile
+      );
+
+      // Verify media asset was created
+      await waitFor(() => {
+        expect(mockCreate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            project_id: 'test-project',
+            user_id: 'test-user-id',
+            file_name: 'test-image.jpg',
+            file_type: 'image',
+            file_size: mockFile.size,
+            width: 800,
+            height: 600,
+          })
+        );
+      });
+
+      // Verify sources were refreshed
+      await waitFor(() => {
+        expect(vi.mocked(database.mediaAssets.list)).toHaveBeenCalled();
+      });
+    });
+
+    it('filters out non-image files on drop', async () => {
+      const mockImageFile = new File(['image'], 'test.jpg', { type: 'image/jpeg' });
+      const mockTextFile = new File(['text'], 'test.txt', { type: 'text/plain' });
+      
+      const mockUpload = vi.mocked(database.storage.upload);
+      const mockCreate = vi.mocked(database.mediaAssets.create);
+
+      global.Image = class extends Image {
+        constructor() {
+          super();
+          setTimeout(() => {
+            this.width = 800;
+            this.height = 600;
+            if (this.onload) {
+              this.onload({} as Event);
+            }
+          }, 0);
+        }
+      } as typeof Image;
+
+      mockUpload.mockResolvedValue(undefined);
+      mockCreate.mockResolvedValue({
+        id: 'new-media-asset-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        file_name: 'test.jpg',
+        file_type: 'image',
+        file_size: mockImageFile.size,
+        storage_path: 'user-uploads/test-user-id/test-project/123-test.jpg',
+        thumbnail_url: null,
+        width: 800,
+        height: 600,
+        duration: undefined,
+        sort_order: 1,
+        created_at: '2025-10-20T15:59:30.165+00:00',
+      });
+
+      const { container } = renderWithQueryClient(
+        <VideoGenerator projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Video Generator')).toBeInTheDocument();
+      });
+
+      const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
+
+      const dataTransfer = {
+        files: [mockImageFile, mockTextFile],
+        types: ['Files'],
+      };
+
+      if (contentArea) {
+        fireEvent.drop(contentArea, { dataTransfer });
+      }
+
+      // Should only upload the image file, not the text file
+      await waitFor(() => {
+        expect(mockUpload).toHaveBeenCalledTimes(1);
+        expect(mockUpload).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.any(String),
+          mockImageFile
+        );
+      });
+    });
+
+    it('does not upload files when userId is missing', async () => {
+      mockUseUserId.mockReturnValue(null);
+      
+      const mockFile = new File(['image'], 'test.jpg', { type: 'image/jpeg' });
+      const mockUpload = vi.mocked(database.storage.upload);
+
+      const { container } = renderWithQueryClient(
+        <VideoGenerator projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Video Generator')).toBeInTheDocument();
+      });
+
+      const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
+
+      const dataTransfer = {
+        files: [mockFile],
+        types: ['Files'],
+      };
+
+      if (contentArea) {
+        fireEvent.drop(contentArea, { dataTransfer });
+      }
+
+      // Wait a bit to ensure no upload happened
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('shows drag overlay when dragging files over the drop zone', async () => {
+      const { container } = renderWithQueryClient(
+        <VideoGenerator projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Video Generator')).toBeInTheDocument();
+      });
+
+      const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
+
+      // Simulate drag over
+      const dataTransfer = {
+        types: ['Files'],
+      };
+
+      if (contentArea) {
+        fireEvent.dragOver(contentArea, { dataTransfer });
+      }
+
+      // Should show drag overlay
+      await waitFor(() => {
+        expect(screen.getByText('Drop images here to upload')).toBeInTheDocument();
+      });
     });
   });
 });

@@ -254,9 +254,40 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     }
   }, [isSelecting]);
 
-  const handleFileDrop = async () => {
-    // This will be handled by the left panel component
-    await loadSources();
+  const handleFileDrop = async (files: File[]) => {
+    if (!userId) return;
+
+    for (const file of files) {
+      try {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name}`;
+        const storagePath = `${userId}/${projectId}/${fileName}`;
+
+        await database.storage.upload('user-uploads', storagePath, file);
+
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+
+        await database.mediaAssets.create({
+          project_id: projectId,
+          user_id: userId,
+          file_name: file.name,
+          file_type: 'image',
+          file_size: file.size,
+          storage_path: storagePath,
+          width: img.width,
+          height: img.height,
+        });
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
+    }
+
+    // Invalidate queries to refresh the UI
     await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
   };
 
