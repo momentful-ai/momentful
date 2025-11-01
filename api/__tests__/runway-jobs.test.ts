@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import RunwayML from '@runwayml/sdk';
 
 // Type for Runway task response
 interface RunwayTask {
