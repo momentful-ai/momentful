@@ -17,8 +17,10 @@ export function DevToolbar() {
     if (supabaseOverride) setSupabaseBackend(supabaseOverride);
   }, []);
 
-  // Only show on localhost
-  if (!isLocalhost()) return null;
+  // Only show in local development
+  // Check both Vite dev mode and localhost to ensure it's not shown in production builds
+  const isDev = import.meta.env.DEV && isLocalhost();
+  if (!isDev) return null;
 
   const handleAuthModeChange = (mode: string) => {
     setAuthMode(mode);
@@ -114,7 +116,7 @@ export function DevToolbar() {
 
       <div className="mt-4 pt-3 border-t border-border">
         <p className="text-xs text-muted-foreground">
-          Changes require page reload. Only visible on localhost.
+          Changes require page reload. Only visible in local dev mode.
         </p>
       </div>
     </div>

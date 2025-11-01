@@ -6,6 +6,7 @@ import { setSupabaseAuth } from '../lib/supabase-auth';
 import { useBypassContext } from '../hooks/useBypassContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from './ui/button';
+import { DevToolbar } from './DevToolbar';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -67,56 +68,62 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isLoaded) {
     return (
-      <div className={`min-h-screen bg-gradient-to-br ${
-        isDarkTheme ? 'from-slate-900 to-slate-800' : 'from-slate-50 to-slate-100'
-      } flex items-center justify-center`}>
-        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
-          isDarkTheme ? 'border-blue-400' : 'border-blue-500'
-        }`} />
-      </div>
+      <>
+        <DevToolbar />
+        <div className={`min-h-screen bg-gradient-to-br ${
+          isDarkTheme ? 'from-slate-900 to-slate-800' : 'from-slate-50 to-slate-100'
+        } flex items-center justify-center`}>
+          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+            isDarkTheme ? 'border-blue-400' : 'border-blue-500'
+          }`} />
+        </div>
+      </>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <div className={`min-h-screen bg-gradient-to-br ${
-        isDarkTheme ? 'from-slate-900 to-slate-800' : 'from-slate-50 to-slate-100'
-      } flex items-center justify-center p-4 relative`}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(isDarkTheme ? 'light' : 'dark')}
-          className="absolute top-4 right-4 rounded-full"
-          aria-label="Toggle theme"
-        >
-          {isDarkTheme ? (
-            <Sun className="w-5 h-5" />
-          ) : (
-            <Moon className="w-5 h-5" />
-          )}
-        </Button>
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className={`text-3xl font-bold mb-2 ${
-              isDarkTheme ? 'text-white' : 'text-slate-900'
-            }`}>
-              Welcome to momentful!
-            </h1>
-            <p className={isDarkTheme ? 'text-slate-300' : 'text-slate-600'}>
-              Create stunning marketing visuals with AI
-            </p>
+      <>
+        <DevToolbar />
+        <div className={`min-h-screen bg-gradient-to-br ${
+          isDarkTheme ? 'from-slate-900 to-slate-800' : 'from-slate-50 to-slate-100'
+        } flex items-center justify-center p-4 relative`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(isDarkTheme ? 'light' : 'dark')}
+            className="absolute top-16 right-4 rounded-full"
+            aria-label="Toggle theme"
+          >
+            {isDarkTheme ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </Button>
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <h1 className={`text-3xl font-bold mb-2 ${
+                isDarkTheme ? 'text-white' : 'text-slate-900'
+              }`}>
+                Welcome to momentful!
+              </h1>
+              <p className={isDarkTheme ? 'text-slate-300' : 'text-slate-600'}>
+                Create stunning marketing visuals with AI
+              </p>
+            </div>
+            <SignIn
+              appearance={{
+                baseTheme: isDarkTheme ? dark : undefined,
+                elements: {
+                  rootBox: 'mx-auto',
+                  card: 'shadow-xl',
+                },
+              }}
+            />
           </div>
-          <SignIn
-            appearance={{
-              baseTheme: isDarkTheme ? dark : undefined,
-              elements: {
-                rootBox: 'mx-auto',
-                card: 'shadow-xl',
-              },
-            }}
-          />
         </div>
-      </div>
+      </>
     );
   }
 
