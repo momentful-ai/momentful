@@ -40,7 +40,11 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider defaultTheme="light">
       <QueryClientProvider client={queryClient}>
         <BypassProvider>
-          <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+          <ClerkProvider 
+            publishableKey={PUBLISHABLE_KEY} 
+            signInFallbackRedirectUrl="/app"
+            afterSignOutUrl="/"
+          >
             <AuthGuard>
               <App />
             </AuthGuard>

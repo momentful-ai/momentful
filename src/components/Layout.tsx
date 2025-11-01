@@ -28,12 +28,14 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="gradient-primary p-2 rounded-xl shadow-lg">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold text-gradient">
-                momentful
-              </h1>
+              <a href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
+                <div className="gradient-primary p-2 rounded-xl shadow-lg">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <h1 className="text-lg sm:text-xl font-bold text-gradient">
+                  momentful
+                </h1>
+              </a>
               {isBypassEnabled && (
                 <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-md font-medium border border-border">
                   Local Mode
