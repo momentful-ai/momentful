@@ -1,19 +1,23 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X } from 'lucide-react';
-import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
-import { database } from '../lib/database';
-import { FileUpload } from './FileUpload';
-import { MediaLibrary } from './MediaLibrary';
-import { VideoGenerator } from './VideoGenerator';
-import { ExportModal } from './ExportModal';
-import { PublishModal } from './PublishModal';
+import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
+import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
+import { database } from '../../lib/database';
+import { FileUpload } from '../FileUpload';
+import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
+import { VideoGenerator } from '../VideoGenerator';
+import { ExportModal } from '../ExportModal';
+import { PublishModal } from '../PublishModal';
 import { EditedImagesView } from './EditedImagesView';
 import { GeneratedVideosView } from './GeneratedVideosView';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { mergeName } from '../lib/utils';
-import { updateProjectVideoStatuses } from '../services/aiModels/runway';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { MediaLibrarySkeleton } from '../LoadingSkeleton';
+import { mergeName } from '../../lib/utils';
+import { updateProjectVideoStatuses } from '../../services/aiModels/runway';
+import { downloadBulkAsZip } from '../../lib/download';
+import { getAssetUrl } from '../../lib/media';
+import { useToast } from '../../hooks/useToast';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -45,6 +49,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [exportAsset, setExportAsset] = useState<{ id: string; type: 'video' | 'image'; url: string } | null>(null);
   const [publishAsset, setPublishAsset] = useState<{ id: string; type: 'video' | 'image' } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const { showToast } = useToast();
 
   const loadProjectData = useCallback(async () => {
     try {
@@ -152,6 +158,105 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const handleShowUploadModal = useCallback(() => {
     setShowUploadModal(true);
   }, []);
+
+  const handleDownloadAllMedia = useCallback(async () => {
+    if (mediaAssets.length === 0) return;
+
+    setIsDownloadingAll(true);
+    try {
+      const items = mediaAssets.map((asset) => ({
+        url: getAssetUrl(asset.storage_path),
+        filename: asset.file_name,
+      }));
+
+      await downloadBulkAsZip(items, `${currentProject.name}-media-library`, (current, total) => {
+        showToast(`Downloading ${current}/${total} files...`, 'info');
+      });
+
+      showToast(`Downloaded ${mediaAssets.length} files as ${currentProject.name}-media-library.zip`, 'success');
+    } catch (error) {
+      console.error('Error downloading all media:', error);
+      showToast('Failed to download files. Please try again.', 'error');
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  }, [mediaAssets, currentProject.name, showToast]);
+
+  const handleDownloadAllEdited = useCallback(async () => {
+    if (editedImages.length === 0) return;
+
+    setIsDownloadingAll(true);
+    try {
+      const items = editedImages.map((image) => ({
+        url: image.edited_url,
+        filename: `edited-${image.id}.png`,
+      }));
+
+      await downloadBulkAsZip(items, `${currentProject.name}-edited-images`, (current, total) => {
+        showToast(`Downloading ${current}/${total}...`, 'info');
+      });
+
+      showToast(`Downloaded ${editedImages.length} files as ${currentProject.name}-edited-images.zip`, 'success');
+    } catch (error) {
+      console.error('Error downloading all edited images:', error);
+      showToast('Failed to download files. Please try again.', 'error');
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  }, [editedImages, currentProject.name, showToast]);
+
+  const handleDownloadAllVideos = useCallback(async () => {
+    const completedVideos = generatedVideos.filter((video) => video.status === 'completed' && video.storage_path);
+    if (completedVideos.length === 0) {
+      showToast('No completed videos available to download', 'info');
+      return;
+    }
+
+    setIsDownloadingAll(true);
+    try {
+      const items = completedVideos.map((video) => ({
+        url: video.storage_path!,
+        filename: `${video.name || `video-${video.id}`}.mp4`,
+      }));
+
+      await downloadBulkAsZip(items, `${currentProject.name}-videos`, (current, total) => {
+        showToast(`Downloading ${current}/${total} videos...`, 'info');
+      });
+
+      showToast(`Downloaded ${completedVideos.length} videos as ${currentProject.name}-videos.zip`, 'success');
+    } catch (error) {
+      console.error('Error downloading all videos:', error);
+      showToast('Failed to download videos. Please try again.', 'error');
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  }, [generatedVideos, currentProject.name, showToast]);
+
+  const getCurrentTabDownloadHandler = useCallback(() => {
+    switch (activeTab) {
+      case 'media':
+        return handleDownloadAllMedia;
+      case 'edited':
+        return handleDownloadAllEdited;
+      case 'videos':
+        return handleDownloadAllVideos;
+      default:
+        return undefined;
+    }
+  }, [activeTab, handleDownloadAllMedia, handleDownloadAllEdited, handleDownloadAllVideos]);
+
+  const getCurrentTabCount = useCallback(() => {
+    switch (activeTab) {
+      case 'media':
+        return mediaAssets.length;
+      case 'edited':
+        return editedImages.length;
+      case 'videos':
+        return generatedVideos.filter((v) => v.status === 'completed' && v.storage_path).length;
+      default:
+        return 0;
+    }
+  }, [activeTab, mediaAssets.length, editedImages.length, generatedVideos]);
 
   const tabCounts = useMemo(() => ({
     media: mediaAssets.length,
@@ -282,39 +387,61 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 </div>
               )}
             </div>
-            <div className="flex gap-1 border rounded-lg p-1">
-              <Button
-                onClick={() => handleViewModeChange('grid')}
-                variant="ghost"
-                size="icon"
-                className={mergeName(
-                  'h-8 w-8',
-                  viewMode === 'grid' && 'bg-muted'
-                )}
-              >
-                <Grid3x3 className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={() => handleViewModeChange('list')}
-                variant="ghost"
-                size="icon"
-                className={mergeName(
-                  'h-8 w-8',
-                  viewMode === 'list' && 'bg-muted'
-                )}
-              >
-                <List className="w-4 h-4" />
-              </Button>
+            <div className="flex items-center gap-2">
+              {getCurrentTabCount() > 0 && getCurrentTabDownloadHandler() && (
+                <Button
+                  onClick={getCurrentTabDownloadHandler()}
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDownloadingAll}
+                  className="glass gap-2"
+                >
+                  {isDownloadingAll ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                      <span>Downloading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>Download All</span>
+                      <Badge variant="secondary" className="ml-1">
+                        {getCurrentTabCount()}
+                      </Badge>
+                    </>
+                  )}
+                </Button>
+              )}
+              <div className="flex gap-1 border rounded-lg p-1">
+                <Button
+                  onClick={() => handleViewModeChange('grid')}
+                  variant="ghost"
+                  size="icon"
+                  className={mergeName(
+                    'h-8 w-8',
+                    viewMode === 'grid' && 'bg-muted'
+                  )}
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => handleViewModeChange('list')}
+                  variant="ghost"
+                  size="icon"
+                  className={mergeName(
+                    'h-8 w-8',
+                    viewMode === 'list' && 'bg-muted'
+                  )}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-64 animate-fade-in">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-            </div>
-          ) : (
+          {loading ? <MediaLibrarySkeleton/> : (
             <>
               {activeTab === 'media' && (
                 <div key="media-tab" className="animate-fade-in">

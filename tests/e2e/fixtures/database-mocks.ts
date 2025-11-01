@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { test as base } from '@playwright/test';
 
 /**
@@ -5,7 +6,7 @@ import { test as base } from '@playwright/test';
  * This ensures E2E tests have consistent data without requiring database setup.
  */
 export const test = base.extend({
-  context: async ({ context }, use) => {
+  context: async ({ context }, useFixture) => {
     // Mock projects list to return a test project
     await context.route('**/rest/v1/projects**', async route => {
       await route.fulfill({
@@ -61,7 +62,6 @@ export const test = base.extend({
             id: 'edited-image-1',
             project_id: '46b73af3-0bc6-4c64-b665-555495e618fe',
             user_id: 'local-dev-user',
-            source_asset_id: null,
             prompt: 'A beautiful landscape',
             context: {},
             ai_model: 'stable-diffusion',
@@ -143,6 +143,6 @@ export const test = base.extend({
       }
     });
 
-    await use(context);
+    await useFixture(context);
   },
 });

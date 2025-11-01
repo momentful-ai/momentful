@@ -2,6 +2,7 @@ import { useState, useRef, DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon, Film } from 'lucide-react';
 import { database } from '../lib/database';
+import { ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../lib/media';
 import { useUserId } from '../hooks/useUserId';
 
 interface FileUploadProps {
@@ -17,8 +18,6 @@ interface UploadFile {
   progress: number;
   error?: string;
 }
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
@@ -31,7 +30,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
   const queryClient = useQueryClient();
 
   const validateFile = (file: File): string | null => {
-    const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
+    const isImage = isAcceptableImageFile(file);
     const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type);
 
     if (!isImage && !isVideo) {
@@ -128,7 +127,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
       );
 
       try {
-        const isImage = ALLOWED_IMAGE_TYPES.includes(uploadFile.file.type);
+        const isImage = isAcceptableImageFile(uploadFile.file);
         const isVideo = ALLOWED_VIDEO_TYPES.includes(uploadFile.file.type);
         const timestamp = Date.now();
         const fileName = `${timestamp}-${uploadFile.file.name}`;
@@ -264,7 +263,7 @@ export function FileUpload({ projectId, onUploadComplete, onClose }: FileUploadP
               ref={fileInputRef}
               type="file"
               multiple
-              accept={[...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].join(',')}
+              accept={[...ACCEPTABLE_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].join(',')}
               onChange={(e) => handleFiles(e.target.files)}
               className="hidden"
             />

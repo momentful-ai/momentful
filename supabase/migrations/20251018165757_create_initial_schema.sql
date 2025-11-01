@@ -30,7 +30,6 @@
       - `id` (uuid, primary key)
       - `project_id` (uuid, foreign key to projects)
       - `user_id` (text, references Clerk user ID)
-      - `source_asset_id` (uuid, nullable, foreign key to media_assets)
       - `prompt` (text)
       - `context` (jsonb) - stores additional context for editing
       - `ai_model` (text) - model used for generation

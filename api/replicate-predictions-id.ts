@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getReplicatePredictionStatus } from './replicate/predictions/index';
+import { getReplicatePredictionStatus } from './replicate/predictions/index.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();

@@ -29,7 +29,6 @@ export interface EditedImage {
   id: string;
   project_id: string;
   user_id: string;
-  source_asset_id?: string;
   prompt: string;
   context: Record<string, unknown>;
   ai_model: string;

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createJobSchema } from './validation';
-import { createVideoTask } from './runway/jobs/index';
+import { createJobSchema } from './validation.js';
+import { createVideoTask } from './runway/jobs/index.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();

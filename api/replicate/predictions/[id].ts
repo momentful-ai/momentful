@@ -54,6 +54,9 @@ export const ReplicateModels = {
   // Video generation models
   STABLE_VIDEO_DIFFUSION: 'stability-ai/stable-video-diffusion:3f0455e4619daac51287dedb1a3f5dbe6bc8d0a1e6e715b9a49c7d61b7c1b8a8',
 
+  // Flux Pro for image-to-image generation
+  FLUX_PRO: 'black-forest-labs/flux-1.1-pro',
+
   // Add more models as needed
 } as const;
 
@@ -69,10 +72,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const prediction = await getReplicatePredictionStatus(id);
+
+    if (prediction?.error) {
+      return res.status(500).json({ detail: prediction.error });
+    }
+
     return res.status(200).json(prediction);
-  } catch {
+  } catch (error) {
     return res.status(500).json({
-      error: 'Failed to get Replicate prediction status'
+      error: 'Failed to get Replicate prediction status',
+      detail: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ProjectWorkspace } from '../../components/ProjectWorkspace';
+import { ProjectWorkspace } from '../../components/ProjectWorkspace/ProjectWorkspace';
 import { database } from '../../lib/database';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import { EditedImage, MediaAsset } from '../../types';
@@ -85,14 +85,13 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
   let mockOnBack: ReturnType<typeof vi.fn>;
   let mockOnUpdateProject: ReturnType<typeof vi.fn>;
   let mockOnEditImage: ReturnType<typeof vi.fn>;
-  let mockOnSave: ReturnType<typeof vi.fn>;
 
   const mockProject = {
     id: 'test-project',
     user_id: 'test-user-id',
     name: 'Test Project',
     description: 'Test description',
-    thumbnail_url: null,
+    thumbnail_url: undefined,
     created_at: '2025-10-20T15:59:30.165+00:00',
     updated_at: '2025-10-20T15:59:30.165+00:00',
     previewImages: [],
@@ -102,13 +101,12 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     id: 'edited-image-1',
     project_id: 'test-project',
     user_id: 'test-user-id',
-    source_asset_id: null,
     prompt: 'A beautiful landscape',
     context: {},
     ai_model: 'stable-diffusion',
     storage_path: 'edited-images/edited-image-1.jpg',
     edited_url: 'https://example.com/edited-images/edited-image-1.jpg',
-    thumbnail_url: null,
+    thumbnail_url: undefined,
     width: 512,
     height: 512,
     version: 1,
@@ -128,7 +126,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     scene_type: 'product-showcase',
     camera_movement: 'static',
     storage_path: 'https://example.com/generated-video-1.mp4',
-    video_url: 'https://example.com/generated-video-1.mp4',
     thumbnail_url: undefined,
     duration: 30,
     status: 'completed' as const,
@@ -151,7 +148,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     mockOnBack = vi.fn();
     mockOnUpdateProject = vi.fn();
     mockOnEditImage = vi.fn();
-    mockOnSave = vi.fn();
 
     // Reset all mocks
     vi.clearAllMocks();
@@ -164,7 +160,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
 
     // Mock the videos list to return the new video after creation
     let videosListCallCount = 0;
-    vi.mocked(database.generatedVideos.list).mockImplementation(async (projectId: string) => {
+    vi.mocked(database.generatedVideos.list).mockImplementation(async () => {
       videosListCallCount++;
       if (videosListCallCount === 1) {
         return []; // First call (initial load) returns no videos
@@ -277,7 +273,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         scene_type: 'product-showcase', // Default scene type
         camera_movement: 'static', // Default camera movement
         runway_task_id: 'runway-task-123',
-        video_url: 'https://example.com/generated-video-1.mp4',
         storage_path: 'https://example.com/generated-video-1.mp4',
         status: 'completed',
         completed_at: '2025-10-20T15:59:30.165Z',
@@ -330,10 +325,9 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
       ...mockGeneratedVideo,
       id: 'processing-video-1',
       status: 'processing' as const,
-      storage_path: null,
-      video_url: null,
-      duration: null,
-      completed_at: null,
+      storage_path: undefined,
+      duration: undefined,
+      completed_at: undefined,
     };
 
     vi.mocked(database.generatedVideos.list).mockResolvedValue([processingVideo]);

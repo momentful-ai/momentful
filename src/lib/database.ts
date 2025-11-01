@@ -15,7 +15,6 @@ export interface EditedImage {
   id: string;
   project_id: string;
   user_id: string;
-  source_asset_id: string | null;
   prompt: string;
   context: Record<string, unknown>;
   ai_model: string;
@@ -139,6 +138,14 @@ export const database = {
       height?: number;
       duration?: number;
     }) {
+      // Validate required fields
+      if (!asset.project_id || !asset.project_id.trim()) {
+        throw new Error('project_id is required and cannot be empty');
+      }
+      if (!asset.user_id || !asset.user_id.trim()) {
+        throw new Error('user_id is required and cannot be empty');
+      }
+
       const { data, error } = await supabase
         .from('media_assets')
         .insert(asset)
@@ -177,7 +184,6 @@ export const database = {
     async create(image: {
       project_id: string;
       user_id: string;
-      source_asset_id?: string;
       prompt: string;
       context?: Record<string, unknown>;
       ai_model: string;
@@ -185,6 +191,14 @@ export const database = {
       width: number;
       height: number;
     }) {
+      // Validate required fields
+      if (!image.project_id || !image.project_id.trim()) {
+        throw new Error('project_id is required and cannot be empty');
+      }
+      if (!image.user_id || !image.user_id.trim()) {
+        throw new Error('user_id is required and cannot be empty');
+      }
+
       const { data, error } = await supabase
         .from('edited_images')
         .insert({
@@ -232,11 +246,18 @@ export const database = {
       scene_type?: string;
       camera_movement?: string;
       runway_task_id?: string;
-      video_url?: string;
       storage_path?: string;
       status?: 'processing' | 'completed' | 'failed';
       completed_at?: string;
     }) {
+      // Validate required fields
+      if (!video.project_id || !video.project_id.trim()) {
+        throw new Error('project_id is required and cannot be empty');
+      }
+      if (!video.user_id || !video.user_id.trim()) {
+        throw new Error('user_id is required and cannot be empty');
+      }
+
       const { data, error } = await supabase
         .from('generated_videos')
         .insert(video)
