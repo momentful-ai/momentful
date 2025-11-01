@@ -3,7 +3,7 @@ import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } f
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../types';
 import { database } from '../lib/database';
 import { FileUpload } from './FileUpload';
-import { MediaLibrary } from './MediaLibrary';
+import { MediaLibrary } from './MediaLibrary/MediaLibrary';
 import { VideoGenerator } from './VideoGenerator';
 import { ExportModal } from './ExportModal';
 import { PublishModal } from './PublishModal';
@@ -12,6 +12,7 @@ import { GeneratedVideosView } from './GeneratedVideosView';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { MediaLibrarySkeleton } from './LoadingSkeleton';
 import { mergeName } from '../lib/utils';
 import { updateProjectVideoStatuses } from '../services/aiModels/runway';
 import { downloadBulkAsZip } from '../lib/download';
@@ -440,11 +441,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         </div>
 
         <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-64 animate-fade-in">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-            </div>
-          ) : (
+          {loading ? <MediaLibrarySkeleton/> : (
             <>
               {activeTab === 'media' && (
                 <div key="media-tab" className="animate-fade-in">

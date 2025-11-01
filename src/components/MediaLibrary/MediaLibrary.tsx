@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { ConfirmDialog } from './ConfirmDialog';
-import { useToast } from '../hooks/useToast';
-import { useMediaAssets } from '../hooks/useMediaAssets';
-import { useUploadMedia } from '../hooks/useUploadMedia';
-import { useDeleteMediaAsset } from '../hooks/useDeleteMediaAsset';
-import { MediaLibrarySkeleton } from './LoadingSkeleton';
-import { getAssetUrl } from '../lib/media';
-import { MediaLibraryView } from './MediaLibrary/MediaLibraryView';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { MediaAsset } from '../types';
-import { downloadFile } from '../lib/download';
+import { ConfirmDialog } from '../ConfirmDialog';
+import { useToast } from '../../hooks/useToast';
+import { useMediaAssets } from '../../hooks/useMediaAssets';
+import { useUploadMedia } from '../../hooks/useUploadMedia';
+import { useDeleteMediaAsset } from '../../hooks/useDeleteMediaAsset';
+import { MediaLibrarySkeleton } from '../LoadingSkeleton';
+import { getAssetUrl } from '../../lib/media';
+import { MediaLibraryView } from './MediaLibraryView';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { MediaAsset } from '../../types';
+import { downloadFile } from '../../lib/download';
 
 interface MediaLibraryProps {
   projectId: string;
