@@ -18,20 +18,31 @@ vi.mock('replicate', () => {
 // Set environment variable
 process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
-describe('Replicate Predictions Nested Routes', () => {
+  // Mock the shared replicate module
+  vi.mock('../shared/replicate', async () => {
+    const actual = await vi.importActual('../shared/replicate');
+    return {
+      ...actual,
+      replicate: mockReplicateClient,
+    };
+  });
+
+  describe('Replicate Predictions Nested Routes', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
   let indexHandler: typeof import('../replicate/predictions/index').default;
   let idHandler: typeof import('../replicate/predictions/[id]').default;
-  let createPredictionFn: typeof import('../replicate/predictions/index').createReplicatePrediction;
-  let getPredictionStatusFn: typeof import('../replicate/predictions/index').getReplicatePredictionStatus;
+  let createPredictionFn: typeof import('../shared/replicate').createReplicatePrediction;
+  let getPredictionStatusFn: typeof import('../shared/replicate').getReplicatePredictionStatus;
 
   beforeAll(async () => {
     // Import handlers and functions after mocks are set up
     const indexModule = await import('../replicate/predictions/index');
     indexHandler = indexModule.default;
-    createPredictionFn = indexModule.createReplicatePrediction;
-    getPredictionStatusFn = indexModule.getReplicatePredictionStatus;
+
+    const sharedModule = await import('../shared/replicate');
+    createPredictionFn = sharedModule.createReplicatePrediction;
+    getPredictionStatusFn = sharedModule.getReplicatePredictionStatus;
 
     const idModule = await import('../replicate/predictions/[id]');
     idHandler = idModule.default;
@@ -277,7 +288,7 @@ describe('Replicate Predictions Nested Routes', () => {
       expect(ReplicateModels.STABLE_VIDEO_DIFFUSION).toBe(
         'stability-ai/stable-video-diffusion:3f0455e4619daac51287dedb1a3f5dbe6bc8d0a1e6e715b9a49c7d61b7c1b8a8'
       );
-      expect(ReplicateModels.FLUX_PRO).toBe('black-forest-labs/flux-1.1-pro');
+      expect(ReplicateModels.FLUX_PRO).toBe('black-forest-labs/flux-kontext-pro');
     });
   });
 });

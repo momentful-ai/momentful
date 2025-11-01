@@ -109,47 +109,91 @@ export async function pollReplicatePrediction(
 }
 
 /**
- * Map aspect ratio to Flux Pro compatible format
- * Flux Pro accepts aspect ratio as width and height
+ * Map aspect ratio ID to flux-kontext-pro compatible format
+ * flux-kontext-pro accepts aspect ratio as string enum: "match_input_image", "1:1", "16:9", "9:16", etc.
  */
-function mapAspectRatioToFlux(ratio: string): { width: number; height: number } | undefined {
-  const ratioMap: Record<string, { width: number; height: number }> = {
-    '1280:720': { width: 1280, height: 720 },
-    '720:1280': { width: 720, height: 1280 },
-    '1024:1024': { width: 1024, height: 1024 },
-    '1920:1080': { width: 1920, height: 1080 },
-    '1080:1920': { width: 1080, height: 1920 },
+function mapAspectRatioToFluxKontextPro(ratioId: string): string | undefined {
+  // Map from app's aspect ratio IDs to flux-kontext-pro enum values
+  const ratioMap: Record<string, string> = {
+    '1280:720': '16:9',
+    '1920:1080': '16:9',
+    '720:1280': '9:16',
+    '1080:1920': '9:16',
+    '1024:1024': '1:1',
   };
 
-  return ratioMap[ratio];
+  return ratioMap[ratioId];
 }
 
 export interface CreateReplicateImageJobRequest {
   imageUrl: string;
   prompt: string;
   aspectRatio?: string;
+  seed?: number;
+  outputFormat?: 'jpg' | 'png';
+  safetyTolerance?: number; // 0-6, default 2
+  promptUpsampling?: boolean;
 }
 
 /**
- * Create a new image-to-image generation job using Flux Pro
+ * Create a new image-to-image generation job using flux-kontext-pro
+ * 
+ * According to flux-kontext-pro schema:
+ * - prompt (required): string
+ * - input_image (optional): string URI format
+ * - aspect_ratio (optional): enum string, default "match_input_image"
+ * - seed (optional): integer
+ * - output_format (optional): "jpg" | "png", default "png"
+ * - safety_tolerance (optional): integer 0-6, default 2
+ * - prompt_upsampling (optional): boolean, default false
  */
 export async function createReplicateImageJob(
   request: CreateReplicateImageJobRequest
 ): Promise<{ id: string; status: string }> {
-  const { imageUrl, prompt, aspectRatio } = request;
+  const { 
+    imageUrl, 
+    prompt, 
+    aspectRatio, 
+    seed, 
+    outputFormat, 
+    safetyTolerance, 
+    promptUpsampling 
+  } = request;
 
   const input: Record<string, unknown> = {
-    image: imageUrl,
     prompt: prompt,
+    input_image: imageUrl, // flux-kontext-pro uses input_image, not image
   };
 
-  // Add aspect ratio if provided and mapped
+  // Map aspect ratio if provided
   if (aspectRatio) {
-    const fluxRatio = mapAspectRatioToFlux(aspectRatio);
-    if (fluxRatio) {
-      input.width = fluxRatio.width;
-      input.height = fluxRatio.height;
+    const fluxAspectRatio = mapAspectRatioToFluxKontextPro(aspectRatio);
+    if (fluxAspectRatio) {
+      input.aspect_ratio = fluxAspectRatio;
+    } else {
+      // Default to match_input_image if mapping fails
+      input.aspect_ratio = 'match_input_image';
     }
+  } else {
+    // Default to match_input_image if not provided
+    input.aspect_ratio = 'match_input_image';
+  }
+
+  // Add optional fields if provided
+  if (seed !== undefined) {
+    input.seed = seed;
+  }
+
+  if (outputFormat) {
+    input.output_format = outputFormat;
+  }
+
+  if (safetyTolerance !== undefined) {
+    input.safety_tolerance = safetyTolerance;
+  }
+
+  if (promptUpsampling !== undefined) {
+    input.prompt_upsampling = promptUpsampling;
   }
 
   return createReplicatePrediction({
@@ -215,7 +259,7 @@ export const ReplicateModels = {
   STABLE_VIDEO_DIFFUSION: 'stability-ai/stable-video-diffusion:3f0455e4619daac51287dedb1a3f5dbe6bc8d0a1e6e715b9a49c7d61b7c1b8a8',
 
   // Flux Pro for image-to-image generation
-  FLUX_PRO: 'black-forest-labs/flux-1.1-pro',
+  FLUX_PRO: 'black-forest-labs/flux-kontext-pro',
 
   // Add more models as needed
 } as const;

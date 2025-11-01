@@ -13,23 +13,31 @@ interface RunwayTask {
 // Set environment variable before any imports
 process.env.RUNWAY_API_KEY = 'test-api-key';
 
+// Create mock Runway client
+const mockRunwayClient = {
+  textToImage: {
+    create: vi.fn(),
+  },
+  imageToVideo: {
+    create: vi.fn(),
+  },
+  textToVideo: {
+    create: vi.fn(),
+  },
+  tasks: {
+    retrieve: vi.fn(),
+  },
+} as {
+  textToImage: { create: ReturnType<typeof vi.fn> };
+  imageToVideo: { create: ReturnType<typeof vi.fn> };
+  textToVideo: { create: ReturnType<typeof vi.fn> };
+  tasks: { retrieve: ReturnType<typeof vi.fn> };
+};
+
 // Mock the Runway SDK
 vi.mock('@runwayml/sdk', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      textToImage: {
-        create: vi.fn(),
-      },
-      imageToVideo: {
-        create: vi.fn(),
-      },
-      textToVideo: {
-        create: vi.fn(),
-      },
-      tasks: {
-        retrieve: vi.fn(),
-      },
-    })),
+    default: vi.fn(() => mockRunwayClient),
   };
 });
 
@@ -40,17 +48,24 @@ vi.mock('dotenv', () => ({
   })),
 }));
 
+// Mock the shared runway module
+vi.mock('../shared/runway', async () => {
+  const actual = await vi.importActual('../shared/runway');
+  return {
+    ...actual,
+    runway: mockRunwayClient,
+  };
+});
+
 describe('Runway Jobs API - Image Generation', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
   let handler: typeof import('../runway/jobs/index').default;
-  let runwayModule: typeof import('../runway/jobs/index');
 
   beforeAll(async () => {
     // Import handler after mocks are set up
     const handlerModule = await import('../runway/jobs/index');
     handler = handlerModule.default;
-    runwayModule = handlerModule;
   });
 
   beforeEach(() => {
@@ -82,7 +97,7 @@ describe('Runway Jobs API - Image Generation', () => {
         status: 'PROCESSING',
       };
 
-      vi.mocked(runwayModule.runway.textToImage.create).mockResolvedValue(mockTask as RunwayTask);
+      mockRunwayClient.textToImage.create.mockResolvedValue(mockTask as RunwayTask);
 
       mockReq.body = {
         mode: 'image-generation',
@@ -95,7 +110,7 @@ describe('Runway Jobs API - Image Generation', () => {
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
       // Verify Runway API was called correctly
-      expect(runwayModule.runway.textToImage.create).toHaveBeenCalledWith({
+      expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith({
         model: 'gen4_image_turbo',
         promptText: 'A beautiful sunset',
         ratio: '1280:720',
@@ -192,7 +207,7 @@ describe('Runway Jobs API - Image Generation', () => {
         status: 'PROCESSING',
       };
 
-      vi.mocked(runwayModule.runway.textToImage.create).mockResolvedValue(mockTask as RunwayTask);
+      mockRunwayClient.textToImage.create.mockResolvedValue(mockTask as RunwayTask);
 
       mockReq.body = {
         mode: 'image-generation',
@@ -205,7 +220,7 @@ describe('Runway Jobs API - Image Generation', () => {
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
       // Should use default model (gen4_image)
-      expect(runwayModule.runway.textToImage.create).toHaveBeenCalledWith(
+      expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gen4_image',
         })
@@ -214,7 +229,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
     it('handles Runway API errors gracefully', async () => {
       const error = new Error('HTTP 400: Bad Request - {"error":"Invalid image URL"}');
-      vi.mocked(runwayModule.runway.textToImage.create).mockRejectedValue(error);
+      mockRunwayClient.textToImage.create.mockRejectedValue(error);
 
       mockReq.body = {
         mode: 'image-generation',
@@ -243,7 +258,7 @@ describe('Runway Jobs API - Image Generation', () => {
           status: 'PROCESSING',
         };
 
-        vi.mocked(runwayModule.runway.textToImage.create).mockResolvedValue(mockTask as RunwayTask);
+        mockRunwayClient.textToImage.create.mockResolvedValue(mockTask as RunwayTask);
 
         mockReq.body = {
           mode: 'image-generation',
@@ -254,7 +269,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
         await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-        expect(runwayModule.runway.textToImage.create).toHaveBeenCalledWith(
+        expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith(
           expect.objectContaining({
             ratio,
           })
@@ -270,7 +285,7 @@ describe('Runway Jobs API - Image Generation', () => {
         status: 'PROCESSING',
       };
 
-      vi.mocked(runwayModule.runway.imageToVideo.create).mockResolvedValue(mockTask as RunwayTask);
+      mockRunwayClient.imageToVideo.create.mockResolvedValue(mockTask as RunwayTask);
 
       mockReq.body = {
         mode: 'image-to-video',
@@ -279,7 +294,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(runwayModule.runway.imageToVideo.create).toHaveBeenCalled();
+      expect(mockRunwayClient.imageToVideo.create).toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 
@@ -289,7 +304,7 @@ describe('Runway Jobs API - Image Generation', () => {
         status: 'PROCESSING',
       };
 
-      vi.mocked(runwayModule.runway.textToVideo.create).mockResolvedValue(mockTask as RunwayTask);
+      mockRunwayClient.textToVideo.create.mockResolvedValue(mockTask as RunwayTask);
 
       mockReq.body = {
         mode: 'text-to-video',
@@ -298,7 +313,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(runwayModule.runway.textToVideo.create).toHaveBeenCalled();
+      expect(mockRunwayClient.textToVideo.create).toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
   });

@@ -1,32 +1,8 @@
 import { z } from 'zod';
+import { supportedImageRatios } from './shared/runway.js';
 
-const supportedImageRatios = [
-  '1920:1080',
-  '1080:1920',
-  '1024:1024',
-  '1360:768',
-  '1080:1080',
-  '1168:880',
-  '1440:1080',
-  '1080:1440',
-  '1808:768',
-  '2112:912',
-  '1280:720',
-  '720:1280',
-  '720:720',
-  '960:720',
-  '720:960',
-  '1680:720',
-  '1344:768',
-  '768:1344',
-  '1184:864',
-  '864:1184',
-  '1536:672',
-  '832x1248',
-  '1248x832',
-  '896x1152',
-  '1152x896',
-] as const;
+// Convert Set to array for Zod enum
+const supportedImageRatiosArray = Array.from(supportedImageRatios) as [string, ...string[]];
 
 export const createJobSchema = z
   .object({
@@ -34,7 +10,7 @@ export const createJobSchema = z
     promptText: z.string().optional(),
     promptImage: z.string().url().optional(),
     model: z.string().optional(),
-    ratio: z.enum(supportedImageRatios).optional(),
+    ratio: z.enum(supportedImageRatiosArray).optional(),
   })
   .refine(
     (data) => {

@@ -1,65 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import RunwayML from '@runwayml/sdk';
-import { config } from 'dotenv';
+import { getRunwayTask } from '../../shared/runway.js';
+import { extractErrorMessage, getStatusCodeFromError } from '../../shared/utils.js';
 
-/**
- * Extract meaningful error message from Runway API error responses
- * Handles various error formats and extracts the actual error message
- */
-function extractErrorMessage(errorMessage: string): string {
-  // If it's already a clean error message, return it
-  if (!errorMessage.includes('HTTP') && !errorMessage.includes('{') && !errorMessage.includes('"')) {
-    return errorMessage;
-  }
-
-  // Try to extract from HTTP error format: "HTTP 400: Bad Request - {"error":"message"}"
-  if (errorMessage.includes('HTTP')) {
-    const httpMatch = errorMessage.match(/HTTP \d+: ([^{]*)/);
-    if (httpMatch && httpMatch[1]) {
-      return httpMatch[1].trim();
-    }
-  }
-
-  // Try to extract from JSON error format
-  try {
-    // Look for JSON-like content in the error message
-    const jsonMatch = errorMessage.match(/\{.*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.error) {
-        return parsed.error;
-      }
-      if (parsed.message) {
-        return parsed.message;
-      }
-    }
-  } catch {
-    // If JSON parsing fails, continue with other methods
-  }
-
-  // If we can't extract a meaningful message, return a cleaned version
-  return errorMessage.replace(/HTTP \d+: /, '').trim() || 'Failed to retrieve task';
-}
-
-
-const apiKey = process.env.RUNWAY_API_KEY || config().parsed?.RUNWAY_API_KEY;
-
-if (!apiKey) {
-  console.warn('⚠️  RUNWAY_API_KEY not set. Runway features will not work in development.');
-}
-
-export const runway = new RunwayML({ apiKey: apiKey || 'dummy-key' });
-
-export type Mode = 'image-to-video' | 'text-to-video';
-
-export async function getRunwayTask(taskId: string) {
-  // Check if API key is available
-  if (!apiKey) {
-    throw new Error('RUNWAY_API_KEY not configured. Please set your Runway API key.');
-  }
-
-  return await runway.tasks.retrieve(taskId);
-}
+// Re-export for backward compatibility
+export { getRunwayTask };
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
@@ -88,14 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (error instanceof Error) {
       // Try to extract meaningful error message from the error response
-      errorMessage = extractErrorMessage(error.message);
-
-      // Determine status code based on error content
-      if (error.message.includes('HTTP 4')) {
-        statusCode = 400;
-      } else if (error.message.includes('HTTP 5')) {
-        statusCode = 500;
-      }
+      errorMessage = extractErrorMessage(error.message, 'Failed to retrieve task');
+      statusCode = getStatusCodeFromError(error.message);
     }
 
     return res.status(statusCode).json({ error: errorMessage });
