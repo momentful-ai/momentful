@@ -48,30 +48,47 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           manualChunks: (id) => {
-            // Separate Clerk authentication library
-            if (id.includes('@clerk')) {
-              return 'clerk';
-            }
-            // Separate Supabase database client
+            // Order matters! More specific patterns first, then general ones
+
+            // Separate Supabase database client (before @ check to avoid @supabase/* going to vendor)
             if (id.includes('@supabase')) {
               return 'supabase';
             }
-            // Separate React Query data fetching library
-            if (id.includes('@tanstack/react-query') || id.includes('@tanstack/react-query-persist-client')) {
+
+            // Separate React Query data fetching library (before react check)
+            if (id.includes('@tanstack/react-query')) {
               return 'react-query';
             }
+
+            // Clerk needs React, so include it with React vendor chunk
+            if (id.includes('@clerk')) {
+              return 'react-vendor';
+            }
+
+            // Separate UI component libraries (before react check to avoid *-react going to react-vendor)
+            if (id.includes('lucide-react')) {
+              return 'ui-vendor';
+            }
+
+            // React and React DOM (exact matches, not partial)
+            if (id.includes('/react/') || id.includes('/react-dom/')) {
+              return 'react-vendor';
+            }
+
             // Separate utility libraries
             if (id.includes('jszip') || id.includes('zod') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) {
               return 'utils';
             }
-            // Separate UI component libraries
-            if (id.includes('lucide-react')) {
-              return 'ui-vendor';
+
+            // Smart defaults for unmatched modules:
+            // - Application source code goes to main app chunk
+            // - Other node_modules go to vendor chunk for better caching
+            if (id.includes('node_modules')) {
+              return 'vendor';
             }
-            // Separate React and React DOM
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
+
+            // Everything else (app source code) goes to main app chunk
+            return 'app';
           },
         },
       },
