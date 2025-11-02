@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
+import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { database } from '../../lib/database';
 import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
 import { VideoGenerator } from '../VideoGenerator';
@@ -21,6 +22,8 @@ import { useTimelinesByProject } from '../../hooks/useTimeline';
 import { useUploadMedia } from '../../hooks/useUploadMedia';
 import { useUserId } from '../../hooks/useUserId';
 import { useQueryClient } from '@tanstack/react-query';
+import { useDeleteMediaAsset } from '../../hooks/useDeleteMediaAsset';
+import { useDeleteEditedImage } from '../../hooks/useDeleteEditedImage';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -31,7 +34,7 @@ interface ProjectWorkspaceProps {
   project: Project;
   onBack: () => void;
   onUpdateProject?: (project: Project) => void;
-  onEditImage?: (asset: MediaAsset, projectId: string) => void;
+  onEditImage?: (asset: MediaAsset | EditedImage, projectId: string) => void;
   defaultTab?: 'media' | 'edited' | 'videos';
   onMounted?: () => void;
 }
@@ -55,6 +58,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
   const queryClient = useQueryClient();
+  const deleteMediaAssetMutation = useDeleteMediaAsset();
+  const deleteEditedImageMutation = useDeleteEditedImage();
 
   // Use React Query hooks with lazy loading based on active tab
   // React Query shares cache between queries with the same key, so enabling all queries
@@ -270,6 +275,122 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       showToast('Failed to download video. Please try again.', 'error');
     }
   }, [showToast]);
+
+  // Handle timeline item download
+  const handleTimelineDownload = useCallback(async (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
+    try {
+      // Extract the actual item from TimelineNode if needed
+      let actualItem: MediaAsset | EditedImage | GeneratedVideo;
+      if ('type' in item && 'data' in item) {
+        actualItem = item.data;
+      } else {
+        actualItem = item;
+      }
+
+      if ('file_type' in actualItem) {
+        // MediaAsset
+        const url = getAssetUrl(actualItem.storage_path);
+        await downloadFile(url, actualItem.file_name);
+        showToast(`Downloaded ${actualItem.file_name}`, 'success');
+      } else if ('edited_url' in actualItem) {
+        // EditedImage
+        const filename = `edited-image-${actualItem.id}.png`;
+        await downloadFile(actualItem.edited_url, filename);
+        showToast(`Downloaded ${filename}`, 'success');
+      } else if ('storage_path' in actualItem && actualItem.storage_path) {
+        // GeneratedVideo
+        const filename = `${actualItem.name || `video-${actualItem.id}`}.mp4`;
+        await downloadFile(actualItem.storage_path, filename);
+        showToast(`Downloaded ${filename}`, 'success');
+      } else {
+        showToast('Item is not available for download', 'error');
+      }
+    } catch (error) {
+      console.error('Error downloading timeline item:', error);
+      showToast('Failed to download item. Please try again.', 'error');
+    }
+  }, [showToast]);
+
+  // Handle timeline item delete
+  const handleTimelineDelete = useCallback(async (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
+    try {
+      // Extract the actual item from TimelineNode if needed
+      let actualItem: MediaAsset | EditedImage | GeneratedVideo;
+      if ('type' in item && 'data' in item) {
+        actualItem = item.data;
+      } else {
+        actualItem = item;
+      }
+
+      if ('file_type' in actualItem) {
+        // MediaAsset
+        deleteMediaAssetMutation.mutate(
+          {
+            assetId: actualItem.id,
+            storagePath: actualItem.storage_path,
+            projectId: project.id,
+          },
+          {
+            onSuccess: () => {
+              showToast('Asset deleted successfully', 'success');
+            },
+            onError: () => {
+              showToast('Failed to delete asset. Please try again.', 'error');
+            },
+          }
+        );
+      } else if ('edited_url' in actualItem) {
+        // EditedImage
+        deleteEditedImageMutation.mutate(
+          {
+            imageId: actualItem.id,
+            storagePath: actualItem.storage_path,
+            projectId: project.id,
+          },
+          {
+            onSuccess: () => {
+              showToast('Image deleted successfully', 'success');
+            },
+            onError: () => {
+              showToast('Failed to delete image. Please try again.', 'error');
+            },
+          }
+        );
+      } else {
+        showToast('Delete not supported for this item type', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting timeline item:', error);
+      showToast('Failed to delete item. Please try again.', 'error');
+    }
+  }, [project.id, deleteMediaAssetMutation, deleteEditedImageMutation, showToast]);
+
+  // Handle timeline edit image - fetch source MediaAsset for EditedImage
+  const handleTimelineEditImage = useCallback((item: MediaAsset | EditedImage) => {
+    if (!onEditImage) return;
+    
+    // If it's already a MediaAsset, use it directly
+    if ('file_type' in item) {
+      onEditImage(item, project.id);
+      return;
+    }
+    
+    // If it's an EditedImage, we need to fetch the source MediaAsset
+    // This will be handled by EditedImagesView's logic, but for timeline we'll show an error
+    // since we don't have the hook available here
+    if (item.source_asset_id) {
+      // Fetch and call onEditImage
+      database.mediaAssets.getById(item.source_asset_id)
+        .then((sourceAsset) => {
+          onEditImage(sourceAsset, project.id);
+        })
+        .catch(() => {
+          showToast('Cannot edit: Source image not found', 'error');
+        });
+    } else {
+      showToast('Cannot edit: Source image not found', 'error');
+    }
+  }, [onEditImage, project.id, showToast]);
 
   const handleDownloadAllMedia = useCallback(async () => {
     if (mediaAssets.length === 0) return;
@@ -587,6 +708,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                     projectId={project.id}
                     viewMode={viewMode}
                     onExport={handleExportImage}
+                    onEditImage={onEditImage}
                   />
                 </div>
               )}
@@ -601,7 +723,12 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           )}
           {activeTab === 'timeline' && (
             <div key="timeline-tab" className="animate-fade-in">
-              <TimelineView projectId={project.id} />
+              <TimelineView 
+                projectId={project.id}
+                onEditImage={handleTimelineEditImage}
+                onDownload={handleTimelineDownload}
+                onDelete={handleTimelineDelete}
+              />
             </div>
           )}
         </div>

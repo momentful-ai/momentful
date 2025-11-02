@@ -5,7 +5,7 @@ import { TimelineView } from '../../../components/ProjectWorkspace/TimelineView'
 import { useTimelinesByProject, useTimeline } from '../../../hooks/useTimeline';
 import { useUpdateLineage } from '../../../hooks/useUpdateLineage';
 import { Lineage } from '../../../types';
-import { UseQueryResult } from '@tanstack/react-query';
+import { UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { TimelineData } from '../../../types/timeline';
 import { ToastProvider } from '../../../contexts/ToastProvider';
 
@@ -46,7 +46,7 @@ describe('TimelineView', () => {
   const mockUpdateMutation = {
     mutateAsync: vi.fn(),
     isPending: false,
-  };
+  } as unknown as UseMutationResult<Lineage, Error, { lineageId: string; name: string; projectId: string }>;
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -63,7 +63,7 @@ describe('TimelineView', () => {
       error: null,
     } as unknown as UseQueryResult<TimelineData, Error>);
     // Reset useUpdateLineage mock
-    vi.mocked(useUpdateLineage).mockReturnValue(mockUpdateMutation as any);
+    vi.mocked(useUpdateLineage).mockReturnValue(mockUpdateMutation as ReturnType<typeof useUpdateLineage>);
   });
 
   const renderWithProviders = (component: React.ReactElement) => {
@@ -295,7 +295,7 @@ describe('TimelineView', () => {
       isSuccess: true,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    vi.mocked(mockUpdateMutation.mutateAsync).mockResolvedValue({
+    vi.mocked(mockUpdateMutation.mutateAsync!).mockResolvedValue({
       ...mockLineages[0],
       name: 'Updated Name',
     });
@@ -325,7 +325,7 @@ describe('TimelineView', () => {
 
       // Should call update mutation
       await waitFor(() => {
-        expect(mockUpdateMutation.mutateAsync).toHaveBeenCalledWith({
+        expect(mockUpdateMutation.mutateAsync!).toHaveBeenCalledWith({
           lineageId: 'lineage-1',
           name: 'Updated Name',
           projectId: 'test-project',
@@ -372,7 +372,7 @@ describe('TimelineView', () => {
         expect(input).not.toBeInTheDocument();
       });
       
-      expect(mockUpdateMutation.mutateAsync).not.toHaveBeenCalled();
+      expect(mockUpdateMutation.mutateAsync!).not.toHaveBeenCalled();
     }
   });
 
@@ -385,7 +385,7 @@ describe('TimelineView', () => {
       isSuccess: true,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    vi.mocked(mockUpdateMutation.mutateAsync).mockResolvedValue({
+    vi.mocked(mockUpdateMutation.mutateAsync!).mockResolvedValue({
       ...mockLineages[0],
       name: 'Saved Name',
     });
@@ -421,7 +421,7 @@ describe('TimelineView', () => {
 
         // Should call update mutation
         await waitFor(() => {
-          expect(mockUpdateMutation.mutateAsync).toHaveBeenCalledWith({
+          expect(mockUpdateMutation.mutateAsync!).toHaveBeenCalledWith({
             lineageId: 'lineage-1',
             name: 'Saved Name',
             projectId: 'test-project',

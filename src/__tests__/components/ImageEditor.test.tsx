@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ImageEditor } from '../../components/ImageEditor';
-import { MediaAsset } from '../../types';
+import { MediaAsset, EditedImage } from '../../types';
 import { database } from '../../lib/database';
 import * as RunwayAPI from '../../services/aiModels/runway/api-client';
 
@@ -171,6 +171,77 @@ describe('ImageEditor', () => {
 
       const image = screen.getByAltText('test-image.jpg');
       expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute(
+        'src',
+        'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg'
+      );
+    });
+
+    it('displays edited image as source when sourceEditedImage is provided', () => {
+      const mockEditedImage: EditedImage = {
+        id: 'edited-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Make it more vibrant',
+        context: {},
+        ai_model: 'runway-gen4-turbo',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
+        edited_url: 'https://example.com/edited-image.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: undefined,
+        source_asset_id: 'asset-1',
+        created_at: '2025-10-20T16:00:00.000+00:00',
+      };
+
+      renderWithQueryClient(
+        <ImageEditor 
+          asset={mockAsset} 
+          projectId="test-project" 
+          onClose={mockOnClose} 
+          onSave={mockOnSave}
+          sourceEditedImage={mockEditedImage}
+        />
+      );
+
+      const image = screen.getByAltText('test-image.jpg');
+      expect(image).toBeInTheDocument();
+      // Should use the edited image URL instead of the asset's storage_path
+      expect(image).toHaveAttribute('src', 'https://example.com/edited-image.png');
+    });
+
+    it('falls back to asset storage_path when sourceEditedImage has no edited_url', () => {
+      const mockEditedImageWithoutUrl: EditedImage = {
+        id: 'edited-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Make it more vibrant',
+        context: {},
+        ai_model: 'runway-gen4-turbo',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
+        edited_url: '', // Empty URL
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: undefined,
+        source_asset_id: 'asset-1',
+        created_at: '2025-10-20T16:00:00.000+00:00',
+      };
+
+      renderWithQueryClient(
+        <ImageEditor 
+          asset={mockAsset} 
+          projectId="test-project" 
+          onClose={mockOnClose} 
+          onSave={mockOnSave}
+          sourceEditedImage={mockEditedImageWithoutUrl}
+        />
+      );
+
+      const image = screen.getByAltText('test-image.jpg');
+      expect(image).toBeInTheDocument();
+      // Should fall back to asset's storage_path
       expect(image).toHaveAttribute(
         'src',
         'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg'

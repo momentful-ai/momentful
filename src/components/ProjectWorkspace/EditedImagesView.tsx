@@ -1,26 +1,27 @@
-import { useState } from 'react';
-import { Download, Trash2, Image as ImageIcon } from 'lucide-react';
-import { EditedImage } from '../../types';
-import { Button } from '../ui/button';
+import { useState, useCallback } from 'react';
+import { Image as ImageIcon } from 'lucide-react';
+import { EditedImage, MediaAsset } from '../../types';
 import { Card } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { formatDate } from '../../lib/utils';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useDeleteEditedImage } from '../../hooks/useDeleteEditedImage';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
+import { MediaCard } from '../shared/MediaCard';
+import { getAssetUrl } from '../../lib/media';
 
 interface EditedImagesViewProps {
   projectId: string;
   viewMode: 'grid' | 'list';
   onExport: (image: EditedImage) => void;
+  onEditImage?: (asset: MediaAsset | EditedImage, projectId: string) => void;
 }
 
 export function EditedImagesView({
   projectId,
   viewMode,
   onExport,
+  onEditImage,
 }: EditedImagesViewProps) {
   const { data: images = [], isLoading } = useEditedImages(projectId);
   const { showToast } = useToast();
@@ -48,6 +49,16 @@ export function EditedImagesView({
     setImageToDelete(null);
   };
 
+  // Handle Edit with AI - for EditedImage, use it directly; for MediaAsset, use it directly
+  const handleEditImage = useCallback((item: MediaAsset | EditedImage) => {
+    if (!onEditImage) return;
+    
+    // Pass the item directly to onEditImage
+    // If it's an EditedImage, the ImageEditor will use it as the source
+    // If it's a MediaAsset, it will use it as the source
+    onEditImage(item, projectId);
+  }, [onEditImage, projectId]);
+
   if (isLoading) {
     return <MediaLibrarySkeleton />;
   }
@@ -71,56 +82,15 @@ export function EditedImagesView({
   return (
     <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
       {images.map((image) => (
-        <Card key={image.id} className="group overflow-hidden hover-lift hover-glow">
-          <div className="aspect-square bg-muted relative">
-            <img
-              src={image.edited_url}
-              alt="Edited"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExport(image);
-                }}
-                size="icon"
-                variant="secondary"
-                className="glass shadow-lg h-9 w-9"
-                title="Download image"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setImageToDelete({ id: image.id, storagePath: image.storage_path });
-                }}
-                size="icon"
-                variant="destructive"
-                className="shadow-lg h-9 w-9"
-                title="Delete image"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-4">
-            <p className="text-sm font-medium mb-2 line-clamp-2">
-              {image.prompt}
-            </p>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <Badge variant="secondary">{image.ai_model}</Badge>
-              <span>{formatDate(image.created_at)}</span>
-            </div>
-            {image.context && typeof image.context === 'object' && Object.keys(image.context).length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
-                {JSON.stringify(image.context)}
-              </p>
-            )}
-          </div>
-        </Card>
+        <MediaCard
+          key={image.id}
+          item={image}
+          viewMode={viewMode}
+          onEditImage={onEditImage ? handleEditImage : undefined}
+          onDownload={() => onExport(image)}
+          onDelete={() => setImageToDelete({ id: image.id, storagePath: image.storage_path })}
+          getAssetUrl={getAssetUrl}
+        />
       ))}
       {imageToDelete && (
         <ConfirmDialog

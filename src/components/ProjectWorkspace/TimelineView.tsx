@@ -4,15 +4,19 @@ import { TimelineConnection } from './TimelineConnection';
 import { useTimelinesByProject, useTimeline } from '../../hooks/useTimeline';
 import { useUpdateLineage } from '../../hooks/useUpdateLineage';
 import { useToast } from '../../hooks/useToast';
-import { Lineage } from '../../types';
+import { Lineage, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
+import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { Pencil, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface TimelineViewProps {
   projectId: string;
+  onEditImage?: (asset: MediaAsset | EditedImage) => void;
+  onDownload?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
+  onDelete?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
 }
 
-export function TimelineView({ projectId }: TimelineViewProps) {
+export function TimelineView({ projectId, onEditImage, onDownload, onDelete }: TimelineViewProps) {
   const { data: lineages = [], isLoading } = useTimelinesByProject(projectId);
   const [selectedLineageId, setSelectedLineageId] = useState<string | null>(null);
   const [editingLineageId, setEditingLineageId] = useState<string | null>(null);
@@ -175,12 +179,29 @@ export function TimelineView({ projectId }: TimelineViewProps) {
       </div>
 
       {/* Selected timeline */}
-      {selectedLineageId && <TimelineLane lineageId={selectedLineageId} />}
+      {selectedLineageId && (
+        <TimelineLane 
+          lineageId={selectedLineageId} 
+          onEditImage={onEditImage}
+          onDownload={onDownload}
+          onDelete={onDelete}
+        />
+      )}
     </div>
   );
 }
 
-function TimelineLane({ lineageId }: { lineageId: string }) {
+function TimelineLane({ 
+  lineageId, 
+  onEditImage, 
+  onDownload, 
+  onDelete 
+}: { 
+  lineageId: string;
+  onEditImage?: (asset: MediaAsset | EditedImage) => void;
+  onDownload?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
+  onDelete?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
+}) {
   const { data: timeline, isLoading } = useTimeline(lineageId);
 
   if (isLoading) {
@@ -195,7 +216,15 @@ function TimelineLane({ lineageId }: { lineageId: string }) {
     <div className="flex-1 overflow-x-auto relative">
       <div className="flex gap-8 p-4 min-w-max">
         {timeline.nodes.map((node, index) => (
-          <TimelineNodeComponent key={node.data.id} node={node} index={index} total={timeline.nodes.length} />
+          <TimelineNodeComponent 
+            key={node.data.id} 
+            node={node} 
+            index={index} 
+            total={timeline.nodes.length}
+            onEditImage={onEditImage}
+            onDownload={onDownload}
+            onDelete={onDelete}
+          />
         ))}
       </div>
       <svg className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-visible">

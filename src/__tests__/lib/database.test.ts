@@ -318,6 +318,52 @@ describe('database', () => {
       });
     });
 
+    describe('getById', () => {
+      it('successfully retrieves a media asset by id', async () => {
+        const mockAsset = {
+          id: 'asset-1',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          file_name: 'image.jpg',
+          file_type: 'image' as const,
+          file_size: 1024000,
+          storage_path: 'path/to/image.jpg',
+          thumbnail_url: 'https://example.com/thumb.jpg',
+          width: 1920,
+          height: 1080,
+          sort_order: 0,
+          created_at: '2025-01-01T00:00:00Z',
+        };
+
+        const queryBuilder = createQueryBuilder({ data: mockAsset, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        const result = await database.mediaAssets.getById('asset-1');
+
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('media_assets');
+        expect(queryBuilder.select).toHaveBeenCalledWith('*');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'asset-1');
+        expect(queryBuilder.single).toHaveBeenCalled();
+        expect(result).toEqual(mockAsset);
+      });
+
+      it('handles database errors when asset not found', async () => {
+        const dbError = { message: 'No rows returned', code: 'PGRST116' };
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        await expect(database.mediaAssets.getById('non-existent-asset')).rejects.toEqual(dbError);
+      });
+
+      it('handles other database errors', async () => {
+        const dbError = { message: 'Database connection error', code: 'PGRST301' };
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        await expect(database.mediaAssets.getById('asset-1')).rejects.toEqual(dbError);
+      });
+    });
+
     describe('create', () => {
       it('successfully creates a media asset', async () => {
         const mockAsset = {

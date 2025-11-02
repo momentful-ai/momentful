@@ -24,7 +24,7 @@ import { ImageEditorImageList } from './ImageEditorImageList';
 import { PromptControls } from '../shared/PromptControls';
 import { ImageEditorProps, VersionHistoryItem } from './types';
 
-export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVideo, onSelectImageToEdit }: ImageEditorProps) {
+export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVideo, onSelectImageToEdit, sourceEditedImage }: ImageEditorProps) {
   // onSave is part of the interface but intentionally unused (auto-close was removed)
   void onSave; // Prevents unused variable warning
   const userId = useUserId();
@@ -324,7 +324,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   };
 
   const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
-  const originalImageUrl = getAssetUrl(asset.storage_path);
+  // If sourceEditedImage is provided, use its edited_url as the source image
+  // Otherwise, use the asset's storage_path
+  const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
 
   return (
     <div className="min-h-screen bg-background flex flex-col animate-fade-in">

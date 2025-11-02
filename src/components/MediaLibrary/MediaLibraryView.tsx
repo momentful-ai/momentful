@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Upload, Image as ImageIcon } from 'lucide-react';
 import { MediaAsset } from '../../types';
 import { Card } from '../ui/card';
-import { MediaItemCard } from './MediaItemCard';
+import { MediaCard } from '../shared/MediaCard';
 import { DropzoneOverlay } from './DropzoneOverlay';
 import { useGridConfig } from './useGridConfig';
 
@@ -45,19 +45,27 @@ export function MediaLibraryView({
 
   // Shared card renderer to avoid duplication
   const renderAssetCard = (asset: MediaAsset) => (
-    <MediaItemCard
+    <MediaCard
       key={asset.id}
-      asset={asset}
-      isSelected={false}
+      item={asset}
       viewMode={viewMode}
+      isSelected={false}
       onClick={() => {
         if (asset.file_type === 'image' && onEditImage) {
           onEditImage(asset, projectId);
         }
       }}
-      onEditImage={onEditImage ? (asset) => onEditImage(asset, projectId) : undefined}
-      onRequestDelete={() => onRequestDelete(asset.id, asset.storage_path)}
-      onDownload={onDownload}
+      onEditImage={onEditImage ? (item) => {
+        if ('file_type' in item) {
+          onEditImage(item, projectId);
+        }
+      } : undefined}
+      onDownload={onDownload ? (item) => {
+        if ('file_type' in item) {
+          onDownload(item);
+        }
+      } : undefined}
+      onDelete={() => onRequestDelete(asset.id, asset.storage_path)}
       getAssetUrl={getAssetUrl}
     />
   );

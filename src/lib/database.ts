@@ -128,6 +128,17 @@ export const database = {
       return data || [];
     },
 
+    async getById(assetId: string) {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('id', assetId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+
     async create(asset: {
       project_id: string;
       user_id: string;

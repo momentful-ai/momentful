@@ -5,12 +5,13 @@ import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace
 import { ImageEditor } from './components/ImageEditor';
 import { VideoGenerator } from './components/VideoGenerator';
 import { ToastProvider } from './contexts/ToastProvider';
-import { Project, MediaAsset } from './types';
+import { Project, MediaAsset, EditedImage } from './types';
+import { database } from './lib/database';
 
 type View =
   | { type: 'dashboard' }
   | { type: 'project'; project: Project }
-  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project }
+  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project; sourceEditedImage?: EditedImage }
   | { type: 'video-generator'; projectId: string; project: Project; initialSelectedImageId?: string };
 
 function App() {
@@ -24,9 +25,57 @@ function App() {
     setView({ type: 'dashboard' });
   }, []);
 
-  const handleEditImage = useCallback((asset: MediaAsset, projectId: string) => {
+  const handleEditImage = useCallback(async (asset: MediaAsset | EditedImage, projectId: string) => {
     if (view.type === 'project') {
-      setView({ type: 'editor', asset, projectId, project: view.project });
+      // If it's an EditedImage, we need to fetch the source MediaAsset for the editor
+      // The editor needs the source asset for history, but we'll use the edited image as the source
+      if ('prompt' in asset && 'edited_url' in asset) {
+        // It's an EditedImage - fetch the source MediaAsset
+        if (asset.source_asset_id) {
+          try {
+            const sourceAsset = await database.mediaAssets.getById(asset.source_asset_id);
+            setView({ type: 'editor', asset: sourceAsset, projectId, project: view.project, sourceEditedImage: asset });
+          } catch (error) {
+            console.error('Failed to fetch source asset:', error);
+            // Fallback: create a synthetic asset
+            const syntheticAsset: MediaAsset = {
+              id: asset.source_asset_id,
+              project_id: asset.project_id,
+              user_id: asset.user_id,
+              file_name: `edited-${asset.id}.png`,
+              file_type: 'image',
+              file_size: 0,
+              storage_path: asset.edited_url,
+              thumbnail_url: asset.edited_url,
+              width: asset.width,
+              height: asset.height,
+              sort_order: 0,
+              created_at: asset.created_at,
+            };
+            setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
+          }
+        } else {
+          // No source_asset_id - create synthetic asset
+          const syntheticAsset: MediaAsset = {
+            id: asset.id,
+            project_id: asset.project_id,
+            user_id: asset.user_id,
+            file_name: `edited-${asset.id}.png`,
+            file_type: 'image',
+            file_size: 0,
+            storage_path: asset.edited_url,
+            thumbnail_url: asset.edited_url,
+            width: asset.width,
+            height: asset.height,
+            sort_order: 0,
+            created_at: asset.created_at,
+          };
+          setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
+        }
+      } else {
+        // It's a MediaAsset
+        setView({ type: 'editor', asset, projectId, project: view.project });
+      }
     }
   }, [view]);
 
@@ -70,6 +119,7 @@ function App() {
           <ImageEditor
             asset={view.asset}
             projectId={view.projectId}
+            sourceEditedImage={view.sourceEditedImage}
             onClose={() => {
               setReturningFromEditor(true);
               setView({ type: 'project', project: view.project });

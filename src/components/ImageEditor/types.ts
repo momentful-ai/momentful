@@ -7,6 +7,7 @@ export interface ImageEditorProps {
   onSave: () => void;
   onNavigateToVideo?: (imageId: string) => void;
   onSelectImageToEdit?: (image: EditedImage) => void;
+  sourceEditedImage?: EditedImage; // When editing an edited image, this is the image to use as source
 }
 
 export interface VersionHistoryItem {

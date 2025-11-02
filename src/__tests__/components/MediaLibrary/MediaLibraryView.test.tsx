@@ -33,10 +33,10 @@ vi.mock('@tanstack/react-virtual', () => ({
 }));
 
 // Mock child components
-vi.mock('../../../components/MediaLibrary/MediaItemCard', () => ({
-  MediaItemCard: ({ asset, onClick }: { asset: MediaAsset; onClick: () => void }) => (
-    <div data-testid={`media-item-${asset.id}`} onClick={onClick}>
-      {asset.file_name}
+vi.mock('../../../components/shared/MediaCard', () => ({
+  MediaCard: ({ item, onClick }: { item: MediaAsset; onClick?: () => void }) => (
+    <div data-testid={`media-item-${item.id}`} onClick={onClick}>
+      {'file_name' in item ? item.file_name : 'unknown'}
     </div>
   ),
 }));
