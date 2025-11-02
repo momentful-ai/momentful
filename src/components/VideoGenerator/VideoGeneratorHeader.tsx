@@ -5,6 +5,6 @@ interface VideoGeneratorHeaderProps {
 }
 
 export function VideoGeneratorHeader({ onClose }: VideoGeneratorHeaderProps) {
-  return <EditorHeader title="Video Generator" onClose={onClose} closeLabel="Cancel" />;
+  return <EditorHeader title="Video Generator" onClose={onClose} closeLabel="Close" />;
 }
 

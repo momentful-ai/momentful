@@ -418,18 +418,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
             }}
             onVideoError={() => setVideoError(true)}
           />
-
-          <VideoGeneratorControls
-            prompt={prompt}
-            selectedModel={selectedModelInfo?.name || ''}
-            cameraMovement={cameraMovement}
-            canGenerate={canGenerate}
-            isGenerating={isGenerating}
-            onPromptChange={setPrompt}
-            onGenerate={handleGenerate}
-          />
         </div>
-
         <VideoGeneratorSidebar
           selectedModel={selectedModel}
           aspectRatio={aspectRatio}
@@ -439,6 +428,15 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           onCameraMovementChange={setCameraMovement}
         />
       </div>
+      <VideoGeneratorControls
+        prompt={prompt}
+        selectedModel={selectedModelInfo?.name || ''}
+        cameraMovement={cameraMovement}
+        canGenerate={canGenerate}
+        isGenerating={isGenerating}
+        onPromptChange={setPrompt}
+        onGenerate={handleGenerate}
+      />
     </motion.div>
   );
 }
