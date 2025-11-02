@@ -55,13 +55,12 @@ export default defineConfig(({ mode }) => {
               return 'supabase';
             }
 
-            // Separate React Query data fetching library (before react check)
-            if (id.includes('@tanstack/react-query')) {
-              return 'react-query';
-            }
-
-            // Clerk needs React, so include it with React vendor chunk
-            if (id.includes('@clerk')) {
+            // React-dependent libraries: Clerk, React Query, and other React libraries (all need React available)
+            if (id.includes('@clerk') ||
+                id.includes('@tanstack/react-query') ||
+                id.includes('@tanstack/react-virtual') ||
+                id.includes('use-sync-external-store') ||
+                id.includes('swr')) {
               return 'react-vendor';
             }
 

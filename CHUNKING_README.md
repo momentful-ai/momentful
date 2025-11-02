@@ -8,6 +8,7 @@ This document explains the manual chunking strategy used in this Vite-based Reac
 - [Current Chunk Configuration](#current-chunk-configuration)
 - [Chunk Rationale](#chunk-rationale)
 - [Performance Benefits](#performance-benefits)
+- [Production Issues Fixed](#production-issues-fixed)
 - [Maintenance Guide](#maintenance-guide)
 - [Testing Strategy](#testing-strategy)
 - [Common Pitfalls](#common-pitfalls)
@@ -43,11 +44,8 @@ manualChunks: (id) => {
   // 1. Database Layer (highest priority)
   if (id.includes('@supabase')) return 'supabase';
 
-  // 2. Data Fetching Layer
-  if (id.includes('@tanstack/react-query')) return 'react-query';
-
-  // 3. Authentication (depends on React)
-  if (id.includes('@clerk')) return 'react-vendor';
+  // 2. React-dependent libraries (Clerk, React Query - both need React available)
+  if (id.includes('@clerk') || id.includes('@tanstack/react-query')) return 'react-vendor';
 
   // 4. UI Libraries (before generic react check)
   if (id.includes('lucide-react')) return 'ui-vendor';
@@ -68,25 +66,25 @@ manualChunks: (id) => {
 
 | Chunk | Size (gzipped) | Purpose | Contents |
 |-------|----------------|---------|----------|
-| `react-vendor` | ~63KB | React ecosystem | React, React DOM, Clerk |
+| `react-vendor` | ~216KB | React ecosystem | React, React DOM, Clerk, React Query, SWR, TanStack Virtual, use-sync-external-store |
 | `supabase` | ~34KB | Database | Supabase client |
 | `utils` | ~37KB | Utilities | JSZip, Zod, Tailwind utilities |
 | `main` | ~30KB | App code | Main application logic |
 | `vendor` | ~24KB | Other deps | Miscellaneous node_modules |
-| `react-query` | ~1KB | Data fetching | TanStack Query |
 | `ui-vendor` | ~3KB | UI components | Lucide React icons |
 
 ## Chunk Rationale
 
 ### 1. React Vendor Chunk (`react-vendor`)
-**Includes:** React, React DOM, Clerk authentication
+**Includes:** React, React DOM, Clerk authentication, React Query
 
 **Why separate?**
-- Clerk authentication depends on React and must load with it
+- Clerk and React Query both depend on React and must load with it
 - React is stable and changes infrequently
 - Clerk is a large authentication library (prevented "useState undefined" error)
+- React Query depends on React.createContext (prevented "createContext undefined" error)
 
-**Critical dependency:** Clerk components will fail if React isn't available when they load.
+**Critical dependency:** Both Clerk and React Query components will fail if React isn't available when they load.
 
 ### 2. Supabase Chunk (`supabase`)
 **Includes:** `@supabase/supabase-js`
@@ -220,9 +218,17 @@ Maintain these limits:
 Tests in `src/__tests__/config/ViteChunking.test.ts` cover:
 
 - **Current behavior** - validates existing chunk assignments
+- **Dynamic validation** - automatically scans node_modules for React-dependent libraries and ensures proper chunking
 - **Future-proofing** - ensures new libraries are handled correctly
 - **Edge cases** - handles malformed paths, undefined inputs
 - **Performance** - validates grouping and separation logic
+
+### Multi-Layer Testing Approach
+
+1. **Static Logic Tests**: Validate chunking logic with known test cases
+2. **Dynamic Dependency Validation**: Automatically detect React-dependent libraries and verify they're bundled with React
+3. **Runtime Safety Tests**: Ensure React-dependent libraries can access React functions without "undefined" errors
+4. **Integration Testing**: Full build validation with bundle analysis
 
 ### Dependency Safety Tests
 
@@ -239,10 +245,28 @@ npm test -- --run src/__tests__/config/ViteChunking.test.ts
 
 # Test dependency safety
 npm test -- --run src/__tests__/components/ClerkReactDependency.test.ts
+npm test -- --run src/__tests__/components/ReactQueryReactDependency.test.tsx
+
+# Test dynamic chunking validation
+npm test -- --run "Vite Manual Chunking Configuration > Dynamic React Dependency Validation"
 
 # Full test suite
 npm test
 ```
+
+## Production Issues Fixed
+
+### Issue 1: Clerk `useState` undefined error
+**Error**: `Cannot read properties of undefined (reading 'useState')` at clerk chunk
+**Root Cause**: Clerk was chunked separately from React, so when Clerk tried to use React hooks, React wasn't loaded yet.
+**Solution**: Group Clerk with React in the `react-vendor` chunk.
+**Prevention**: Added `ClerkReactDependency.test.tsx` to test this scenario.
+
+### Issue 2: React Query `createContext` undefined error
+**Error**: `Cannot read properties of undefined (reading 'createContext')` at react-query chunk
+**Root Cause**: React Query was chunked separately from React, so when React Query tried to use React.createContext, React wasn't loaded yet.
+**Solution**: Group React Query with React in the `react-vendor` chunk alongside Clerk.
+**Prevention**: Added `ReactQueryReactDependency.test.tsx` to test this scenario.
 
 ## Common Pitfalls
 
