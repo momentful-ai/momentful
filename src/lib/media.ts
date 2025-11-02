@@ -39,6 +39,7 @@ export const VIDEO_CAMERA_MOVEMENTS = [
   { id: 'zoom-out', label: 'Zoom Out', description: 'Gradual zoom away from subject' },
   { id: 'pan-left', label: 'Pan Left', description: 'Horizontal movement to the left' },
   { id: 'pan-right', label: 'Pan Right', description: 'Horizontal movement to the right' },
+  { id: 'rotate-around', label: 'Rotate Around Product', description: '360-degree rotation around the product' },
   { id: 'dynamic', label: 'Dynamic', description: 'AI-driven intelligent movement' },
 ] as const;
 

@@ -27,7 +27,7 @@ export function VideoGeneratorPreview({
   onVideoError,
 }: VideoGeneratorPreviewProps) {
   return (
-    <div className="flex-1 bg-card flex flex-col" onDragOver={onDragOver} onDrop={onDrop}>
+    <div className="bg-card flex flex-col max-h-[70vh] overflow-hidden" onDragOver={onDragOver} onDrop={onDrop}>
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
           <div

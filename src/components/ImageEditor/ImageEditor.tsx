@@ -31,8 +31,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
-  const [prompt, setPrompt] = useState('');
-  const [context, setContext] = useState('');
+  const [productName, setProductName] = useState('');
   const [selectedRatio, setSelectedRatio] = useState<string>(IMAGE_ASPECT_RATIOS[0].id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
@@ -97,24 +96,15 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   };
 
   /**
-   * Build enhanced prompt for product image generation
+   * Build enhanced prompt for product image generation using product name
    */
-  const buildEnhancedPrompt = (userPrompt: string, context: string): string => {
-    let enhancedPrompt = userPrompt.trim();
-
-    // Add context if provided
-    if (context.trim()) {
-      enhancedPrompt = `${context.trim()}. ${enhancedPrompt}`;
-    }
-
-    // Append enhancement instructions for product images
-    enhancedPrompt += '. Remove background clutter, create studio-quality lighting, professional product photography, white background, sharp focus';
-
-    return enhancedPrompt;
+  const buildEnhancedPrompt = (productName: string): string => {
+    const cleanProductName = productName.trim();
+    return `keep the ${cleanProductName} exactly the same. turn it into a studio quality photo, with excellent lighting, contrasting background and realistic placement`;
   };
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!productName.trim()) return;
 
     setIsGenerating(true);
     setShowComparison(false);
@@ -131,7 +121,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
       const imageUrl = getAssetUrl(asset.storage_path);
 
       // Build enhanced prompt
-      const enhancedPrompt = buildEnhancedPrompt(prompt, context);
+      const enhancedPrompt = buildEnhancedPrompt(productName);
 
       showToast('Starting image generation...', 'info');
 
@@ -233,27 +223,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           throw new Error('User ID is required to save edited image');
         }
 
-        // Parse context safely - handle empty string and invalid JSON
-        let parsedContext = {};
-        if (context && typeof context === 'string') {
-          try {
-            const trimmed = context.trim();
-            if (trimmed) {
-              parsedContext = JSON.parse(trimmed);
-            }
-          } catch {
-            // If JSON parsing fails, treat context as a plain string and wrap it
-            parsedContext = { text: context };
-          }
-        } else if (context && typeof context === 'object') {
-          parsedContext = context;
-        }
-
         const createdImage = await database.editedImages.create({
           project_id: projectId.trim(),
           user_id: userId.trim(),
-          prompt,
-          context: parsedContext,
+          prompt: productName,
+          context: { productName: productName },
           ai_model: selectedModel,
           storage_path: storagePath,
           width,
@@ -307,7 +281,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
       // Add to version history
       setVersions([
         {
-          prompt,
+          prompt: productName,
           model: selectedModel,
           timestamp: new Date().toISOString(),
         },
@@ -359,16 +333,14 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           />
 
           <PromptControls
-            prompt={prompt}
+            prompt={productName}
             selectedModelName={selectedModelInfo?.name || ''}
             isGenerating={isGenerating}
-            canGenerate={!!prompt.trim()}
+            canGenerate={!!productName.trim()}
             generateLabel="Generate"
             generatingLabel="Generating..."
-            placeholder="Describe how you want to edit this image... For example: 'Add a gradient background' or 'Make the product pop with vibrant colors'"
-            context={context}
-            onContextChange={setContext}
-            onPromptChange={setPrompt}
+            placeholder="Product name (e.g., 'iPhone 15', 'Nike Air Max')"
+            onPromptChange={setProductName}
             onGenerate={handleGenerate}
             icon="wand"
           />

@@ -21,8 +21,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
   const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
-  const [sceneType, setSceneType] = useState('product-showcase');
-  const [cameraMovement, setCameraMovement] = useState('static');
+  const [cameraMovement, setCameraMovement] = useState('dynamic');
   const [prompt, setPrompt] = useState('');
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,6 +60,42 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
+  };
+
+  /**
+   * Build enhanced prompt for video generation with camera movement details
+   */
+  const buildEnhancedPrompt = (userPrompt: string, cameraMovement: string): string => {
+    let enhancedPrompt = userPrompt.trim();
+
+    // Add camera movement specific instructions
+    switch (cameraMovement) {
+      case 'static':
+        enhancedPrompt += '. Keep the camera completely still and static throughout the video.';
+        break;
+      case 'zoom-in':
+        enhancedPrompt += '. Use a gradual zoom-in effect that brings the viewer closer to the product details.';
+        break;
+      case 'zoom-out':
+        enhancedPrompt += '. Use a gradual zoom-out effect that shows the product in its environment.';
+        break;
+      case 'pan-left':
+        enhancedPrompt += '. Use a smooth leftward panning motion across the product.';
+        break;
+      case 'pan-right':
+        enhancedPrompt += '. Use a smooth rightward panning motion across the product.';
+        break;
+      case 'rotate-around':
+        enhancedPrompt += '. Create a 360-degree rotation around the product, showing it from all angles.';
+        break;
+      case 'dynamic':
+        enhancedPrompt += '. Use dynamic, intelligent camera movements that highlight the product effectively.';
+        break;
+      default:
+        break;
+    }
+
+    return enhancedPrompt;
   };
 
   const handleGenerate = async () => {
@@ -103,11 +138,12 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
         return;
       }
 
-      // Prepare the request for Runway API
+      // Prepare the request for Runway API with enhanced prompt
+      const enhancedPrompt = buildEnhancedPrompt(prompt, cameraMovement);
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
         promptImage: imageUrl,
-        promptText: prompt.trim() || undefined,
+        promptText: enhancedPrompt || undefined,
       };
 
       showToast('Starting video generation...', 'info');
@@ -181,7 +217,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           name: prompt || 'Untitled Video',
           ai_model: selectedModel,
           aspect_ratio: aspectRatio,
-          scene_type: sceneType,
           camera_movement: cameraMovement,
           runway_task_id: runwayTaskId,
           storage_path: runwayVideoUrl,
@@ -380,7 +415,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           <VideoGeneratorControls
             prompt={prompt}
             selectedModel={selectedModelInfo?.name || ''}
-            sceneType={sceneType}
             cameraMovement={cameraMovement}
             canGenerate={canGenerate}
             isGenerating={isGenerating}
@@ -392,11 +426,9 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
         <VideoGeneratorSidebar
           selectedModel={selectedModel}
           aspectRatio={aspectRatio}
-          sceneType={sceneType}
           cameraMovement={cameraMovement}
           onModelChange={setSelectedModel}
           onAspectRatioChange={setAspectRatio}
-          onSceneTypeChange={setSceneType}
           onCameraMovementChange={setCameraMovement}
         />
       </div>

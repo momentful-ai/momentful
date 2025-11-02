@@ -53,6 +53,34 @@ describe('useTimeline', () => {
     expect(result.current.data).toEqual(mockTimelineData);
     expect(database.lineages.getTimelineData).toHaveBeenCalledWith('lineage-1');
   });
+
+  it('does not fetch when lineageId is empty string', () => {
+    const { result } = renderHook(() => useTimeline(''), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getTimelineData).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when lineageId is null', () => {
+    const { result } = renderHook(() => useTimeline(null as any), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getTimelineData).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when lineageId is undefined', () => {
+    const { result } = renderHook(() => useTimeline(undefined as any), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getTimelineData).not.toHaveBeenCalled();
+  });
+
+  it('respects enabled option', () => {
+    const { result } = renderHook(() => useTimeline('lineage-1', { enabled: false }), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getTimelineData).not.toHaveBeenCalled();
+  });
 });
 
 describe('useTimelinesByProject', () => {
@@ -74,6 +102,34 @@ describe('useTimelinesByProject', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockLineages);
     expect(database.lineages.getByProject).toHaveBeenCalledWith('project-1');
+  });
+
+  it('does not fetch when projectId is empty string', () => {
+    const { result } = renderHook(() => useTimelinesByProject(''), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getByProject).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when projectId is null', () => {
+    const { result } = renderHook(() => useTimelinesByProject(null as any), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getByProject).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when projectId is undefined', () => {
+    const { result } = renderHook(() => useTimelinesByProject(undefined as any), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getByProject).not.toHaveBeenCalled();
+  });
+
+  it('respects enabled option', () => {
+    const { result } = renderHook(() => useTimelinesByProject('project-1', { enabled: false }), { wrapper });
+
+    expect(result.current.isFetching).toBe(false);
+    expect(database.lineages.getByProject).not.toHaveBeenCalled();
   });
 });
 

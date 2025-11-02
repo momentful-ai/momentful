@@ -166,9 +166,6 @@ export const ProjectCard = memo(function ProjectCard({
               </>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
-            {project.description || 'No description'}
-          </p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="w-3.5 h-3.5" />
             <span>Updated {formatDate(project.updated_at)}</span>

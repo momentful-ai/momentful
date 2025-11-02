@@ -268,7 +268,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
       expect(vi.mocked(RunwayAPI.createRunwayJob)).toHaveBeenCalledWith({
         mode: 'image-to-video',
         promptImage: mockEditedImage.edited_url,
-        promptText: undefined, // No prompt entered
+        promptText: '. Use dynamic, intelligent camera movements that highlight the product effectively.', // Default camera movement prompt
       });
     });
 
@@ -280,8 +280,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         name: 'Untitled Video', // Empty prompt becomes 'Untitled Video'
         ai_model: 'runway-gen2', // Default selected model
         aspect_ratio: '16:9', // Default aspect ratio
-        scene_type: 'product-showcase', // Default scene type
-        camera_movement: 'static', // Default camera movement
+        camera_movement: 'dynamic', // Default camera movement
         runway_task_id: 'runway-task-123',
         storage_path: 'https://example.com/generated-video-1.mp4',
         status: 'completed',

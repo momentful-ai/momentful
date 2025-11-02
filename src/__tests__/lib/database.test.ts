@@ -1154,7 +1154,97 @@ describe('lineages', () => {
     // Add more tests for error handling, etc.
   });
 
-  // Add tests for getByProject, getById, getByRootAsset
+  describe('getByProject', () => {
+    it('successfully retrieves lineages by project ID', async () => {
+      const mockLineages = [
+        {
+          id: 'lineage-1',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          root_media_asset_id: 'asset-1',
+          name: 'Lineage 1',
+          metadata: {},
+          created_at: '2025-01-01T00:00:00Z',
+        },
+        {
+          id: 'lineage-2',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          root_media_asset_id: 'asset-2',
+          name: 'Lineage 2',
+          metadata: {},
+          created_at: '2025-01-02T00:00:00Z',
+        },
+      ];
+
+      const queryBuilder = createQueryBuilder({ data: mockLineages, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+      const result = await database.lineages.getByProject('project-1');
+
+      expect(queryBuilder.select).toHaveBeenCalledWith('*');
+      expect(queryBuilder.eq).toHaveBeenCalledWith('project_id', 'project-1');
+      expect(queryBuilder.order).toHaveBeenCalledWith('created_at', { ascending: false });
+      expect(result).toEqual(mockLineages);
+    });
+
+    it('returns empty array when no lineages found', async () => {
+      const queryBuilder = createQueryBuilder({ data: null, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+      const result = await database.lineages.getByProject('project-1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getById', () => {
+    it('successfully retrieves a lineage by ID', async () => {
+      const mockLineage = {
+        id: 'lineage-1',
+        project_id: 'project-1',
+        user_id: 'user-1',
+        root_media_asset_id: 'asset-1',
+        name: 'Test Lineage',
+        metadata: {},
+        created_at: '2025-01-01T00:00:00Z',
+      };
+
+      const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+      const result = await database.lineages.getById('lineage-1');
+
+      expect(queryBuilder.select).toHaveBeenCalledWith('*');
+      expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'lineage-1');
+      expect(queryBuilder.single).toHaveBeenCalled();
+      expect(result).toEqual(mockLineage);
+    });
+  });
+
+  describe('getByRootAsset', () => {
+    it('successfully retrieves a lineage by root asset ID', async () => {
+      const mockLineage = {
+        id: 'lineage-1',
+        project_id: 'project-1',
+        user_id: 'user-1',
+        root_media_asset_id: 'asset-1',
+        name: 'Test Lineage',
+        metadata: {},
+        created_at: '2025-01-01T00:00:00Z',
+      };
+
+      const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+      const result = await database.lineages.getByRootAsset('asset-1');
+
+      expect(queryBuilder.select).toHaveBeenCalledWith('*');
+      expect(queryBuilder.eq).toHaveBeenCalledWith('root_media_asset_id', 'asset-1');
+      expect(queryBuilder.single).toHaveBeenCalled();
+      expect(result).toEqual(mockLineage);
+    });
+  });
 
   describe('getTimelineData', () => {
     it('fetches and builds timeline data correctly', async () => {
@@ -1218,6 +1308,55 @@ describe('lineages', () => {
       expect(result.edges).toEqual([
         { from: 'asset-1', to: 'edit-1' },
         { from: 'edit-1', to: 'video-1' },
+      ]);
+    });
+
+    it('creates edges using parent_id when source_asset_id is missing', async () => {
+      // Mock data with an edited image that has parent_id but no source_asset_id
+      const mockMediaAssets = [
+        {
+          id: 'asset-1',
+          storage_path: 'path/to/asset.jpg',
+          created_at: '2025-01-01T00:00:00Z',
+          lineage_id: 'lineage-1',
+        },
+      ];
+      const mockEditedImages = [
+        {
+          id: 'edit-1',
+          source_asset_id: null, // No source_asset_id
+          parent_id: 'edit-parent', // Has parent_id instead
+          storage_path: 'path/to/edit.jpg',
+          created_at: '2025-01-02T00:00:00Z',
+          lineage_id: 'lineage-1',
+        },
+      ];
+      const mockGeneratedVideos: any[] = [];
+
+      // Mock queries
+      const mediaAssetsBuilder = {
+        select: vi.fn(() => mediaAssetsBuilder),
+        eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(mediaAssetsBuilder);
+
+      const editedImagesBuilder = {
+        select: vi.fn(() => editedImagesBuilder),
+        eq: vi.fn(() => ({ data: mockEditedImages, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(editedImagesBuilder);
+
+      const generatedVideosBuilder = {
+        select: vi.fn(() => generatedVideosBuilder),
+        eq: vi.fn(() => ({ data: mockGeneratedVideos, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(generatedVideosBuilder);
+
+      const result = await database.lineages.getTimelineData('lineage-1');
+
+      expect(result.nodes).toHaveLength(2);
+      expect(result.edges).toEqual([
+        { from: 'edit-parent', to: 'edit-1' }, // Should use parent_id
       ]);
     });
 

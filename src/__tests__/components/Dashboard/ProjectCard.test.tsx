@@ -27,7 +27,7 @@ describe('ProjectCard', () => {
     vi.clearAllMocks();
   });
 
-  it('renders project name and description', () => {
+  it('renders project name', () => {
     render(
       <ProjectCard
         projectId={mockProject.id}
@@ -40,28 +40,8 @@ describe('ProjectCard', () => {
     );
 
     expect(screen.getByText('Test Project')).toBeInTheDocument();
-    expect(screen.getByText('Test description')).toBeInTheDocument();
   });
 
-  it('renders "No description" when description is missing', () => {
-    const projectWithoutDesc: Project = {
-      ...mockProject,
-      description: undefined,
-    };
-
-    render(
-      <ProjectCard
-        projectId={projectWithoutDesc.id}
-        project={projectWithoutDesc}
-        onClick={mockOnClick}
-        onDelete={mockOnDelete}
-        onUpdateName={mockOnUpdateName}
-        index={0}
-      />
-    );
-
-    expect(screen.getByText('No description')).toBeInTheDocument();
-  });
 
   it('calls onClick when card is clicked', async () => {
     const user = userEvent.setup();
@@ -83,8 +63,55 @@ describe('ProjectCard', () => {
     }
   });
 
-  // Note: Complex interactive tests (menu, edit mode) removed due to hover state complexity
-  // These features are tested through integration with Dashboard component
+  it('renders menu button', () => {
+    render(
+      <ProjectCard
+        projectId={mockProject.id}
+        project={mockProject}
+        onClick={mockOnClick}
+        onDelete={mockOnDelete}
+        onUpdateName={mockOnUpdateName}
+        index={0}
+      />
+    );
+
+    // Menu button should be present (with more-vertical icon)
+    const menuButton = document.querySelector('svg.lucide-more-vertical')?.closest('button');
+    expect(menuButton).toBeInTheDocument();
+  });
+
+  it('renders pencil button for editing', () => {
+    render(
+      <ProjectCard
+        projectId={mockProject.id}
+        project={mockProject}
+        onClick={mockOnClick}
+        onDelete={mockOnDelete}
+        onUpdateName={mockOnUpdateName}
+        index={0}
+      />
+    );
+
+    // Pencil button should be present (with pencil icon)
+    const pencilButton = document.querySelector('svg.lucide-pencil')?.closest('button');
+    expect(pencilButton).toBeInTheDocument();
+  });
+
+  it('applies staggered animation delay based on index', () => {
+    render(
+      <ProjectCard
+        projectId={mockProject.id}
+        project={mockProject}
+        onClick={mockOnClick}
+        onDelete={mockOnDelete}
+        onUpdateName={mockOnUpdateName}
+        index={2}
+      />
+    );
+
+    const card = screen.getByText('Test Project').closest('.group');
+    expect(card).toHaveAttribute('style', 'animation-delay: 100ms; animation-fill-mode: backwards;');
+  });
 
   it('renders ProjectPreviewCollage', () => {
     render(
@@ -101,4 +128,3 @@ describe('ProjectCard', () => {
     expect(screen.getByTestId('preview-collage')).toBeInTheDocument();
   });
 });
-

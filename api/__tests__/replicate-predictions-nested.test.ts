@@ -122,6 +122,24 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
       });
     });
 
+    it('returns 400 when input validation fails', async () => {
+      // For this test, we'll test with invalid input that passes basic validation but fails model-specific validation
+      mockReq.body = {
+        version: 'black-forest-labs/flux-kontext-pro',
+        input: {
+          // Missing required prompt field for Flux model
+        },
+      };
+
+      await indexHandler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Invalid input format',
+        details: expect.any(String),
+      });
+    });
+
     it('handles Replicate API errors gracefully', async () => {
       const error = new Error('Replicate API error');
       mockReplicateClient.predictions.create.mockRejectedValue(error);

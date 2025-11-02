@@ -301,7 +301,7 @@ describe('ImageEditor', () => {
       expect(generateButton).toBeDisabled();
 
       // Enter a prompt
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Make it look professional');
 
       // Now the button should be enabled
@@ -321,7 +321,7 @@ describe('ImageEditor', () => {
       await user.click(squareRatio);
 
       // Enter prompt
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Add a gradient background');
 
       // Click generate
@@ -347,7 +347,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt without changing ratio
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Enhance the colors');
 
       // Click generate
@@ -364,33 +364,6 @@ describe('ImageEditor', () => {
       });
     });
 
-    it('includes enhanced prompt with context when provided', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Enter prompt
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Add vibrant colors');
-
-      // Enter context
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/);
-      await user.type(contextInput, 'This is a product photo');
-
-      // Click generate
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Verify enhanced prompt includes context
-      await waitFor(() => {
-        expect(RunwayAPI.createRunwayImageJob).toHaveBeenCalledWith(
-          expect.objectContaining({
-            promptText: expect.stringContaining('This is a product photo'),
-          })
-        );
-      });
-    });
 
     it('polls for job completion and extracts image URL', async () => {
       const user = userEvent.setup();
@@ -399,7 +372,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -425,7 +398,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -477,7 +450,7 @@ describe('ImageEditor', () => {
       );
 
       // Generate an image (which automatically saves)
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -503,7 +476,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -556,7 +529,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -615,7 +588,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -665,7 +638,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -711,7 +684,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -778,7 +751,7 @@ describe('ImageEditor', () => {
       );
 
       // Generate an image (save will fail)
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -810,7 +783,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -838,7 +811,7 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -860,180 +833,6 @@ describe('ImageEditor', () => {
       // Verify database.create was NOT called (validation prevents it)
       expect(database.editedImages.create).not.toHaveBeenCalled();
     });
-  });
-
-  describe('Context Parsing', () => {
-    const generateImageAndWaitForSave = async (user: ReturnType<typeof userEvent.setup>) => {
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Wait for generation and automatic save to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-          expect(mockOnSave).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
-    };
-
-    it('saves with empty context string as empty object', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      await generateImageAndWaitForSave(user);
-
-      // Verify context was saved as empty object during automatic save
-      expect(database.editedImages.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: {},
-        })
-      );
-
-      // Verify onSave was called automatically
-      expect(mockOnSave).toHaveBeenCalledTimes(1);
-    });
-
-    it('saves with whitespace-only context as empty object', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Enter only whitespace in context BEFORE generation
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/);
-      await user.type(contextInput, '   ');
-
-      // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Wait for generation and automatic save
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
-
-      // Verify context is saved as empty object during automatic save
-      expect(database.editedImages.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: {},
-        })
-      );
-    });
-
-    it('saves with valid JSON context string correctly parsed', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Enter valid JSON in context BEFORE generation
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/) as HTMLInputElement;
-      await user.click(contextInput);
-      await user.paste('{"type": "product", "category": "electronics"}');
-
-      // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Wait for generation and automatic save
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
-
-      // Verify context is parsed correctly during automatic save
-      expect(database.editedImages.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: {
-            type: 'product',
-            category: 'electronics',
-          },
-        })
-      );
-    });
-
-    it('saves with invalid JSON context string wrapped in object', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Enter invalid JSON in context (plain text) BEFORE generation
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/);
-      await user.type(contextInput, 'This is a product photo');
-
-      // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Wait for generation and automatic save
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
-
-      // Verify invalid JSON is wrapped in object with 'text' key during automatic save
-      expect(database.editedImages.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: {
-            text: 'This is a product photo',
-          },
-        })
-      );
-    });
-
-    it('saves with malformed JSON context string wrapped in object', async () => {
-      const user = userEvent.setup();
-      renderWithQueryClient(
-        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
-      );
-
-      // Enter malformed JSON (missing closing brace) BEFORE generation
-      const contextInput = screen.getByPlaceholderText(/Optional context about the image/) as HTMLInputElement;
-      await user.click(contextInput);
-      await user.paste('{"type": "product"');
-
-      // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
-
-      // Wait for generation and automatic save
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
-
-      // Verify malformed JSON is wrapped in object with 'text' key during automatic save
-      expect(database.editedImages.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: {
-            text: '{"type": "product"',
-          },
-        })
-      );
-    });
 
     it('validates user is logged in before generation', async () => {
       const user = userEvent.setup();
@@ -1046,7 +845,7 @@ describe('ImageEditor', () => {
       );
 
       // Try to generate image - this should fail due to missing userId
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
@@ -1071,7 +870,7 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByText('Generate');
       await user.click(generateButton);
@@ -1089,7 +888,7 @@ describe('ImageEditor', () => {
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'Test prompt');
       const generateButton = screen.getByText('Generate');
       await user.click(generateButton);
@@ -1112,7 +911,7 @@ describe('ImageEditor', () => {
       );
 
       // Generate first image
-      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      const promptInput = screen.getByPlaceholderText(/Product name/);
       await user.type(promptInput, 'First version');
       const generateButton = screen.getByText('Generate');
       await user.click(generateButton);

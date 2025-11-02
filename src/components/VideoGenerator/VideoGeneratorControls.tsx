@@ -3,7 +3,6 @@ import { PromptControls } from '../shared/PromptControls';
 interface VideoGeneratorControlsProps {
   prompt: string;
   selectedModel: string;
-  sceneType: string;
   cameraMovement: string;
   canGenerate: boolean;
   isGenerating: boolean;
@@ -14,14 +13,13 @@ interface VideoGeneratorControlsProps {
 export function VideoGeneratorControls({
   prompt,
   selectedModel,
-  sceneType,
   cameraMovement,
   canGenerate,
   isGenerating,
   onPromptChange,
   onGenerate,
 }: VideoGeneratorControlsProps) {
-  const additionalInfo = `${sceneType.replace('-', ' ')} • ${cameraMovement.replace('-', ' ')}`;
+  const additionalInfo = cameraMovement.replace('-', ' ');
 
   return (
     <PromptControls

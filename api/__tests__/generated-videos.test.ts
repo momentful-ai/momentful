@@ -21,6 +21,28 @@ vi.mock('@supabase/supabase-js', () => ({
 process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
 process.env.VITE_SUPABASE_ANON_KEY = 'test-anon-key';
 
+// Mock console.warn
+const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+describe('Generated Videos API - Environment Variables', () => {
+  it('warns when VITE_SUPABASE_ANON_KEY is missing', async () => {
+    // Temporarily remove the environment variable
+    const originalKey = process.env.VITE_SUPABASE_ANON_KEY;
+    delete process.env.VITE_SUPABASE_ANON_KEY;
+
+    // Re-import the handler to trigger the warning
+    const handlerModule = await import('../generated-videos');
+    const testHandler = handlerModule.default;
+
+    // Restore the environment variable
+    process.env.VITE_SUPABASE_ANON_KEY = originalKey;
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '⚠️  VITE_SUPABASE_ANON_KEY not set. API endpoints may not work properly.'
+    );
+  });
+});
+
 describe('Generated Videos API', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
@@ -267,6 +289,54 @@ describe('Generated Videos API', () => {
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
         error: expect.stringContaining('project_id is required'),
+      });
+    });
+
+    it('validates user_id is required and not empty', async () => {
+      mockReq.method = 'POST';
+      mockReq.body = {
+        project_id: 'project-123',
+        user_id: '', // Empty string
+        name: 'Test Video',
+      };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'user_id is required and cannot be empty',
+      });
+    });
+
+    it('validates user_id is present', async () => {
+      mockReq.method = 'POST';
+      mockReq.body = {
+        project_id: 'project-123',
+        name: 'Test Video',
+        // user_id is missing
+      };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'user_id is required and cannot be empty',
+      });
+    });
+
+    it('validates user_id is a string', async () => {
+      mockReq.method = 'POST';
+      mockReq.body = {
+        project_id: 'project-123',
+        user_id: 123, // Number instead of string
+        name: 'Test Video',
+      };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'user_id is required and cannot be empty',
       });
     });
   });

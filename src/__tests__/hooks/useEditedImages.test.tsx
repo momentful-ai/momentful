@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEditedImages } from '../../hooks/useEditedImages';
+import { useEditedImages, useEditedImagesBySource } from '../../hooks/useEditedImages';
 import { database } from '../../lib/database';
 import { EditedImage } from '../../types';
 
@@ -10,6 +10,7 @@ vi.mock('../../lib/database', () => ({
   database: {
     editedImages: {
       list: vi.fn(),
+      listBySourceAsset: vi.fn(),
     },
   },
 }));
@@ -45,7 +46,8 @@ describe('useEditedImages', () => {
       },
     });
     vi.clearAllMocks();
-  vi.mocked(database.editedImages.list).mockResolvedValue(mockEditedImages);
+    vi.mocked(database.editedImages.list).mockResolvedValue(mockEditedImages);
+    vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue(mockEditedImages);
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -134,5 +136,74 @@ describe('useEditedImages', () => {
     expect(database.editedImages.list).toHaveBeenCalledWith('project-1');
     expect(result.current.data).toEqual(mockEditedImages);
   });
+});
+
+describe('useEditedImagesBySource', () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          gcTime: 0,
+        },
+      },
+    });
+    vi.clearAllMocks();
+    vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue(mockEditedImages);
+  });
+
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  it('fetches edited images by source asset successfully', async () => {
+    const { result } = renderHook(() => useEditedImagesBySource('asset-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toEqual(mockEditedImages);
+    expect(database.editedImages.listBySourceAsset).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('does not fetch when sourceAssetId is null', async () => {
+    const { result } = renderHook(() => useEditedImagesBySource(null), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isFetching).toBe(false);
+    });
+
+    expect(result.current.data).toBeUndefined();
+    expect(database.editedImages.listBySourceAsset).not.toHaveBeenCalled();
+  });
+
+  it('returns empty array when sourceAssetId is empty string', async () => {
+    const { result } = renderHook(() => useEditedImagesBySource(''), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toEqual([]);
+    expect(database.editedImages.listBySourceAsset).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when enabled is false', async () => {
+    const { result } = renderHook(
+      () => useEditedImagesBySource('asset-1', { enabled: false }),
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isFetching).toBe(false);
+    });
+
+    expect(result.current.data).toBeUndefined();
+    expect(database.editedImages.listBySourceAsset).not.toHaveBeenCalled();
+  });
+
 });
 
