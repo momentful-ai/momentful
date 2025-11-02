@@ -47,45 +47,45 @@ export default defineConfig(({ mode }) => {
           app: resolve(__dirname, 'app.html'),
         },
         output: {
-          manualChunks: (id) => {
-            // Order matters! More specific patterns first, then general ones
+          // manualChunks: (id) => {
+          //   // Order matters! More specific patterns first, then general ones
 
-            // Separate Supabase database client (before @ check to avoid @supabase/* going to vendor)
-            if (id.includes('@supabase')) {
-              return 'supabase';
-            }
+          //   // Separate Supabase database client (before @ check to avoid @supabase/* going to vendor)
+          //   if (id.includes('@supabase')) {
+          //     return 'supabase';
+          //   }
 
-            // React-dependent libraries: Clerk, React Query, and other React libraries (all need React available)
-            // Includes UI libraries that depend on React (like lucide-react)
-            if (id.includes('@clerk') ||
-                id.includes('@tanstack/react-query') ||
-                id.includes('@tanstack/react-virtual') ||
-                id.includes('use-sync-external-store') ||
-                id.includes('swr') ||
-                id.includes('lucide-react')) {
-              return 'react-vendor';
-            }
+          //   // React-dependent libraries: Clerk, React Query, and other React libraries (all need React available)
+          //   // Includes UI libraries that depend on React (like lucide-react)
+          //   if (id.includes('@clerk') ||
+          //       id.includes('@tanstack/react-query') ||
+          //       id.includes('@tanstack/react-virtual') ||
+          //       id.includes('use-sync-external-store') ||
+          //       id.includes('swr') ||
+          //       id.includes('lucide-react')) {
+          //     return 'react-vendor';
+          //   }
 
-            // React and React DOM (exact matches, not partial)
-            if (id.includes('/react/') || id.includes('/react-dom/')) {
-              return 'react-vendor';
-            }
+          //   // React and React DOM (exact matches, not partial)
+          //   if (id.includes('/react/') || id.includes('/react-dom/')) {
+          //     return 'react-vendor';
+          //   }
 
-            // Separate utility libraries
-            if (id.includes('jszip') || id.includes('zod') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) {
-              return 'utils';
-            }
+          //   // Separate utility libraries
+          //   if (id.includes('jszip') || id.includes('zod') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) {
+          //     return 'utils';
+          //   }
 
-            // Smart defaults for unmatched modules:
-            // - Application source code goes to main app chunk
-            // - Other node_modules go to vendor chunk for better caching
-            if (id.includes('node_modules')) {
-              return 'vendor';
-            }
+          //   // Smart defaults for unmatched modules:
+          //   // - Application source code goes to main app chunk
+          //   // - Other node_modules go to vendor chunk for better caching
+          //   if (id.includes('node_modules')) {
+          //     return 'vendor';
+          //   }
 
-            // Everything else (app source code) goes to main app chunk
-            return 'app';
-          },
+          //   // Everything else (app source code) goes to main app chunk
+          //   return 'app';
+          // },
         },
       },
     },
