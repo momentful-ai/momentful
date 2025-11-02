@@ -3,13 +3,15 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace';
 import { ImageEditor } from './components/ImageEditor';
+import { VideoGenerator } from './components/VideoGenerator';
 import { ToastProvider } from './contexts/ToastProvider';
 import { Project, MediaAsset } from './types';
 
 type View =
   | { type: 'dashboard' }
   | { type: 'project'; project: Project }
-  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project };
+  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project }
+  | { type: 'video-generator'; projectId: string; project: Project; initialSelectedImageId?: string };
 
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
@@ -25,6 +27,25 @@ function App() {
   const handleEditImage = useCallback((asset: MediaAsset, projectId: string) => {
     if (view.type === 'project') {
       setView({ type: 'editor', asset, projectId, project: view.project });
+    }
+  }, [view]);
+
+  const handleNavigateToVideoGenerator = useCallback((projectId: string, imageId?: string) => {
+    if (view.type === 'editor') {
+      setView({ type: 'video-generator', projectId, project: view.project, initialSelectedImageId: imageId });
+    } else if (view.type === 'project') {
+      setView({ type: 'video-generator', projectId, project: view.project, initialSelectedImageId: imageId });
+    }
+  }, [view]);
+
+  const handleSelectImageToEdit = useCallback(() => {
+    // For now, we'll need to convert EditedImage to MediaAsset or handle differently
+    // This is a placeholder - the actual implementation may need to fetch the MediaAsset
+    // or allow ImageEditor to accept EditedImage directly
+    // For now, just navigate back to project workspace
+    if (view.type === 'editor') {
+      setReturningFromEditor(true);
+      setView({ type: 'project', project: view.project });
     }
   }, [view]);
 
@@ -55,6 +76,21 @@ function App() {
             }}
             onSave={() => {
               setReturningFromEditor(true);
+              setView({ type: 'project', project: view.project });
+            }}
+            onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
+            onSelectImageToEdit={handleSelectImageToEdit}
+          />
+        </div>
+      ) : view.type === 'video-generator' ? (
+        <div key="video-generator" className="animate-fade-in">
+          <VideoGenerator
+            projectId={view.projectId}
+            initialSelectedImageId={view.initialSelectedImageId}
+            onClose={() => {
+              setView({ type: 'project', project: view.project });
+            }}
+            onSave={() => {
               setView({ type: 'project', project: view.project });
             }}
           />

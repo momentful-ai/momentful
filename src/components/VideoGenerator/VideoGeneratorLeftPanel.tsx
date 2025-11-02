@@ -235,17 +235,21 @@ export function VideoGeneratorLeftPanel({
           />
         ) : (
           <MediaSourceGrid
-            sources={mediaAssets}
+            sources={mediaAssets.map((asset) => ({
+              id: asset.id,
+              thumbnail: asset.thumbnail_url || getAssetUrl(asset.storage_path),
+              name: asset.file_name,
+            }))}
             selectedSources={selectedSources}
             isSelecting={isSelecting}
             onDragStart={onDragStart}
             onMouseDown={onMouseDown}
             onMouseEnter={onMouseEnter}
-            getSource={(asset) => ({
-              id: asset.id,
-              type: 'media_asset',
-              thumbnail: getAssetUrl(asset.storage_path),
-              name: asset.file_name,
+            getSource={(item) => ({
+              id: item.id,
+              type: 'media_asset' as const,
+              thumbnail: item.thumbnail,
+              name: item.name,
             })}
             emptyMessage="No library images yet"
             emptyHint="Drag and drop images here to upload"

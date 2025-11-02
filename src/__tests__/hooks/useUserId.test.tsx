@@ -13,7 +13,7 @@ vi.mock('@clerk/clerk-react', () => ({
 // Mock local-mode
 const mockGetLocalDevUserId = vi.fn(() => 'local-dev-user-id');
 vi.mock('../../lib/local-mode', () => ({
-  getLocalDevUserId: (...args: unknown[]) => mockGetLocalDevUserId(...args),
+  getLocalDevUserId: () => mockGetLocalDevUserId(),
   isLocalBypassEnabled: vi.fn(() => false),
 }));
 

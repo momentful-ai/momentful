@@ -48,10 +48,11 @@ vi.mock('../../lib/database', () => ({
   database: {
     editedImages: {
       create: vi.fn(),
+      listBySourceAsset: vi.fn(() => Promise.resolve([])),
     },
     storage: {
       getPublicUrl: vi.fn((bucket, path) => `https://example.com/${bucket}/${path}`),
-      upload: vi.fn(() => Promise.resolve()),
+      upload: vi.fn(() => Promise.resolve({ path: 'user-uploads/test-user-id/test-project/generated-image.png' })),
     },
   },
 }));
@@ -392,11 +393,12 @@ describe('ImageEditor', () => {
       // Verify success toast indicates both generation and save
       expect(mockShowToast).toHaveBeenCalledWith('Image generated and saved successfully!', 'success');
       
-      // Verify onSave callback is called automatically after successful save
+      // Verify onSave callback IS called to notify parent, but editor stays open (onClose not called)
       expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockOnClose).not.toHaveBeenCalled();
     });
 
-    it('calls onSave automatically after successful save', async () => {
+    it('calls onSave when image is saved but editor stays open', async () => {
       const user = userEvent.setup();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -412,13 +414,75 @@ describe('ImageEditor', () => {
       await waitFor(
         () => {
           expect(database.editedImages.create).toHaveBeenCalled();
-          expect(mockOnSave).toHaveBeenCalledTimes(1);
+          expect(mockOnSave).toHaveBeenCalled();
         },
         { timeout: 5000 }
       );
 
-      // Verify onSave was called automatically
+      // Verify onSave was called to notify parent, but editor stays open (onClose not called)
       expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('includes source_asset_id when creating edited image', async () => {
+      const user = userEvent.setup();
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for image to be saved
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+              source_asset_id: mockAsset.id,
+            })
+          );
+        },
+        { timeout: 5000 }
+      );
+    });
+
+    it('fetches editing history for the source asset', async () => {
+      const mockHistory = [
+        {
+          id: 'edited-1',
+          project_id: 'test-project',
+          user_id: 'test-user-id',
+          prompt: 'Previous edit',
+          context: {},
+          ai_model: 'runway-gen4-turbo',
+          storage_path: 'path/to/edited-1.png',
+          edited_url: 'https://example.com/edited-1.png',
+          width: 1920,
+          height: 1080,
+          version: 1,
+          source_asset_id: mockAsset.id,
+          created_at: '2025-10-20T15:59:30.165+00:00',
+        },
+      ];
+
+      vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue(mockHistory);
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Wait for history to load
+      await waitFor(() => {
+        expect(database.editedImages.listBySourceAsset).toHaveBeenCalledWith(mockAsset.id);
+      });
+
+      // Verify history is displayed
+      await waitFor(() => {
+        expect(screen.getByText(/Editing History/)).toBeInTheDocument();
+      });
     });
 
     it('shows warning when save fails during generation', async () => {

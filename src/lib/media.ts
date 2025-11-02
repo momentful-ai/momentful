@@ -58,5 +58,5 @@ export function getImageDimensions(file: File): Promise<{ width: number; height:
 }
 
 export function isAcceptableImageFile(file: File): boolean {
-  return ACCEPTABLE_IMAGE_TYPES.includes(file.type);
+  return (ACCEPTABLE_IMAGE_TYPES as readonly string[]).includes(file.type);
 }

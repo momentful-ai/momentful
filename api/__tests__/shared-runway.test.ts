@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import type RunwayML from '@runwayml/sdk';
 
 // Set environment variable before imports
 process.env.RUNWAY_API_KEY = 'test-api-key';
@@ -106,7 +107,7 @@ describe('Shared Runway Module', () => {
     it('throws error for unsupported mode', async () => {
       await expect(
         runwayModule.createVideoTask({
-          mode: 'image-generation' as any,
+          mode: 'image-generation' as 'image-to-video' | 'text-to-video',
         })
       ).rejects.toThrow('Unsupported mode');
     });
@@ -201,7 +202,7 @@ describe('Shared Runway Module', () => {
       await runwayModule.createImageTask({
         promptImage: 'https://example.com/source.jpg',
         promptText: 'Transform',
-        ratio: 'invalid-ratio' as any,
+        ratio: 'invalid-ratio' as RunwayML.TextToImageCreateParams['ratio'],
       });
 
       expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith(

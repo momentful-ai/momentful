@@ -46,6 +46,9 @@ vi.mock('../../lib/database', () => ({
       list: vi.fn(),
       create: vi.fn(),
     },
+    videoSources: {
+      create: vi.fn(),
+    },
     storage: {
       getPublicUrl: vi.fn((bucket, path) => `https://example.com/${bucket}/${path}`),
       upload: vi.fn(),
@@ -157,6 +160,13 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     vi.mocked(database.mediaAssets.list).mockResolvedValue(mockMediaAssets);
     vi.mocked(database.generatedVideos.list).mockResolvedValue([]); // Start with no videos
     vi.mocked(database.generatedVideos.create).mockResolvedValue(mockGeneratedVideo);
+    vi.mocked(database.videoSources.create).mockResolvedValue({
+      id: 'video-source-1',
+      video_id: 'generated-video-1',
+      source_type: 'edited_image' as const,
+      source_id: 'edited-image-1',
+      sort_order: 0,
+    });
 
     // Mock the videos list to return the new video after creation
     let videosListCallCount = 0;
@@ -302,11 +312,11 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     expect(videoElement).toBeInTheDocument();
     expect(videoElement).toHaveAttribute('src', mockGeneratedVideo.storage_path);
 
-    // Step 13: Verify export and publish buttons are visible for completed video
-    const exportButton = screen.getByTitle('Export video');
-    const publishButton = screen.getByTitle('Publish to social');
-    expect(exportButton).toBeInTheDocument();
-    expect(publishButton).toBeInTheDocument();
+    // Step 13: Verify download and delete buttons are visible for completed video
+    const downloadButton = screen.getByTitle('Download video');
+    const deleteButton = screen.getByTitle('Delete video');
+    expect(downloadButton).toBeInTheDocument();
+    expect(deleteButton).toBeInTheDocument();
 
     // Step 14: Verify the complete data flow worked
     // The database.generatedVideos.list should have been called during the refresh
@@ -355,11 +365,11 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     const videoElement = document.querySelector('video');
     expect(videoElement).not.toBeInTheDocument();
 
-    // Export and publish buttons should not be visible for processing videos
-    const exportButton = screen.queryByTitle('Export video');
-    const publishButton = screen.queryByTitle('Publish to social');
-    expect(exportButton).not.toBeInTheDocument();
-    expect(publishButton).not.toBeInTheDocument();
+    // Download and delete buttons should still be visible for processing videos
+    // (though download may be disabled, the buttons are still rendered)
+    const deleteButton = screen.queryByTitle('Delete video');
+    // These buttons exist but download may be disabled for processing videos
+    expect(deleteButton).toBeInTheDocument();
   });
 
   it('handles video generation errors gracefully', async () => {

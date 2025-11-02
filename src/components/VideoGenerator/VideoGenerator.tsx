@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
+import { supabase } from '../../lib/supabase';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImages } from '../../hooks/useEditedImages';
@@ -14,7 +15,7 @@ import { VideoGeneratorControls } from './VideoGeneratorControls';
 import { VideoGeneratorSidebar } from './VideoGeneratorSidebar';
 import { SelectedSource, VideoGeneratorProps } from './types';
 
-export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorProps) {
+export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImageId }: VideoGeneratorProps) {
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -41,6 +42,22 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
     (mediaAssetsData || []).filter(asset => asset.file_type === 'image'),
     [mediaAssetsData]
   );
+
+  // Pre-select image if initialSelectedImageId is provided
+  useEffect(() => {
+    if (initialSelectedImageId && editedImages.length > 0) {
+      const imageToSelect = editedImages.find(img => img.id === initialSelectedImageId);
+      if (imageToSelect) {
+        const source: SelectedSource = {
+          id: imageToSelect.id,
+          type: 'edited_image',
+          thumbnail: imageToSelect.edited_url,
+          name: imageToSelect.prompt.substring(0, 30),
+        };
+        setSelectedSources([source]);
+      }
+    }
+  }, [initialSelectedImageId, editedImages]);
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
@@ -134,16 +151,31 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
 
         showToast('Video generated successfully!', 'success');
 
-        // Validate required fields before saving
-        if (!projectId || !projectId.trim()) {
-          throw new Error('Project ID is required to save generated video');
-        }
-        if (!userId || !userId.trim()) {
-          throw new Error('User ID is required to save generated video');
+        // Calculate lineage_id from first selected source (prefer edited_image)
+        let lineage_id: string | undefined;
+
+        const preferredSource = selectedSources.find(s => s.type === 'edited_image') || selectedSources[0];
+
+        if (preferredSource) {
+          if (preferredSource.type === 'edited_image') {
+            const { data: sourceData } = await supabase
+              .from('edited_images')
+              .select('lineage_id')
+              .eq('id', preferredSource.id)
+              .single();
+            lineage_id = sourceData?.lineage_id;
+          } else {
+            const { data: sourceData } = await supabase
+              .from('media_assets')
+              .select('lineage_id')
+              .eq('id', preferredSource.id)
+              .single();
+            lineage_id = sourceData?.lineage_id;
+          }
         }
 
-        // Save video metadata to database with Runway URL
-        await database.generatedVideos.create({
+        // Create video record
+        const createdVideo = await database.generatedVideos.create({
           project_id: projectId.trim(),
           user_id: userId.trim(),
           name: prompt || 'Untitled Video',
@@ -155,10 +187,18 @@ export function VideoGenerator({ projectId, onClose, onSave }: VideoGeneratorPro
           storage_path: runwayVideoUrl,
           status: 'completed',
           completed_at: new Date().toISOString(),
+          lineage_id,
         });
 
-        console.log('Generated video URL:', runwayVideoUrl);
-        setGeneratedVideoUrl(runwayVideoUrl);
+        // Create video_sources
+        await Promise.all(selectedSources.map(async (source, index) => {
+          await database.videoSources.create({
+            video_id: createdVideo.id,
+            source_type: source.type,
+            source_id: source.id,
+            sort_order: index,
+          });
+        }));
 
         // Invalidate generated videos query to refresh the list
         await queryClient.invalidateQueries({ queryKey: ['generated-videos', projectId] });

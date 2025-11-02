@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Mock the nested predictions module
+// Mock the shared replicate module
 const mockGetPredictionStatus = vi.fn();
 
-vi.mock('../replicate/predictions/index', () => ({
+vi.mock('../shared/replicate', () => ({
   getReplicatePredictionStatus: mockGetPredictionStatus,
 }));
 

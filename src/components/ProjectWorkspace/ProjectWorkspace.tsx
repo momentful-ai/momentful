@@ -6,6 +6,7 @@ import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
 import { VideoGenerator } from '../VideoGenerator';
 import { EditedImagesView } from './EditedImagesView';
 import { GeneratedVideosView } from './GeneratedVideosView';
+import { TimelineView } from './TimelineView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -16,6 +17,7 @@ import { useToast } from '../../hooks/useToast';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { useTimelinesByProject } from '../../hooks/useTimeline';
 import { useUploadMedia } from '../../hooks/useUploadMedia';
 import { useUserId } from '../../hooks/useUserId';
 import { useQueryClient } from '@tanstack/react-query';
@@ -44,7 +46,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [currentProject, setCurrentProject] = useState(project);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos' | 'timeline'>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
@@ -61,6 +63,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const { data: mediaAssets = [] } = useMediaAssets(project.id, { enabled: activeTab === 'media' });
   const { data: editedImages = [] } = useEditedImages(project.id, { enabled: activeTab === 'edited' });
   const { data: generatedVideos = [] } = useGeneratedVideos(project.id, { enabled: activeTab === 'videos' });
+  const { data: lineages = [] } = useTimelinesByProject(project.id, { enabled: true });
 
   // Load counts for all tabs - these queries share cache with the active tab queries above
   // They'll use cached data immediately and won't refetch if data is fresh (staleTime: 5min)
@@ -120,7 +123,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     }
   }, [handleSaveName, handleCancelEdit]);
 
-  const handleTabClick = useCallback((tabId: 'media' | 'edited' | 'videos') => {
+  const handleTabClick = useCallback((tabId: 'media' | 'edited' | 'videos' | 'timeline') => {
     setActiveTab(tabId);
   }, []);
 
@@ -377,7 +380,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     { id: 'media' as const, label: 'Media Library', count: tabCounts.media },
     { id: 'edited' as const, label: 'Edited Images', count: tabCounts.edited },
     { id: 'videos' as const, label: 'Generated Videos', count: tabCounts.videos },
-  ], [tabCounts]);
+    { id: 'timeline' as const, label: 'Timeline', count: lineages.length },
+  ], [tabCounts, lineages.length]);
 
   return (
     <div>
@@ -489,7 +493,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => handleTabClick(tab.id)}
+                    onClick={() => handleTabClick(tab.id as 'media' | 'edited' | 'videos' | 'timeline')}
                     className={mergeName(
                       'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
                       activeTab === tab.id
@@ -594,6 +598,11 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                     onExport={handleExportVideo}
                   />
                 </div>
+          )}
+          {activeTab === 'timeline' && (
+            <div key="timeline-tab" className="animate-fade-in">
+              <TimelineView projectId={project.id} />
+            </div>
           )}
         </div>
       </Card>

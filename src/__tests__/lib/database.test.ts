@@ -3,16 +3,20 @@ import { database } from '../../lib/database';
 
 // Mock Supabase client - must be created inside factory function
 vi.mock('../../lib/supabase', () => {
-  const mockSupabaseClient = {
-    from: vi.fn(() => mockSupabaseClient),
-    select: vi.fn(() => mockSupabaseClient),
-    insert: vi.fn(() => mockSupabaseClient),
-    update: vi.fn(() => mockSupabaseClient),
-    delete: vi.fn(() => mockSupabaseClient),
-    eq: vi.fn(() => mockSupabaseClient),
-    order: vi.fn(() => mockSupabaseClient),
-    limit: vi.fn(() => mockSupabaseClient),
+  // Create a query builder mock that chains methods
+  const createQueryBuilder = () => ({
+    select: vi.fn(() => createQueryBuilder()),
+    insert: vi.fn(() => createQueryBuilder()),
+    update: vi.fn(() => createQueryBuilder()),
+    delete: vi.fn(() => createQueryBuilder()),
+    eq: vi.fn(() => createQueryBuilder()),
+    order: vi.fn(() => createQueryBuilder()),
+    limit: vi.fn(() => createQueryBuilder()),
     single: vi.fn(),
+  });
+
+  const mockSupabaseClient = {
+    from: vi.fn(() => createQueryBuilder()),
     storage: {
       from: vi.fn(() => ({
         upload: vi.fn(),
@@ -29,9 +33,26 @@ vi.mock('../../lib/supabase', () => {
 
 // Import the mocked supabase to access the mock in tests
 import { supabase } from '../../lib/supabase';
-const mockSupabaseClient = supabase;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockSupabaseClient = supabase as any; // Type assertion needed for test mocks
 
 describe('database', () => {
+  // Helper to create a query builder mock
+  const createQueryBuilder = (finalResult: { data: unknown; error: unknown | null }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const builder: any = {
+      select: vi.fn(() => builder),
+      insert: vi.fn(() => builder),
+      update: vi.fn(() => builder),
+      delete: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => finalResult), // Queries ending with order() return result
+      limit: vi.fn(() => finalResult), // Queries ending with limit() return result
+      single: vi.fn(() => finalResult), // Queries ending with single() return result
+    };
+    return builder;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -65,34 +86,30 @@ describe('database', () => {
           { storage_path: 'path2.jpg' },
         ];
 
+        // Create query builder mocks
+        const queryBuilder1 = {
+          select: vi.fn(() => queryBuilder1),
+          order: vi.fn(() => ({ data: mockProjects, error: null })),
+        };
+        const queryBuilder2 = {
+          select: vi.fn(() => queryBuilder2),
+          eq: vi.fn(() => queryBuilder2),
+          order: vi.fn(() => queryBuilder2),
+          limit: vi.fn(() => ({ data: mockMediaAssets, error: null })),
+        };
+        const queryBuilder3 = {
+          select: vi.fn(() => queryBuilder3),
+          eq: vi.fn(() => queryBuilder3),
+          order: vi.fn(() => queryBuilder3),
+          limit: vi.fn(() => ({ data: [], error: null })),
+        };
+
         // Mock projects query
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: mockProjects,
-          error: null,
-        });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder1);
 
         // Mock media assets queries for each project
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.limit.mockReturnValueOnce({
-          data: mockMediaAssets,
-          error: null,
-        });
-
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.limit.mockReturnValueOnce({
-          data: [],
-          error: null,
-        });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder2);
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder3);
 
         const result = await database.projects.list();
 
@@ -109,12 +126,11 @@ describe('database', () => {
       });
 
       it('returns empty array when no projects exist', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: [],
-          error: null,
-        });
+        const queryBuilder = {
+          select: vi.fn(() => queryBuilder),
+          order: vi.fn(() => ({ data: [], error: null })),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.projects.list();
 
@@ -123,12 +139,8 @@ describe('database', () => {
 
       it('handles database errors', async () => {
         const dbError = { message: 'Database error', code: 'PGRST301' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.projects.list()).rejects.toEqual(dbError);
       });
@@ -146,17 +158,13 @@ describe('database', () => {
           updated_at: '2025-01-01T00:00:00Z',
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockProject,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockProject, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.projects.create('user-1', 'New Project', 'New Description');
 
-        expect(mockSupabaseClient.insert).toHaveBeenCalledWith({
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
+        expect(queryBuilder.insert).toHaveBeenCalledWith({
           user_id: 'user-1',
           name: 'New Project',
           description: 'New Description',
@@ -175,17 +183,13 @@ describe('database', () => {
           updated_at: '2025-01-01T00:00:00Z',
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockProject,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockProject, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.projects.create('user-1', 'New Project');
 
-        expect(mockSupabaseClient.insert).toHaveBeenCalledWith({
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
+        expect(queryBuilder.insert).toHaveBeenCalledWith({
           user_id: 'user-1',
           name: 'New Project',
           description: null,
@@ -195,13 +199,8 @@ describe('database', () => {
 
       it('handles database errors on create', async () => {
         const dbError = { message: 'Insert failed', code: '23505' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.projects.create('user-1', 'New Project')).rejects.toEqual(dbError);
       });
@@ -219,38 +218,27 @@ describe('database', () => {
           updated_at: '2025-01-02T00:00:00Z',
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.update.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockUpdatedProject,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockUpdatedProject, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.projects.update('project-1', {
           name: 'Updated Project',
           description: 'Updated Description',
         });
 
-        expect(mockSupabaseClient.update).toHaveBeenCalledWith({
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
+        expect(queryBuilder.update).toHaveBeenCalledWith({
           name: 'Updated Project',
           description: 'Updated Description',
         });
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'project-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'project-1');
         expect(result).toEqual(mockUpdatedProject);
       });
 
       it('handles database errors on update', async () => {
         const dbError = { message: 'Update failed', code: '23505' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.update.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.projects.update('project-1', { name: 'Updated' })).rejects.toEqual(dbError);
       });
@@ -258,27 +246,31 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a project', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: null,
-        });
+        // For delete operations, delete() returns a builder, and eq() returns the result
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: null })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.projects.delete('project-1');
 
-        expect(mockSupabaseClient.delete).toHaveBeenCalled();
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'project-1');
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
+        expect(queryBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'project-1');
       });
 
       it('handles database errors on delete', async () => {
         const dbError = { message: 'Delete failed', code: '23503' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: dbError })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.projects.delete('project-1')).rejects.toEqual(dbError);
       });
@@ -298,29 +290,19 @@ describe('database', () => {
           },
         ];
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: mockAssets,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockAssets, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.mediaAssets.list('project-1');
 
         expect(mockSupabaseClient.from).toHaveBeenCalledWith('media_assets');
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('project_id', 'project-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('project_id', 'project-1');
         expect(result).toEqual(mockAssets);
       });
 
       it('returns empty array when no assets exist', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: [],
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: [], error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.mediaAssets.list('project-1');
 
@@ -329,13 +311,8 @@ describe('database', () => {
 
       it('handles database errors', async () => {
         const dbError = { message: 'Database error', code: 'PGRST301' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.mediaAssets.list('project-1')).rejects.toEqual(dbError);
       });
@@ -355,29 +332,41 @@ describe('database', () => {
           height: 1080,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockAsset,
-          error: null,
-        });
+        const mockLineage = {
+          id: 'lineage-1',
+          project_id: 'project-1',
+          user_id: 'user-1',
+          root_media_asset_id: 'asset-new',
+          name: 'new-image.jpg',
+        };
+
+        const mockUpdatedAsset = {
+          ...mockAsset,
+          lineage_id: 'lineage-1',
+        };
+
+        // Mock the first insert (media_asset)
+        const insertBuilder1 = createQueryBuilder({ data: mockAsset, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder1);
+
+        // Mock the lineage creation
+        const insertBuilder2 = createQueryBuilder({ data: mockLineage, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder2);
+
+        // Mock the update (media_asset with lineage_id)
+        const updateBuilder = createQueryBuilder({ data: mockUpdatedAsset, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(updateBuilder);
 
         const result = await database.mediaAssets.create(mockAsset);
 
-        expect(mockSupabaseClient.insert).toHaveBeenCalledWith(mockAsset);
-        expect(result).toEqual(mockAsset);
+        expect(insertBuilder1.insert).toHaveBeenCalledWith(mockAsset);
+        expect(result).toEqual(mockUpdatedAsset);
       });
 
       it('handles database errors on create', async () => {
         const dbError = { message: 'Insert failed', code: '23505' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(
           database.mediaAssets.create({
@@ -394,27 +383,30 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a media asset', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: null,
-        });
+        // For delete operations, delete() returns a builder, and eq() returns the result
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: null })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.mediaAssets.delete('asset-1');
 
-        expect(mockSupabaseClient.delete).toHaveBeenCalled();
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'asset-1');
+        expect(queryBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'asset-1');
       });
 
       it('handles database errors on delete', async () => {
         const dbError = { message: 'Delete failed', code: '23503' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: dbError })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.mediaAssets.delete('asset-1')).rejects.toEqual(dbError);
       });
@@ -432,13 +424,8 @@ describe('database', () => {
           },
         ];
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: mockImages,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockImages, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         // Mock storage.getPublicUrl
         const mockStorageBucket = {
@@ -455,15 +442,65 @@ describe('database', () => {
 
       it('handles database errors', async () => {
         const dbError = { message: 'Database error', code: 'PGRST301' };
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: null,
-          error: dbError,
-        });
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await expect(database.editedImages.list('project-1')).rejects.toEqual(dbError);
+      });
+    });
+
+    describe('listBySourceAsset', () => {
+      it('successfully lists edited images by source asset with public URLs', async () => {
+        const mockImages = [
+          {
+            id: 'image-1',
+            project_id: 'project-1',
+            source_asset_id: 'source-asset-1',
+            storage_path: 'path/to/image1.jpg',
+          },
+          {
+            id: 'image-2',
+            project_id: 'project-1',
+            source_asset_id: 'source-asset-1',
+            storage_path: 'path/to/image2.jpg',
+          },
+        ];
+
+        const queryBuilder = createQueryBuilder({ data: mockImages, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        // Mock storage.getPublicUrl for each image
+        const mockStorageBucket = {
+          getPublicUrl: vi.fn((path) => ({
+            data: { publicUrl: `https://example.com/user-uploads/${path}` },
+          })),
+        };
+        mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
+
+        const result = await database.editedImages.listBySourceAsset('source-asset-1');
+
+        expect(mockSupabaseClient.from).toHaveBeenCalledWith('edited_images');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('source_asset_id', 'source-asset-1');
+        expect(result).toHaveLength(2);
+        expect(result[0].edited_url).toBe('https://example.com/user-uploads/path/to/image1.jpg');
+        expect(result[1].edited_url).toBe('https://example.com/user-uploads/path/to/image2.jpg');
+      });
+
+      it('returns empty array when no images exist for source asset', async () => {
+        const queryBuilder = createQueryBuilder({ data: [], error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        const result = await database.editedImages.listBySourceAsset('source-asset-1');
+
+        expect(result).toEqual([]);
+      });
+
+      it('handles database errors', async () => {
+        const dbError = { message: 'Database error', code: 'PGRST301' };
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+        await expect(database.editedImages.listBySourceAsset('source-asset-1')).rejects.toEqual(dbError);
       });
     });
 
@@ -481,13 +518,8 @@ describe('database', () => {
           height: 1080,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockImage,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockImage, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const mockStorageBucket = {
           getPublicUrl: vi.fn(() => ({
@@ -507,7 +539,7 @@ describe('database', () => {
           height: 1080,
         });
 
-        expect(mockSupabaseClient.insert).toHaveBeenCalledWith({
+        expect(queryBuilder.insert).toHaveBeenCalledWith({
           project_id: 'project-1',
           user_id: 'user-1',
           prompt: 'Test prompt',
@@ -533,13 +565,8 @@ describe('database', () => {
           height: 1080,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockImage,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockImage, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const mockStorageBucket = {
           getPublicUrl: vi.fn(() => ({
@@ -558,7 +585,7 @@ describe('database', () => {
           height: 1080,
         });
 
-        expect(mockSupabaseClient.insert).toHaveBeenCalledWith(
+        expect(queryBuilder.insert).toHaveBeenCalledWith(
           expect.objectContaining({
             context: {},
           })
@@ -580,7 +607,8 @@ describe('database', () => {
         ).rejects.toThrow('project_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('throws error when project_id is whitespace only', async () => {
@@ -597,7 +625,8 @@ describe('database', () => {
         ).rejects.toThrow('project_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('throws error when user_id is empty', async () => {
@@ -614,7 +643,8 @@ describe('database', () => {
         ).rejects.toThrow('user_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('asserts project_id is always present and non-empty in payload', async () => {
@@ -630,13 +660,8 @@ describe('database', () => {
           height: 1080,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockImage,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockImage, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const mockStorageBucket = {
           getPublicUrl: vi.fn(() => ({
@@ -656,7 +681,7 @@ describe('database', () => {
         });
 
         // Verify the payload sent to database has non-empty project_id
-        const insertCall = mockSupabaseClient.insert.mock.calls[0][0];
+        const insertCall = queryBuilder.insert.mock.calls[0][0];
         expect(insertCall.project_id).toBeDefined();
         expect(insertCall.project_id).toBe('project-1');
         expect(insertCall.project_id.trim()).not.toBe('');
@@ -666,17 +691,19 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes an edited image', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: null,
-        });
+        // For delete operations, delete() returns a builder, and eq() returns the result
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: null })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.editedImages.delete('image-1');
 
-        expect(mockSupabaseClient.delete).toHaveBeenCalled();
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'image-1');
+        expect(queryBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'image-1');
       });
     });
   });
@@ -693,13 +720,13 @@ describe('database', () => {
           },
         ];
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: mockVideos,
-          error: null,
-        });
+        // Create a query builder that chains select -> eq -> order
+        const queryBuilder = {
+          select: vi.fn(() => queryBuilder),
+          eq: vi.fn(() => queryBuilder),
+          order: vi.fn(() => ({ data: mockVideos, error: null })),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.generatedVideos.list('project-1');
 
@@ -707,13 +734,13 @@ describe('database', () => {
       });
 
       it('returns empty array when no videos exist', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: [],
-          error: null,
-        });
+        // Create a query builder that chains select -> eq -> order
+        const queryBuilder = {
+          select: vi.fn(() => queryBuilder),
+          eq: vi.fn(() => queryBuilder),
+          order: vi.fn(() => ({ data: [], error: null })),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.generatedVideos.list('project-1');
 
@@ -733,13 +760,8 @@ describe('database', () => {
           status: 'processing' as const,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockVideo,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockVideo, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.generatedVideos.create({
           project_id: 'project-1',
@@ -764,7 +786,8 @@ describe('database', () => {
         ).rejects.toThrow('project_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('throws error when project_id is whitespace only', async () => {
@@ -779,7 +802,8 @@ describe('database', () => {
         ).rejects.toThrow('project_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('throws error when user_id is empty', async () => {
@@ -794,7 +818,8 @@ describe('database', () => {
         ).rejects.toThrow('user_id is required and cannot be empty');
 
         // Verify insert was never called
-        expect(mockSupabaseClient.insert).not.toHaveBeenCalled();
+        // When validation fails, insert is never called
+        expect(mockSupabaseClient.from).not.toHaveBeenCalled();
       });
 
       it('asserts project_id is always present and non-empty in payload', async () => {
@@ -808,13 +833,8 @@ describe('database', () => {
           status: 'processing' as const,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockVideo,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockVideo, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.generatedVideos.create({
           project_id: 'project-1',
@@ -825,7 +845,7 @@ describe('database', () => {
         });
 
         // Verify the payload sent to database has non-empty project_id
-        const insertCall = mockSupabaseClient.insert.mock.calls[0][0];
+        const insertCall = queryBuilder.insert.mock.calls[0][0];
         expect(insertCall.project_id).toBeDefined();
         expect(insertCall.project_id).toBe('project-1');
         expect(insertCall.project_id.trim()).not.toBe('');
@@ -842,14 +862,8 @@ describe('database', () => {
           storage_path: 'path/to/video.mp4',
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.update.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockUpdatedVideo,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockUpdatedVideo, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.generatedVideos.update('video-1', {
           status: 'completed',
@@ -862,16 +876,19 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a generated video', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: null,
-        });
+        // For delete operations, delete() returns a builder, and eq() returns the result
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: null })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.generatedVideos.delete('video-1');
 
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'video-1');
+        expect(queryBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'video-1');
       });
     });
   });
@@ -889,13 +906,13 @@ describe('database', () => {
           },
         ];
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.order.mockReturnValueOnce({
-          data: mockSources,
-          error: null,
-        });
+        // Create a query builder that chains select -> eq -> order
+        const queryBuilder = {
+          select: vi.fn(() => queryBuilder),
+          eq: vi.fn(() => queryBuilder),
+          order: vi.fn(() => ({ data: mockSources, error: null })),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.videoSources.list('video-1');
 
@@ -913,13 +930,8 @@ describe('database', () => {
           sort_order: 1,
         };
 
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.insert.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.select.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.single.mockReturnValueOnce({
-          data: mockSource,
-          error: null,
-        });
+        const queryBuilder = createQueryBuilder({ data: mockSource, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         const result = await database.videoSources.create({
           video_id: 'video-1',
@@ -934,16 +946,19 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a video source', async () => {
-        mockSupabaseClient.from.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.delete.mockReturnValueOnce(mockSupabaseClient);
-        mockSupabaseClient.eq.mockReturnValueOnce({
-          data: null,
-          error: null,
-        });
+        // For delete operations, delete() returns a builder, and eq() returns the result
+        const deleteBuilder = {
+          eq: vi.fn(() => ({ data: null, error: null })),
+        };
+        const queryBuilder = {
+          delete: vi.fn(() => deleteBuilder),
+        };
+        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
         await database.videoSources.delete('source-1');
 
-        expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', 'source-1');
+        expect(queryBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'source-1');
       });
     });
   });
@@ -1038,6 +1053,129 @@ describe('database', () => {
         expect(url).toBe('https://example.com/bucket-name/path/to/file.jpg');
       });
     });
+  });
+});
+
+describe('lineages', () => {
+  // Helper to create a query builder mock (same as in database describe block)
+  const createQueryBuilder = (finalResult: { data: unknown; error: unknown | null }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const builder: any = {
+      select: vi.fn(() => builder),
+      insert: vi.fn(() => builder),
+      update: vi.fn(() => builder),
+      delete: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => finalResult), // Queries ending with order() return result
+      limit: vi.fn(() => finalResult), // Queries ending with limit() return result
+      single: vi.fn(() => finalResult), // Queries ending with single() return result
+    };
+    return builder;
+  };
+
+  describe('create', () => {
+    it('successfully creates a lineage', async () => {
+      const mockLineage = {
+        id: 'lineage-1',
+        project_id: 'project-1',
+        user_id: 'user-1',
+        root_media_asset_id: 'asset-1',
+        name: 'Test Lineage',
+        metadata: {},
+        created_at: '2025-01-01T00:00:00Z',
+      };
+
+      const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+
+      const result = await database.lineages.create({
+        project_id: 'project-1',
+        user_id: 'user-1',
+        root_media_asset_id: 'asset-1',
+        name: 'Test Lineage',
+      });
+
+      expect(queryBuilder.insert).toHaveBeenCalledWith({
+        project_id: 'project-1',
+        user_id: 'user-1',
+        root_media_asset_id: 'asset-1',
+        name: 'Test Lineage',
+        metadata: {},
+      });
+      expect(result).toEqual(mockLineage);
+    });
+
+    // Add more tests for error handling, etc.
+  });
+
+  // Add tests for getByProject, getById, getByRootAsset
+
+  describe('getTimelineData', () => {
+    it('fetches and builds timeline data correctly', async () => {
+      // Mock data for each table
+      const mockMediaAssets = [
+        {
+          id: 'asset-1',
+          storage_path: 'path/to/asset.jpg',
+          created_at: '2025-01-01T00:00:00Z',
+          lineage_id: 'lineage-1',
+        },
+      ];
+      const mockEditedImages = [
+        {
+          id: 'edit-1',
+          source_asset_id: 'asset-1',
+          storage_path: 'path/to/edit.jpg',
+          created_at: '2025-01-02T00:00:00Z',
+          lineage_id: 'lineage-1',
+        },
+      ];
+      const mockGeneratedVideos = [
+        {
+          id: 'video-1',
+          storage_path: 'path/to/video.mp4',
+          created_at: '2025-01-03T00:00:00Z',
+          lineage_id: 'lineage-1',
+        },
+      ];
+      const mockVideoSources = [{ video_id: 'video-1', source_id: 'edit-1', source_type: 'edited_image' }];
+
+      // Mock queries - each needs a query builder that chains select -> eq
+      const mediaAssetsBuilder = {
+        select: vi.fn(() => mediaAssetsBuilder),
+        eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(mediaAssetsBuilder);
+
+      const editedImagesBuilder = {
+        select: vi.fn(() => editedImagesBuilder),
+        eq: vi.fn(() => ({ data: mockEditedImages, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(editedImagesBuilder);
+
+      const generatedVideosBuilder = {
+        select: vi.fn(() => generatedVideosBuilder),
+        eq: vi.fn(() => ({ data: mockGeneratedVideos, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(generatedVideosBuilder);
+
+      // For video sources, we need to mock multiple calls (one per video)
+      const videoSourcesBuilder1 = {
+        select: vi.fn(() => videoSourcesBuilder1),
+        eq: vi.fn(() => ({ data: mockVideoSources, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(videoSourcesBuilder1);
+
+      const result = await database.lineages.getTimelineData('lineage-1');
+
+      expect(result.nodes).toHaveLength(3);
+      expect(result.edges).toEqual([
+        { from: 'asset-1', to: 'edit-1' },
+        { from: 'edit-1', to: 'video-1' },
+      ]);
+    });
+
+    // Add error handling tests, empty data, etc.
   });
 });
 

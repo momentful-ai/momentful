@@ -9,5 +9,6 @@ export interface VideoGeneratorProps {
   projectId: string;
   onClose: () => void;
   onSave: () => void;
+  initialSelectedImageId?: string;
 }
 

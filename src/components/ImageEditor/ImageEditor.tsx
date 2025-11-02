@@ -4,6 +4,7 @@ import { database } from '../../lib/database';
 import { IMAGE_ASPECT_RATIOS } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
+import { useEditedImagesBySource } from '../../hooks/useEditedImages';
 import { imageModels } from '../../data/aiModels';
 import {
   createRunwayImageJob,
@@ -18,10 +19,13 @@ import {
 import { ImageEditorHeader } from './ImageEditorHeader';
 import { ImageEditorPreview } from './ImageEditorPreview';
 import { ImageEditorSidebar } from './ImageEditorSidebar';
+import { ImageEditorImageList } from './ImageEditorImageList';
 import { PromptControls } from '../shared/PromptControls';
 import { ImageEditorProps, VersionHistoryItem } from './types';
 
-export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorProps) {
+export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVideo, onSelectImageToEdit }: ImageEditorProps) {
+  // onSave is part of the interface but intentionally unused (auto-close was removed)
+  void onSave; // Prevents unused variable warning
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -33,6 +37,10 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
   const [showComparison, setShowComparison] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<VersionHistoryItem[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+
+  // Fetch editing history for this source asset
+  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(asset.id);
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
@@ -240,7 +248,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           parsedContext = context;
         }
 
-        await database.editedImages.create({
+        const createdImage = await database.editedImages.create({
           project_id: projectId.trim(),
           user_id: userId.trim(),
           prompt,
@@ -249,14 +257,21 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
           storage_path: storagePath,
           width,
           height,
+          source_asset_id: asset.id,
         });
 
-        // Invalidate edited images query to refresh the list
+        // Invalidate edited images queries to refresh the list
         await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
+        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', asset.id] });
+
+        // Set the newly created image as selected
+        setSelectedImageId(createdImage.id);
 
         showToast('Image generated and saved successfully!', 'success');
-        // Automatically refresh parent component to show the new edited image
+        
+        // Notify parent component that save completed
         onSave();
+        // Note: Removed auto-close - user stays in editor to see history
       } catch (saveError) {
         console.error('Error saving edited image:', saveError);
         const errorMessage =
@@ -299,6 +314,23 @@ export function ImageEditor({ asset, projectId, onClose, onSave }: ImageEditorPr
             editedImageUrl={editedImageUrl}
             showComparison={showComparison}
             fileName={asset.file_name}
+          />
+
+          <ImageEditorImageList
+            editedImages={editingHistory}
+            isLoading={isLoadingHistory}
+            selectedImageId={selectedImageId}
+            onSelectImage={(image) => {
+              setSelectedImageId(image.id);
+              setEditedImageUrl(image.edited_url);
+              setShowComparison(true);
+            }}
+            onEditImage={(image) => {
+              if (onSelectImageToEdit) {
+                onSelectImageToEdit(image);
+              }
+            }}
+            onNavigateToVideo={onNavigateToVideo}
           />
 
           <PromptControls

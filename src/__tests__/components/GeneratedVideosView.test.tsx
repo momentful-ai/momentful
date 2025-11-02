@@ -5,6 +5,7 @@ import { UseQueryResult } from '@tanstack/react-query';
 import { GeneratedVideosView } from '../../components/ProjectWorkspace/GeneratedVideosView';
 import { GeneratedVideo } from '../../types';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { ToastProvider } from '../../contexts/ToastProvider';
 
 // Mock the useGeneratedVideos hook
 vi.mock('../../hooks/useGeneratedVideos', () => ({
@@ -81,13 +82,14 @@ describe('GeneratedVideosView', () => {
     projectId: 'project-1',
     viewMode: 'grid' as const,
     onExport: vi.fn(),
-    onPublish: vi.fn(),
   };
 
   const renderWithQueryClient = (component: React.ReactElement) => {
     return render(
       <QueryClientProvider client={queryClient}>
-        {component}
+        <ToastProvider>
+          {component}
+        </ToastProvider>
       </QueryClientProvider>
     );
   };
@@ -112,7 +114,29 @@ describe('GeneratedVideosView', () => {
       isLoading: false,
       isError: false,
       error: null,
-    } as UseGeneratedVideosResult);
+      isSuccess: true,
+      isPending: false,
+      isLoadingError: false,
+      isRefetchError: false,
+      status: 'success' as const,
+      dataUpdatedAt: Date.now(),
+      errorUpdatedAt: 0,
+      failureCount: 0,
+      failureReason: null,
+      errorUpdateCount: 0,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isInitialLoading: false,
+      isPaused: false,
+      isPlaceholderData: false,
+      isRefetching: false,
+      isStale: false,
+      refetch: vi.fn(),
+      fetchStatus: 'idle' as const,
+      isEnabled: true,
+      promise: Promise.resolve([]),
+    } as unknown as UseGeneratedVideosResult);
 
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
@@ -192,7 +216,7 @@ describe('GeneratedVideosView', () => {
     expect(screen.getByText('Oct 20, 2025')).toBeInTheDocument();
   });
 
-  it('shows export and publish buttons for completed videos', () => {
+  it('shows export and delete buttons for completed videos', () => {
     mockUseGeneratedVideos.mockReturnValue({
       data: mockVideos,
       isLoading: false,
@@ -202,12 +226,12 @@ describe('GeneratedVideosView', () => {
 
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
-    // For completed videos, export and publish buttons should be visible
-    const exportButton = screen.getByTitle('Export video');
-    const publishButton = screen.getByTitle('Publish to social');
+    // For completed videos, download and delete buttons should be visible
+    const exportButton = screen.getByTitle('Download video');
+    const deleteButton = screen.getByTitle('Delete video');
 
     expect(exportButton).toBeInTheDocument();
-    expect(publishButton).toBeInTheDocument();
+    expect(deleteButton).toBeInTheDocument();
   });
 
   it('handles video loading errors gracefully', async () => {
@@ -296,28 +320,12 @@ describe('GeneratedVideosView', () => {
     const onExport = vi.fn();
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} onExport={onExport} />);
 
-    const exportButton = screen.getByTitle('Export video');
+    const exportButton = screen.getByTitle('Download video');
     exportButton.click();
 
     expect(onExport).toHaveBeenCalledWith(mockVideos[0]);
   });
 
-  it('calls onPublish when publish button is clicked', () => {
-    mockUseGeneratedVideos.mockReturnValue({
-      data: mockVideos,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as UseGeneratedVideosResult);
-
-    const onPublish = vi.fn();
-    renderWithQueryClient(<GeneratedVideosView {...defaultProps} onPublish={onPublish} />);
-
-    const publishButton = screen.getByTitle('Publish to social');
-    publishButton.click();
-
-    expect(onPublish).toHaveBeenCalledWith(mockVideos[0]);
-  });
 
   it('renders video with correct attributes', () => {
     mockUseGeneratedVideos.mockReturnValue({

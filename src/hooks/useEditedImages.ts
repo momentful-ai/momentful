@@ -12,3 +12,18 @@ export function useEditedImages(projectId: string, options?: { enabled?: boolean
   });
 }
 
+export function useEditedImagesBySource(sourceAssetId: string | null, options?: { enabled?: boolean }) {
+  return useQuery<EditedImage[]>({
+    queryKey: ['edited-images', 'source', sourceAssetId],
+    queryFn: () => {
+      if (!sourceAssetId) {
+        return Promise.resolve([]);
+      }
+      return database.editedImages.listBySourceAsset(sourceAssetId);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    enabled: options?.enabled !== false && sourceAssetId !== null,
+  });
+}
+
