@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import RunwayML from '@runwayml/sdk';
 import { createJobSchema } from '../../validation.js';
 import {
   createVideoTask,
@@ -8,7 +9,8 @@ import {
 import { extractErrorMessage, getStatusCodeFromError } from '../../shared/utils.js';
 
 // Re-export for backward compatibility
-export { createVideoTask, createImageTask, Mode };
+export { createVideoTask, createImageTask };
+export type { Mode };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('req.body', req.body);
@@ -33,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         promptImage: parsed.data.promptImage,
         promptText: parsed.data.promptText,
         model: parsed.data.model,
-        ratio: parsed.data.ratio,
+        ratio: parsed.data.ratio as RunwayML.TextToImageCreateParams['ratio'],
       });
     } else {
       task = await createVideoTask(parsed.data);

@@ -88,7 +88,7 @@ export async function createVideoTask(input: {
     return await runway.textToVideo.create({
       model: defaultVideoModel,
       promptText: input.promptText,
-      ratio: defaultVideoRatio,
+      ratio: defaultVideoRatio as RunwayML.TextToVideoCreateParams['ratio'],
       duration: defaultVideoDuration,
     });
   }

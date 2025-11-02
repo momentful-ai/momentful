@@ -14,6 +14,14 @@ interface RunwayTask {
 process.env.RUNWAY_API_KEY = 'test-api-key';
 
 // Create mock Runway client
+// NOTE: Type safety is now enforced through:
+// 1. Type checking integrated into test command (see package.json "test" script)
+// 2. The actual implementation must match RunwayML SDK types - type errors will be caught
+//    before tests run
+// 3. Test assertions verify correct parameters are passed at runtime
+// 
+// IMPORTANT: If you change the implementation to pass incorrect types, the integrated
+// type checking will catch it and fail the test run before any tests execute.
 const mockRunwayClient = {
   textToImage: {
     create: vi.fn(),
