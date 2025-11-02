@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
-import { Project, MediaAsset } from '../../types';
+import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { database } from '../../lib/database';
-import { FileUpload } from '../FileUpload';
 import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
 import { VideoGenerator } from '../VideoGenerator';
-import { ExportModal } from '../ExportModal';
-import { PublishModal } from '../PublishModal';
 import { EditedImagesView } from './EditedImagesView';
 import { GeneratedVideosView } from './GeneratedVideosView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName } from '../../lib/utils';
-import { downloadBulkAsZip } from '../../lib/download';
-import { getAssetUrl } from '../../lib/media';
+import { downloadBulkAsZip, downloadFile } from '../../lib/download';
+import { getAssetUrl, ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../../lib/media';
 import { useToast } from '../../hooks/useToast';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { useUploadMedia } from '../../hooks/useUploadMedia';
+import { useUserId } from '../../hooks/useUserId';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -34,19 +34,25 @@ interface ProjectWorkspaceProps {
   onMounted?: () => void;
 }
 
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
+
 function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>(defaultTab);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
-  const [exportAsset, setExportAsset] = useState<{ id: string; type: 'video' | 'image'; url: string } | null>(null);
-  const [publishAsset, setPublishAsset] = useState<{ id: string; type: 'video' | 'image' } | null>(null);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { showToast } = useToast();
+  const userId = useUserId();
+  const uploadMutation = useUploadMedia();
+  const queryClient = useQueryClient();
 
   // Use React Query hooks with lazy loading based on active tab
   // React Query shares cache between queries with the same key, so enabling all queries
@@ -126,9 +132,141 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     setShowVideoGenerator(true);
   }, []);
 
-  const handleShowUploadModal = useCallback(() => {
-    setShowUploadModal(true);
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
   }, []);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const filesArray = Array.from(files);
+    
+    // Validate files
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    for (const file of filesArray) {
+      const isImage = isAcceptableImageFile(file);
+      const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type);
+
+      if (!isImage && !isVideo) {
+        errors.push(`${file.name}: File type not supported`);
+        continue;
+      }
+
+      if (isImage && file.size > MAX_IMAGE_SIZE) {
+        errors.push(`${file.name}: Image exceeds 50MB limit`);
+        continue;
+      }
+
+      if (isVideo && file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: Video exceeds 100MB limit`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (errors.length > 0) {
+      errors.forEach(error => showToast(error, 'error'));
+    }
+
+    if (validFiles.length === 0) {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    try {
+      // Separate images and videos
+      const imageFiles = validFiles.filter(isAcceptableImageFile);
+      const videoFiles = validFiles.filter(f => ALLOWED_VIDEO_TYPES.includes(f.type));
+
+      // Upload images using the hook
+      if (imageFiles.length > 0) {
+        await uploadMutation.mutateAsync({ projectId: project.id, files: imageFiles });
+      }
+
+      // Upload videos directly (since hook only handles images)
+      if (videoFiles.length > 0 && userId) {
+        for (const file of videoFiles) {
+          const timestamp = Date.now();
+          const fileName = `${timestamp}-${file.name}`;
+          const storagePath = `${userId}/${project.id}/${fileName}`;
+
+          await database.storage.upload('user-uploads', storagePath, file);
+
+          // Get video dimensions
+          const video = document.createElement('video');
+          const videoUrl = URL.createObjectURL(file);
+          await new Promise<void>((resolve, reject) => {
+            video.onloadedmetadata = () => {
+              database.mediaAssets.create({
+                project_id: project.id,
+                user_id: userId,
+                file_name: file.name,
+                file_type: 'video',
+                file_size: file.size,
+                storage_path: storagePath,
+                width: video.videoWidth,
+                height: video.videoHeight,
+                duration: video.duration,
+              }).then(() => {
+                URL.revokeObjectURL(videoUrl);
+                resolve();
+              }).catch(reject);
+            };
+            video.onerror = reject;
+            video.src = videoUrl;
+          });
+        }
+        // Invalidate media assets query after video uploads
+        await queryClient.invalidateQueries({ queryKey: ['media-assets', project.id] });
+      }
+
+      showToast(`Successfully uploaded ${validFiles.length} file(s)`, 'success');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showToast('Failed to upload files. Please try again.', 'error');
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [project.id, userId, uploadMutation, queryClient, showToast]);
+
+  const handleExportImage = useCallback(async (image: EditedImage) => {
+    try {
+      const filename = `edited-image-${image.id}.png`;
+      await downloadFile(image.edited_url, filename);
+      showToast(`Downloaded ${filename}`, 'success');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      showToast('Failed to download image. Please try again.', 'error');
+    }
+  }, [showToast]);
+
+  const handleExportVideo = useCallback(async (video: GeneratedVideo) => {
+    if (!video.storage_path) {
+      showToast('Video is not available for download', 'error');
+      return;
+    }
+    try {
+      const filename = `${video.name || `video-${video.id}`}.mp4`;
+      await downloadFile(video.storage_path, filename);
+      showToast(`Downloaded ${filename}`, 'success');
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      showToast('Failed to download video. Please try again.', 'error');
+    }
+  }, [showToast]);
 
   const handleDownloadAllMedia = useCallback(async () => {
     if (mediaAssets.length === 0) return;
@@ -313,14 +451,32 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
               Generate Video
             </Button>
             <Button
-              onClick={handleShowUploadModal}
+              onClick={handleUploadClick}
               variant="gradient"
               size="lg"
               className="flex-1 sm:flex-initial gap-2"
+              disabled={isUploading}
             >
-              <Upload className="w-5 h-5" />
-              Upload Media
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  Upload Media
+                </>
+              )}
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={[...ACCEPTABLE_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].join(',')}
+              onChange={handleFileChange}
+              className="hidden"
+            />
           </div>
         </div>
       </div>
@@ -424,36 +580,23 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
               {activeTab === 'edited' && (
                 <div key="edited-tab" className="animate-fade-in">
                   <MemoizedEditedImagesView
-                projectId={project.id}
+                    projectId={project.id}
                     viewMode={viewMode}
-                    onExport={(image) => setExportAsset({ id: image.id, type: 'image', url: image.edited_url })}
-                    onPublish={(image) => setPublishAsset({ id: image.id, type: 'image' })}
+                    onExport={handleExportImage}
                   />
                 </div>
               )}
               {activeTab === 'videos' && (
                 <div key="videos-tab" className="animate-fade-in">
                   <MemoizedGeneratedVideosView
-                projectId={project.id}
+                    projectId={project.id}
                     viewMode={viewMode}
-                    onExport={(video) => setExportAsset({ id: video.id, type: 'video', url: video.storage_path || '' })}
-                    onPublish={(video) => setPublishAsset({ id: video.id, type: 'video' })}
+                    onExport={handleExportVideo}
                   />
                 </div>
           )}
         </div>
       </Card>
-
-      {showUploadModal && (
-        <FileUpload
-          projectId={project.id}
-          onUploadComplete={() => {
-            setShowUploadModal(false);
-            // Cache invalidation handled by useUploadMedia hook
-          }}
-          onClose={() => setShowUploadModal(false)}
-        />
-      )}
 
       {showVideoGenerator && (
         <VideoGenerator
@@ -463,25 +606,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
             setShowVideoGenerator(false);
             // Cache invalidation handled by VideoGenerator
           }}
-        />
-      )}
-
-      {exportAsset && (
-        <ExportModal
-          projectId={project.id}
-          assetId={exportAsset.id}
-          assetType={exportAsset.type}
-          assetUrl={exportAsset.url}
-          onClose={() => setExportAsset(null)}
-        />
-      )}
-
-      {publishAsset && (
-        <PublishModal
-          projectId={project.id}
-          assetId={publishAsset.id}
-          assetType={publishAsset.type}
-          onClose={() => setPublishAsset(null)}
         />
       )}
     </div>

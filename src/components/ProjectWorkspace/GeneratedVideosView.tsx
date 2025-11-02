@@ -1,26 +1,52 @@
-import { Download, Share2, Film, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Trash2, Film, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { GeneratedVideo } from '../../types';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { formatDate } from '../../lib/utils';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { useDeleteGeneratedVideo } from '../../hooks/useDeleteGeneratedVideo';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmDialog } from '../ConfirmDialog';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 
 interface GeneratedVideosViewProps {
   projectId: string;
   viewMode: 'grid' | 'list';
   onExport: (video: GeneratedVideo) => void;
-  onPublish: (video: GeneratedVideo) => void;
 }
 
 export function GeneratedVideosView({
   projectId,
   viewMode,
   onExport,
-  onPublish,
 }: GeneratedVideosViewProps) {
   const { data: videos = [], isLoading } = useGeneratedVideos(projectId);
+  const { showToast } = useToast();
+  const [videoToDelete, setVideoToDelete] = useState<{ id: string; storagePath?: string } | null>(null);
+  const deleteMutation = useDeleteGeneratedVideo();
+
+  const confirmDeleteVideo = () => {
+    if (!videoToDelete) return;
+
+    deleteMutation.mutate(
+      {
+        videoId: videoToDelete.id,
+        storagePath: videoToDelete.storagePath,
+        projectId,
+      },
+      {
+        onSuccess: () => {
+          showToast('Video deleted successfully', 'success');
+        },
+        onError: () => {
+          showToast('Failed to delete video. Please try again.', 'error');
+        },
+      }
+    );
+    setVideoToDelete(null);
+  };
 
   if (isLoading) {
     return <MediaLibrarySkeleton />;
@@ -113,28 +139,34 @@ export function GeneratedVideosView({
                 </div>
               </div>
             )}
-            {video.status === 'completed' && (
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              {video.status === 'completed' && (
                 <Button
-                  onClick={() => onExport(video)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExport(video);
+                  }}
                   size="icon"
                   variant="secondary"
                   className="glass shadow-lg h-9 w-9"
-                  title="Export video"
+                  title="Download video"
                 >
                   <Download className="w-4 h-4" />
                 </Button>
-                <Button
-                  onClick={() => onPublish(video)}
-                  size="icon"
-                  variant="secondary"
-                  className="glass shadow-lg h-9 w-9"
-                  title="Publish to social"
-                >
-                  <Share2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+              )}
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVideoToDelete({ id: video.id, storagePath: video.storage_path });
+                }}
+                size="icon"
+                variant="destructive"
+                className="shadow-lg h-9 w-9"
+                title="Delete video"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <div className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -158,6 +190,17 @@ export function GeneratedVideosView({
           </div>
         </Card>
       ))}
+      {videoToDelete && (
+        <ConfirmDialog
+          title="Delete Video"
+          message="Are you sure you want to delete this generated video? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmDeleteVideo}
+          onCancel={() => setVideoToDelete(null)}
+        />
+      )}
     </div>
   );
 }

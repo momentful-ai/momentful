@@ -1,26 +1,52 @@
-import { Download, Share2, Image as ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Trash2, Image as ImageIcon } from 'lucide-react';
 import { EditedImage } from '../../types';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { formatDate } from '../../lib/utils';
 import { useEditedImages } from '../../hooks/useEditedImages';
+import { useDeleteEditedImage } from '../../hooks/useDeleteEditedImage';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmDialog } from '../ConfirmDialog';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 
 interface EditedImagesViewProps {
   projectId: string;
   viewMode: 'grid' | 'list';
   onExport: (image: EditedImage) => void;
-  onPublish: (image: EditedImage) => void;
 }
 
 export function EditedImagesView({
   projectId,
   viewMode,
   onExport,
-  onPublish,
 }: EditedImagesViewProps) {
   const { data: images = [], isLoading } = useEditedImages(projectId);
+  const { showToast } = useToast();
+  const [imageToDelete, setImageToDelete] = useState<{ id: string; storagePath: string } | null>(null);
+  const deleteMutation = useDeleteEditedImage();
+
+  const confirmDeleteImage = () => {
+    if (!imageToDelete) return;
+
+    deleteMutation.mutate(
+      {
+        imageId: imageToDelete.id,
+        storagePath: imageToDelete.storagePath,
+        projectId,
+      },
+      {
+        onSuccess: () => {
+          showToast('Image deleted successfully', 'success');
+        },
+        onError: () => {
+          showToast('Failed to delete image. Please try again.', 'error');
+        },
+      }
+    );
+    setImageToDelete(null);
+  };
 
   if (isLoading) {
     return <MediaLibrarySkeleton />;
@@ -55,22 +81,28 @@ export function EditedImagesView({
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
               <Button
-                onClick={() => onExport(image)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExport(image);
+                }}
                 size="icon"
                 variant="secondary"
                 className="glass shadow-lg h-9 w-9"
-                title="Export image"
+                title="Download image"
               >
                 <Download className="w-4 h-4" />
               </Button>
               <Button
-                onClick={() => onPublish(image)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImageToDelete({ id: image.id, storagePath: image.storage_path });
+                }}
                 size="icon"
-                variant="secondary"
-                className="glass shadow-lg h-9 w-9"
-                title="Publish to social"
+                variant="destructive"
+                className="shadow-lg h-9 w-9"
+                title="Delete image"
               >
-                <Share2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -90,6 +122,17 @@ export function EditedImagesView({
           </div>
         </Card>
       ))}
+      {imageToDelete && (
+        <ConfirmDialog
+          title="Delete Image"
+          message="Are you sure you want to delete this edited image? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmDeleteImage}
+          onCancel={() => setImageToDelete(null)}
+        />
+      )}
     </div>
   );
 }
