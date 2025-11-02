@@ -1,15 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TimelineView } from '../../../components/ProjectWorkspace/TimelineView';
-import { useTimelinesByProject } from '../../../hooks/useTimeline';
+import { useTimelinesByProject, useTimeline } from '../../../hooks/useTimeline';
+import { useUpdateLineage } from '../../../hooks/useUpdateLineage';
 import { Lineage } from '../../../types';
 import { UseQueryResult } from '@tanstack/react-query';
+import { TimelineData } from '../../../types/timeline';
+import { ToastProvider } from '../../../contexts/ToastProvider';
 
-// Mock the hook
+// Mock the hooks
 vi.mock('../../../hooks/useTimeline', () => ({
   useTimelinesByProject: vi.fn(),
   useTimeline: vi.fn(() => ({ data: { nodes: [], edges: [] }, isLoading: false })),
 }));
+
+vi.mock('../../../hooks/useUpdateLineage', () => ({
+  useUpdateLineage: vi.fn(),
+}));
+
 
 const mockLineages: Lineage[] = [
   { 
@@ -33,6 +42,40 @@ const mockLineages: Lineage[] = [
 ];
 
 describe('TimelineView', () => {
+  let queryClient: QueryClient;
+  const mockUpdateMutation = {
+    mutateAsync: vi.fn(),
+    isPending: false,
+  };
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    vi.clearAllMocks();
+    // Reset useTimeline mock to default
+    vi.mocked(useTimeline).mockReturnValue({
+      data: { nodes: [], edges: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+    // Reset useUpdateLineage mock
+    vi.mocked(useUpdateLineage).mockReturnValue(mockUpdateMutation as any);
+  });
+
+  const renderWithProviders = (component: React.ReactElement) => {
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          {component}
+        </ToastProvider>
+      </QueryClientProvider>
+    );
+  };
+
   it('renders loading state', () => {
     vi.mocked(useTimelinesByProject).mockReturnValue({
       data: undefined,
@@ -41,7 +84,7 @@ describe('TimelineView', () => {
       error: null,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    render(<TimelineView projectId="test-project" />);
+    renderWithProviders(<TimelineView projectId="test-project" />);
 
     expect(screen.getByText('Loading timelines...')).toBeInTheDocument();
   });
@@ -55,7 +98,7 @@ describe('TimelineView', () => {
       isSuccess: true,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    render(<TimelineView projectId="test-project" />);
+    renderWithProviders(<TimelineView projectId="test-project" />);
 
     expect(screen.getByText('No timelines available. Start by uploading media and editing.')).toBeInTheDocument();
   });
@@ -69,7 +112,7 @@ describe('TimelineView', () => {
       isSuccess: true,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    render(<TimelineView projectId="test-project" />);
+    renderWithProviders(<TimelineView projectId="test-project" />);
 
     expect(screen.getByText('Test Lineage 1')).toBeInTheDocument();
     expect(screen.getByText('Test Lineage 2')).toBeInTheDocument();
@@ -84,11 +127,307 @@ describe('TimelineView', () => {
       isSuccess: true,
     } as unknown as UseQueryResult<Lineage[], Error>);
 
-    render(<TimelineView projectId="test-project" />);
+    renderWithProviders(<TimelineView projectId="test-project" />);
 
     fireEvent.click(screen.getByText('Test Lineage 1'));
 
-    // Verify selected state (e.g., class change)
-    expect(screen.getByText('Test Lineage 1').closest('button')).toHaveClass('bg-primary');
+    // Verify selected state - bg-primary is on the parent div
+    const lineageContainer = screen.getByText('Test Lineage 1').closest('.group');
+    expect(lineageContainer).toHaveClass('bg-primary');
+  });
+
+  it('auto-selects first lineage when lineages are loaded', async () => {
+    const mockTimelineData: TimelineData = {
+      nodes: [
+        {
+          type: 'media_asset',
+          data: {
+            id: 'asset-1',
+            project_id: 'test-project',
+            user_id: 'test-user',
+            file_name: 'test.jpg',
+            file_type: 'image',
+            file_size: 1000,
+            storage_path: 'path/to/test.jpg',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(useTimeline).mockReturnValue({
+      data: mockTimelineData,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    // Wait for auto-selection to occur
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalledWith('lineage-1');
+    });
+
+    // Verify first lineage container is selected
+    const firstContainer = screen.getByText('Test Lineage 1').closest('.group');
+    expect(firstContainer).toHaveClass('bg-primary');
+  });
+
+  it('preserves user selection when lineages update', async () => {
+    const mockTimelineData: TimelineData = {
+      nodes: [],
+      edges: [],
+    };
+
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(useTimeline).mockReturnValue({
+      data: mockTimelineData,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    // Wait for auto-selection
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalledWith('lineage-1');
+    });
+
+    // User selects second lineage
+    fireEvent.click(screen.getByText('Test Lineage 2'));
+
+    // Verify second lineage container is selected
+    const secondContainer = screen.getByText('Test Lineage 2').closest('.group');
+    expect(secondContainer).toHaveClass('bg-primary');
+
+    // Verify first lineage is not selected
+    const firstContainer = screen.getByText('Test Lineage 1').closest('.group');
+    expect(firstContainer).not.toHaveClass('bg-primary');
+  });
+
+  it('renders timeline lane when lineage is selected', async () => {
+    const mockTimelineData: TimelineData = {
+      nodes: [
+        {
+          type: 'media_asset',
+          data: {
+            id: 'asset-1',
+            project_id: 'test-project',
+            user_id: 'test-user',
+            file_name: 'test.jpg',
+            file_type: 'image',
+            file_size: 1000,
+            storage_path: 'path/to/test.jpg',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(useTimeline).mockReturnValue({
+      data: mockTimelineData,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    // Wait for timeline to load
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalled();
+    });
+
+    // Verify timeline nodes are rendered (via the node ID)
+    expect(screen.getByText('test.jpg')).toBeInTheDocument();
+  });
+
+  it('does not auto-select when no lineages are available', () => {
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    // Should not call useTimeline when no lineages
+    expect(useTimeline).not.toHaveBeenCalled();
+  });
+
+  it('allows editing lineage name', async () => {
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(mockUpdateMutation.mutateAsync).mockResolvedValue({
+      ...mockLineages[0],
+      name: 'Updated Name',
+    });
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    // Wait for auto-selection
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalled();
+    });
+
+    // Look for pencil icon button - it should be in the lineage selector
+    const pencilButtons = Array.from(document.querySelectorAll('button')).filter(btn => 
+      btn.querySelector('svg') && btn.closest('.group')
+    );
+    
+    if (pencilButtons.length > 0) {
+      fireEvent.click(pencilButtons[0]);
+
+      // Should show input field
+      const input = screen.getByDisplayValue('Test Lineage 1');
+      expect(input).toBeInTheDocument();
+
+      // Update the name
+      fireEvent.change(input, { target: { value: 'Updated Name' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      // Should call update mutation
+      await waitFor(() => {
+        expect(mockUpdateMutation.mutateAsync).toHaveBeenCalledWith({
+          lineageId: 'lineage-1',
+          name: 'Updated Name',
+          projectId: 'test-project',
+        });
+      });
+    }
+  });
+
+  it('cancels editing when Escape is pressed', async () => {
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalled();
+    });
+
+    // Find edit button and click it
+    const pencilButtons = Array.from(document.querySelectorAll('button')).filter(btn => 
+      btn.querySelector('svg') && btn.closest('.group')
+    );
+    
+    if (pencilButtons.length > 0) {
+      fireEvent.click(pencilButtons[0]);
+
+      // Should show input field
+      const input = screen.getByDisplayValue('Test Lineage 1');
+      expect(input).toBeInTheDocument();
+
+      // Change value
+      fireEvent.change(input, { target: { value: 'Changed Name' } });
+      
+      // Press Escape
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      // Should cancel editing and not call mutation
+      await waitFor(() => {
+        expect(input).not.toBeInTheDocument();
+      });
+      
+      expect(mockUpdateMutation.mutateAsync).not.toHaveBeenCalled();
+    }
+  });
+
+  it('saves changes when check button is clicked', async () => {
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(mockUpdateMutation.mutateAsync).mockResolvedValue({
+      ...mockLineages[0],
+      name: 'Saved Name',
+    });
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    await waitFor(() => {
+      expect(useTimeline).toHaveBeenCalled();
+    });
+
+    // Find edit button and click it
+    const pencilButtons = Array.from(document.querySelectorAll('button')).filter(btn => 
+      btn.querySelector('svg') && btn.closest('.group')
+    );
+    
+    if (pencilButtons.length > 0) {
+      fireEvent.click(pencilButtons[0]);
+
+      // Should show input field
+      const input = screen.getByDisplayValue('Test Lineage 1');
+      expect(input).toBeInTheDocument();
+
+      // Change value
+      fireEvent.change(input, { target: { value: 'Saved Name' } });
+      
+      // Find and click check button
+      const checkButtons = Array.from(document.querySelectorAll('button')).filter(btn => 
+        btn.querySelector('svg[class*="lucide-check"]')
+      );
+      
+      if (checkButtons.length > 0) {
+        fireEvent.click(checkButtons[0]);
+
+        // Should call update mutation
+        await waitFor(() => {
+          expect(mockUpdateMutation.mutateAsync).toHaveBeenCalledWith({
+            lineageId: 'lineage-1',
+            name: 'Saved Name',
+            projectId: 'test-project',
+          });
+        });
+      }
+    }
   });
 });

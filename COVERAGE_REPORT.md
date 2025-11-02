@@ -9,66 +9,131 @@
 
 The following table summarizes the key behaviors and capabilities that have been tested:
 
-| Component/API | Behavior | Test Status | Coverage % | Test Count |
-|--------------|----------|-------------|------------|------------|
-| **Generated Videos API** | | | **95.83%** | 13 tests |
-| | CORS headers configuration | ✅ Tested | 100% | 1 |
-| | OPTIONS preflight handling | ✅ Tested | 100% | 1 |
-| | GET videos by projectId | ✅ Tested | 100% | 4 |
-| | POST create new video | ✅ Tested | 100% | 3 |
-| | Parameter validation | ✅ Tested | 100% | 2 |
-| | Database error handling | ✅ Tested | 100% | 2 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 3 |
-| **Generated Videos [id] API** | | | **88.57%** | 13 tests |
-| | GET video by ID | ✅ Tested | 100% | 3 |
-| | PATCH update video | ✅ Tested | 100% | 2 |
-| | DELETE video | ✅ Tested | 100% | 2 |
-| | Parameter validation | ✅ Tested | 100% | 2 |
-| | Error handling | ✅ Tested | 100% | 4 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 2 |
-| **Replicate Predictions API** | | | **100%** | 10 tests |
-| | POST create prediction | ✅ Tested | 100% | 4 |
-| | Parameter validation | ✅ Tested | 100% | 3 |
-| | API error handling | ✅ Tested | 100% | 2 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 4 |
-| **Replicate Predictions [id] API** | | | **100%** | 11 tests |
-| | GET prediction status | ✅ Tested | 100% | 1 |
-| | Multiple status types (starting, processing, succeeded, failed, canceled, aborted) | ✅ Tested | 100% | 1 |
-| | Parameter validation | ✅ Tested | 100% | 2 |
-| | Error handling | ✅ Tested | 100% | 4 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 4 |
-| **Replicate Predictions (Nested)** | | | **92.1%** | 13 tests |
-| | POST create prediction (index.ts) | ✅ Tested | 100% | 4 |
-| | GET prediction status | ✅ Tested | 100% | 5 |
-| | Helper functions (createReplicatePrediction, getReplicatePredictionStatus) | ✅ Tested | 100% | 2 |
-| | ReplicateModels constants | ✅ Tested | 100% | 1 |
-| | Error extraction from JSON | ✅ Tested | 100% | 1 |
-| **Legacy Runway Jobs API** | | | **100%** | 8 tests |
-| | POST create image-to-video task | ✅ Tested | 100% | 1 |
-| | POST create text-to-video task | ✅ Tested | 100% | 1 |
-| | Request validation (Zod schema) | ✅ Tested | 100% | 1 |
-| | Error handling | ✅ Tested | 100% | 1 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 4 |
-| **Legacy Runway Jobs [id] API** | | | **100%** | 6 tests |
-| | GET task by ID | ✅ Tested | 100% | 2 |
-| | Parameter validation | ✅ Tested | 100% | 1 |
-| | Error handling | ✅ Tested | 100% | 1 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 2 |
-| **Runway Jobs [id] (Nested)** | | | **86.76%** | 14 tests |
-| | GET task with all fields | ✅ Tested | 100% | 2 |
-| | HTTP 400 error handling | ✅ Tested | 100% | 1 |
-| | HTTP 500 error handling | ✅ Tested | 100% | 1 |
-| | Error message extraction (multiple formats) | ✅ Tested | 100% | 3 |
-| | Non-Error object handling | ✅ Tested | 100% | 1 |
-| | Helper function (getRunwayTask) | ✅ Tested | 100% | 1 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 2 |
-| **Runway Jobs API (Main)** | | | **77.38%** | 12 tests |
-| | POST image-generation mode | ✅ Tested | 100% | 6 |
-| | POST image-to-video mode | ✅ Tested | 100% | 1 |
-| | POST text-to-video mode | ✅ Tested | 100% | 1 |
-| | Parameter validation | ✅ Tested | 100% | 2 |
-| | Error handling | ✅ Tested | 100% | 1 |
-| | Unsupported HTTP methods | ✅ Tested | 100% | 1 |
+File                                 | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                   
+-------------------------------------|---------|----------|---------|---------|------------------
+All files                            |    76.7 |    82.51 |   66.66 |    76.7 |                                                                     
+ api                                 |    97.1 |    89.83 |     100 |    97.1 |                                                                     
+  generated-videos.ts                |   93.22 |       76 |     100 |   93.22 | 8-9,55-56                                                           
+  replicate-predictions-id.ts        |     100 |      100 |     100 |     100 |                                                                     
+  replicate-predictions.ts           |     100 |      100 |     100 |     100 |                                                                     
+  runway-jobs-id.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  runway-jobs.ts                     |     100 |      100 |     100 |     100 |                                                                     
+  validation.ts                      |     100 |      100 |     100 |     100 |                                                                     
+ api/generated-videos                |   88.57 |       80 |     100 |   88.57 |                                                                     
+  [id].ts                            |   88.57 |       80 |     100 |   88.57 | 9-10,14-19                                                          
+ api/replicate/predictions           |   89.58 |    73.68 |     100 |   89.58 |                                                                     
+  [id].ts                            |     100 |       90 |     100 |     100 | 9                                                                   
+  index.ts                           |   82.14 |    55.55 |     100 |   82.14 | 26-30                                                               
+ api/runway/jobs                     |   91.04 |    88.46 |     100 |   91.04 |                                                                     
+  [id].ts                            |     100 |      100 |     100 |     100 |                                                                     
+  index.ts                           |   84.61 |    76.92 |     100 |   84.61 | 26-27,29-30,32-33                                                   
+ api/shared                          |   95.28 |    87.69 |     100 |   95.28 |                                                                     
+  models.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  replicate.ts                       |   96.61 |       90 |     100 |   96.61 | 78-79                                                               
+  runway.ts                          |    92.3 |    77.77 |     100 |    92.3 | 13-14,72-73,110-111,148-149                                         
+  utils.ts                           |     100 |    96.15 |     100 |     100 | 44                                                                  
+ src/components                      |   84.65 |    95.18 |   77.27 |   84.65 |                                                                     
+  AuthGuard.tsx                      |   96.52 |    91.89 |      75 |   96.52 | 29-30,38-39                                                         
+  ConfirmDialog.tsx                  |    3.22 |      100 |       0 |    3.22 | 16-80                                                               
+  DevToolbar.tsx                     |     100 |      100 |   77.77 |     100 |                                                                     
+  Layout.tsx                         |     100 |    93.33 |      75 |     100 | 49                                                                  
+  LoadingSkeleton.tsx                |     100 |      100 |     100 |     100 |                                                                     
+  Toast.tsx                          |     100 |      100 |     100 |     100 |                                                                     
+ src/components/Dashboard            |   77.27 |    88.23 |   52.94 |   77.27 |                                                                     
+  Dashboard.tsx                      |   96.12 |    90.32 |     100 |   96.12 | 59-60,88-90                                                         
+  ProjectCard.tsx                    |   50.35 |       50 |      20 |   50.35 | 38-42,45-50,53-56,59-70,92-94,102-114,122-152                       
+  ProjectPreviewCollage.tsx          |     100 |      100 |     100 |     100 |                                                                     
+ src/components/ImageEditor          |   89.34 |       85 |   86.36 |   89.34 |                                                                     
+  ImageEditor.tsx                    |   80.37 |    77.08 |   77.77 |   80.37 | 72-73,78-79,160-165,177-211,233-234,249-250,303,347-350,352-355     
+  ImageEditorAspectRatioSelector.tsx |     100 |      100 |     100 |     100 |                                                                     
+  ImageEditorHeader.tsx              |     100 |      100 |     100 |     100 |                                                                     
+  ImageEditorImageList.tsx           |     100 |      100 |   83.33 |     100 |                                                                     
+  ImageEditorPreview.tsx             |     100 |       75 |     100 |     100 | 46                                                                  
+  ImageEditorSidebar.tsx             |     100 |      100 |     100 |     100 |                                                                     
+  VersionHistory.tsx                 |     100 |      100 |     100 |     100 |                                                                     
+  index.ts                           |     100 |      100 |     100 |     100 |                                                                     
+  types.ts                           |       0 |        0 |       0 |       0 |                                                                     
+ src/components/MediaLibrary         |   50.63 |    82.05 |      35 |   50.63 |                                                                     
+  DropzoneOverlay.tsx                |   27.27 |       50 |     100 |   27.27 | 11-19                                                               
+  MediaItemCard.tsx                  |    1.92 |      100 |       0 |    1.92 | 20-137                                                              
+  MediaLibrary.tsx                   |   35.71 |       60 |   14.28 |   35.71 | 31-39,42-60,63-71,79-87,99-100,106-114                              
+  MediaLibraryView.tsx               |   82.66 |       85 |      40 |   82.66 | 66-71,74-79,82-90,102-107                                           
+  useGridConfig.ts                   |   92.85 |    91.66 |     100 |   92.85 | 49-50,56                                                            
+ src/components/ProjectWorkspace     |    68.8 |    80.83 |   65.78 |    68.8 |                                                                     
+  EditedImagesView.tsx               |   71.96 |     90.9 |      40 |   71.96 | 31-49,97-99,126-134                                                 
+  GeneratedVideosView.tsx            |   77.64 |    84.37 |    62.5 |   77.64 | 31-49,63,76,135-140,159-161,194-202                                 
+  ProjectWorkspace.tsx               |   53.67 |    68.42 |   42.85 |   53.67 | ...-344,350,352,356,365,369,401-427,465-468,531-534,585-591,603-605 
+  TimelineConnection.tsx             |    7.69 |      100 |       0 |    7.69 | 11-41                                                               
+  TimelineNode.tsx                   |   97.95 |       95 |     100 |   97.95 | 99,120                                                              
+  TimelineView.tsx                   |   94.11 |    73.91 |      80 |   94.11 | 57-60,142-144,187-188,208                                           
+ src/components/VideoGenerator       |   79.34 |    75.83 |   53.19 |   79.34 |                                                                     
+  AspectRatioSelector.tsx            |     100 |      100 |      50 |     100 |                                                                     
+  CameraMovementSelector.tsx         |     100 |      100 |      50 |     100 |                                                                     
+  MediaSourceGrid.tsx                |     100 |      100 |      75 |     100 |                                                                     
+  SceneTypeSelector.tsx              |     100 |      100 |      50 |     100 |                                                                     
+  VideoGenerator.tsx                 |   77.57 |    65.51 |   56.25 |   77.57 | ...,241-243,246-253,262,271,274-277,296-298,300-302,330-331,374-376 
+  VideoGeneratorControls.tsx         |     100 |      100 |     100 |     100 |                                                                     
+  VideoGeneratorHeader.tsx           |     100 |      100 |     100 |     100 |                                                                     
+  VideoGeneratorLeftPanel.tsx        |   65.87 |    69.56 |   38.46 |   65.87 | 45-51,54-55,58-62,73-74,85-88,99-100,112-141,167,179,185,237-256    
+  VideoGeneratorPreview.tsx          |      75 |    83.33 |      25 |      75 | 36-38,49-51,53-59,64-78                                             
+  VideoGeneratorSidebar.tsx          |     100 |      100 |     100 |     100 |                                                                     
+  index.ts                           |     100 |      100 |     100 |     100 |                                                                     
+  types.ts                           |       0 |        0 |       0 |       0 |                                                                     
+ src/components/shared               |   90.86 |    85.18 |   54.54 |   90.86 |                                                                     
+  AIModelSelector.tsx                |     100 |      100 |      50 |     100 |                                                                     
+  EditorHeader.tsx                   |     100 |      100 |     100 |     100 |                                                                     
+  PromptControls.tsx                 |     100 |      100 |     100 |     100 |                                                                     
+  ResizableSidebar.tsx               |   69.23 |       50 |      25 |   69.23 | 24-34,37-38,41-45                                                   
+  index.ts                           |       0 |        0 |       0 |       0 | 1                                                                   
+ src/components/ui                   |   79.25 |      100 |     100 |   79.25 |                                                                     
+  badge.tsx                          |     100 |      100 |     100 |     100 |                                                                     
+  button.tsx                         |     100 |      100 |     100 |     100 |                                                                     
+  card.tsx                           |   50.87 |      100 |     100 |   50.87 | 23-28,35-43,50-55,62,70-75                                          
+  skeleton.tsx                       |     100 |      100 |     100 |     100 |                                                                     
+ src/contexts                        |   98.73 |      100 |      80 |   98.73 |                                                                     
+  BypassProvider.tsx                 |     100 |      100 |     100 |     100 |                                                                     
+  ThemeProvider.tsx                  |     100 |      100 |     100 |     100 |                                                                     
+  ToastProvider.tsx                  |   96.15 |      100 |     100 |   96.15 | 25                                                                  
+  bypass-context.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  theme-context.ts                   |     100 |      100 |       0 |     100 |                                                                     
+  toast-context.ts                   |     100 |      100 |     100 |     100 |                                                                     
+ src/data                            |     100 |      100 |     100 |     100 |                                                                     
+  aiModels.ts                        |     100 |      100 |     100 |     100 |                                                                     
+ src/hooks                           |   51.13 |    89.47 |   57.14 |   51.13 |                                                                     
+  useBypassContext.ts                |     100 |      100 |     100 |     100 |                                                                     
+  useDeleteEditedImage.ts            |   34.48 |      100 |      20 |   34.48 | 17-22,25-39,42-45,48-49                                             
+  useDeleteGeneratedVideo.ts         |   32.25 |      100 |      20 |   32.25 | 17-24,27-41,44-47,50-51                                             
+  useDeleteMediaAsset.ts             |   34.48 |      100 |      20 |   34.48 | 17-22,25-39,42-45,48-49                                             
+  useEditedImages.ts                 |   91.66 |     87.5 |     100 |   91.66 | 20-21                                                               
+  useGeneratedVideos.ts              |     100 |      100 |     100 |     100 |                                                                     
+  useMediaAssets.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  useTheme.ts                        |     100 |       50 |     100 |     100 | 8                                                                   
+  useTimeline.ts                     |     100 |    83.33 |     100 |     100 | 12                                                                  
+  useToast.ts                        |      75 |       50 |     100 |      75 | 7-8                                                                 
+  useUpdateLineage.ts                |    5.88 |      100 |       0 |    5.88 | 12-54                                                               
+  useUploadMedia.ts                  |   20.93 |      100 |   33.33 |   20.93 | 17-59,63-66                                                         
+  useUserId.ts                       |     100 |      100 |     100 |     100 |                                                                     
+ src/lib                             |   88.16 |    71.05 |   84.44 |   88.16 |                                                                     
+  clerk.ts                           |       0 |        0 |       0 |       0 |                                                                     
+  database.ts                        |   86.14 |    69.79 |   85.18 |   86.14 | ...,147-148,249-256,258-266,439-449,452-460,463-471,474-482,542-543 
+  download.ts                        |   96.82 |      100 |     100 |   96.82 | 76-79                                                               
+  local-mode.ts                      |   88.88 |    42.85 |      60 |   88.88 | 20-21                                                               
+  media.ts                           |      96 |      100 |      75 |      96 | 46-47                                                               
+  supabase-auth.ts                   |     100 |      100 |     100 |     100 |                                                                     
+  supabase.ts                        |   66.66 |     8.33 |     100 |   66.66 | 13-16,19-20,29-34                                                   
+  utils.ts                           |     100 |      100 |     100 |     100 |                                                                     
+ src/services/aiModels               |       0 |        0 |       0 |       0 |                                                                     
+  index.ts                           |       0 |        0 |       0 |       0 | 1                                                                   
+ src/services/aiModels/replicate     |     4.1 |        0 |       0 |     4.1 |                                                                     
+  api-client.ts                      |    4.16 |      100 |       0 |    4.16 | 39-203,210-249                                                      
+  index.ts                           |       0 |        0 |       0 |       0 | 1-2                                                                 
+ src/services/aiModels/runway        |   86.88 |    83.58 |    87.5 |   86.88 |                                                                     
+  api-client.ts                      |   87.84 |    84.84 |     100 |   87.84 | 12-13,35,45-50,129-130,214-221,266-267,280-281                      
+  index.ts                           |       0 |        0 |       0 |       0 | 1-2                                                                 
+ src/types                           |       0 |        0 |       0 |       0 |                                                                     
+  index.ts                           |       0 |        0 |       0 |       0 |                                                                     
+  timeline.ts                        |       0 |        0 |       0 |       0 |                                                                     
+-------------------------------------|---------|----------|---------|---------|--------------------------------------------
 
 ### Test Coverage Summary by Category
 
