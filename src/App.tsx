@@ -75,8 +75,8 @@ function App() {
               setView({ type: 'project', project: view.project });
             }}
             onSave={() => {
-              setReturningFromEditor(true);
-              setView({ type: 'project', project: view.project });
+              // Notify that save completed, but don't close the editor
+              // User stays in editor to see the new image in the timeline
             }}
             onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
             onSelectImageToEdit={handleSelectImageToEdit}
@@ -91,7 +91,7 @@ function App() {
               setView({ type: 'project', project: view.project });
             }}
             onSave={() => {
-              setView({ type: 'project', project: view.project });
+              // setView({ type: 'project', project: view.project });
             }}
           />
         </div>

@@ -48,6 +48,7 @@ vi.mock('../../lib/database', () => ({
   database: {
     editedImages: {
       create: vi.fn(),
+      list: vi.fn(() => Promise.resolve([])),
       listBySourceAsset: vi.fn(() => Promise.resolve([])),
     },
     storage: {
@@ -447,6 +448,216 @@ describe('ImageEditor', () => {
         },
         { timeout: 5000 }
       );
+    });
+
+    it('optimistically updates query cache immediately after image creation', async () => {
+      const user = userEvent.setup();
+      const createdImage = {
+        id: 'edited-image-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Test prompt',
+        context: {},
+        ai_model: 'runway-gen4-turbo',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
+        edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: null,
+        source_asset_id: mockAsset.id,
+        created_at: '2025-10-20T15:59:30.165+00:00',
+        lineage_id: 'lineage-1',
+      };
+
+      vi.mocked(database.editedImages.create).mockResolvedValue(createdImage);
+      
+      // Mock listBySourceAsset to return the created image (simulating refetch result)
+      vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue([createdImage]);
+      
+      // Mock list to return the created image (for project-wide query)
+      vi.mocked(database.editedImages.list).mockResolvedValue([createdImage]);
+
+      const setQueryDataSpy = vi.spyOn(queryClient, 'setQueryData');
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for image creation to complete
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify setQueryData was called for optimistic updates
+      expect(setQueryDataSpy).toHaveBeenCalledWith(
+        ['edited-images', 'source', mockAsset.id],
+        expect.any(Function)
+      );
+      expect(setQueryDataSpy).toHaveBeenCalledWith(
+        ['edited-images', 'test-project'],
+        expect.any(Function)
+      );
+
+      // Wait for refetch to complete and verify cache contains the image
+      await waitFor(
+        () => {
+          const sourceCacheData = queryClient.getQueryData(['edited-images', 'source', mockAsset.id]);
+          const projectCacheData = queryClient.getQueryData(['edited-images', 'test-project']);
+
+          expect(sourceCacheData).toBeDefined();
+          expect(projectCacheData).toBeDefined();
+          
+          if (Array.isArray(sourceCacheData) && sourceCacheData.length > 0) {
+            expect(sourceCacheData[0]).toMatchObject({
+              id: createdImage.id,
+              prompt: createdImage.prompt,
+            });
+          }
+          if (Array.isArray(projectCacheData) && projectCacheData.length > 0) {
+            expect(projectCacheData[0]).toMatchObject({
+              id: createdImage.id,
+              prompt: createdImage.prompt,
+            });
+          }
+        },
+        { timeout: 5000 }
+      );
+    });
+
+    it('invalidates and refetches edited images queries after creation', async () => {
+      const user = userEvent.setup();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for image creation to complete
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify invalidateQueries was called for project and source queries
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'test-project'] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'source', mockAsset.id] });
+
+      // Verify refetchQueries was called for active queries
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'test-project'] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'source', mockAsset.id] });
+    });
+
+    it('invalidates timeline queries when lineage_id is present', async () => {
+      const user = userEvent.setup();
+      const createdImageWithLineage = {
+        id: 'edited-image-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Test prompt',
+        context: {},
+        ai_model: 'runway-gen4-turbo',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
+        edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: null,
+        source_asset_id: mockAsset.id,
+        created_at: '2025-10-20T15:59:30.165+00:00',
+        lineage_id: 'lineage-123',
+      };
+
+      vi.mocked(database.editedImages.create).mockResolvedValue(createdImageWithLineage);
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for image creation to complete
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify timeline queries were invalidated
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timeline', 'lineage-123'] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timelines', 'test-project'] });
+    });
+
+    it('does not invalidate timeline queries when lineage_id is missing', async () => {
+      const user = userEvent.setup();
+      const createdImageWithoutLineage = {
+        id: 'edited-image-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Test prompt',
+        context: {},
+        ai_model: 'runway-gen4-turbo',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
+        edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: null,
+        source_asset_id: mockAsset.id,
+        created_at: '2025-10-20T15:59:30.165+00:00',
+        lineage_id: undefined,
+      };
+
+      vi.mocked(database.editedImages.create).mockResolvedValue(createdImageWithoutLineage);
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      renderWithQueryClient(
+        <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
+      );
+
+      // Enter prompt and generate
+      const promptInput = screen.getByPlaceholderText(/Describe how you want to edit this image/);
+      await user.type(promptInput, 'Test prompt');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      // Wait for image creation to complete
+      await waitFor(
+        () => {
+          expect(database.editedImages.create).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
+
+      // Verify timeline query with lineage_id was NOT called
+      expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ['timeline', expect.any(String)] });
+      
+      // But project timelines should still be invalidated
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timelines', 'test-project'] });
     });
 
     it('fetches editing history for the source asset', async () => {

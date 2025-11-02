@@ -6,6 +6,7 @@ import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImagesBySource } from '../../hooks/useEditedImages';
 import { imageModels } from '../../data/aiModels';
+import { EditedImage } from '../../types';
 import {
   createRunwayImageJob,
   pollJobStatus,
@@ -260,9 +261,31 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           source_asset_id: asset.id,
         });
 
-        // Invalidate edited images queries to refresh the list
+        // Optimistically update the source-specific query cache for immediate UI feedback
+        queryClient.setQueryData<EditedImage[]>(
+          ['edited-images', 'source', asset.id],
+          (old = []) => [createdImage, ...old]
+        );
+
+        // Optimistically update the project-wide query cache
+        queryClient.setQueryData<EditedImage[]>(
+          ['edited-images', projectId],
+          (old = []) => [createdImage, ...old]
+        );
+
+        // Invalidate edited images queries (for future mounts/refocus)
         await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
         await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', asset.id] });
+
+        // Force immediate refetch of active queries (for currently mounted components)
+        await queryClient.refetchQueries({ queryKey: ['edited-images', projectId] });
+        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', asset.id] });
+
+        // Invalidate timeline queries if lineage_id is available
+        if (createdImage.lineage_id) {
+          await queryClient.invalidateQueries({ queryKey: ['timeline', createdImage.lineage_id] });
+        }
+        await queryClient.invalidateQueries({ queryKey: ['timelines', projectId] });
 
         // Set the newly created image as selected
         setSelectedImageId(createdImage.id);
