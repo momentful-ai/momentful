@@ -66,25 +66,25 @@ manualChunks: (id) => {
 
 | Chunk | Size (gzipped) | Purpose | Contents |
 |-------|----------------|---------|----------|
-| `react-vendor` | ~216KB | React ecosystem | React, React DOM, Clerk, React Query, SWR, TanStack Virtual, use-sync-external-store |
+| `react-vendor` | ~216KB | React ecosystem | React, React DOM, Clerk, React Query, SWR, TanStack Virtual, use-sync-external-store, Lucide React |
 | `supabase` | ~34KB | Database | Supabase client |
 | `utils` | ~37KB | Utilities | JSZip, Zod, Tailwind utilities |
 | `main` | ~30KB | App code | Main application logic |
 | `vendor` | ~24KB | Other deps | Miscellaneous node_modules |
-| `ui-vendor` | ~3KB | UI components | Lucide React icons |
 
 ## Chunk Rationale
 
 ### 1. React Vendor Chunk (`react-vendor`)
-**Includes:** React, React DOM, Clerk authentication, React Query
+**Includes:** React, React DOM, Clerk authentication, React Query, UI libraries (Lucide React)
 
 **Why separate?**
-- Clerk and React Query both depend on React and must load with it
+- Clerk, React Query, and UI libraries like Lucide React all depend on React and must load with it
 - React is stable and changes infrequently
 - Clerk is a large authentication library (prevented "useState undefined" error)
 - React Query depends on React.createContext (prevented "createContext undefined" error)
+- Lucide React depends on React.forwardRef (prevented "forwardRef undefined" error)
 
-**Critical dependency:** Both Clerk and React Query components will fail if React isn't available when they load.
+**Critical dependency:** All these libraries will fail if React isn't available when they load.
 
 ### 2. Supabase Chunk (`supabase`)
 **Includes:** `@supabase/supabase-js`
@@ -267,6 +267,12 @@ npm test
 **Root Cause**: React Query was chunked separately from React, so when React Query tried to use React.createContext, React wasn't loaded yet.
 **Solution**: Group React Query with React in the `react-vendor` chunk alongside Clerk.
 **Prevention**: Added `ReactQueryReactDependency.test.tsx` to test this scenario.
+
+### Issue 3: Lucide React `forwardRef` undefined error
+**Error**: `Cannot read properties of undefined (reading 'forwardRef')` at ui-vendor chunk
+**Root Cause**: Lucide React was chunked separately from React, but it depends on React.forwardRef at runtime.
+**Solution**: Move Lucide React to the `react-vendor` chunk since it has React as a peer dependency.
+**Prevention**: Updated dynamic React dependency validation to detect and prevent this issue.
 
 ## Common Pitfalls
 

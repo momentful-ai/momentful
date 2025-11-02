@@ -56,17 +56,14 @@ export default defineConfig(({ mode }) => {
             }
 
             // React-dependent libraries: Clerk, React Query, and other React libraries (all need React available)
+            // Includes UI libraries that depend on React (like lucide-react)
             if (id.includes('@clerk') ||
                 id.includes('@tanstack/react-query') ||
                 id.includes('@tanstack/react-virtual') ||
                 id.includes('use-sync-external-store') ||
-                id.includes('swr')) {
+                id.includes('swr') ||
+                id.includes('lucide-react')) {
               return 'react-vendor';
-            }
-
-            // Separate UI component libraries (before react check to avoid *-react going to react-vendor)
-            if (id.includes('lucide-react')) {
-              return 'ui-vendor';
             }
 
             // React and React DOM (exact matches, not partial)

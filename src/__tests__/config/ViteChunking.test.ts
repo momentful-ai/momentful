@@ -35,17 +35,14 @@ describe('Vite Manual Chunking Configuration', () => {
     }
 
     // React-dependent libraries: Clerk, React Query, and other React libraries (all need React available)
+    // Includes UI libraries that depend on React (like lucide-react)
     if (id.includes('@clerk') ||
         id.includes('@tanstack/react-query') ||
         id.includes('@tanstack/react-virtual') ||
         id.includes('use-sync-external-store') ||
-        id.includes('swr')) {
+        id.includes('swr') ||
+        id.includes('lucide-react')) {
       return 'react-vendor';
-    }
-
-    // Separate UI component libraries (before react check to avoid *-react going to react-vendor)
-    if (id.includes('lucide-react')) {
-      return 'ui-vendor';
     }
 
     // React and React DOM (exact matches, not partial)
@@ -108,8 +105,8 @@ describe('Vite Manual Chunking Configuration', () => {
   });
 
   describe('UI Libraries Chunk', () => {
-    it('should assign UI libraries to ui-vendor chunk', () => {
-      expect(getChunkName('node_modules/lucide-react/index.js')).toBe('ui-vendor');
+    it('should assign React-dependent UI libraries to react-vendor chunk', () => {
+      expect(getChunkName('node_modules/lucide-react/index.js')).toBe('react-vendor');
     });
   });
 
@@ -239,17 +236,18 @@ describe('Vite Manual Chunking Configuration', () => {
         return false;
       }
 
-      // Skip icon libraries and pure utility libraries
-      if (name?.includes('lucide') ||
-          name?.includes('feather') ||
-          name?.includes('heroicons') ||
-          name?.includes('class-variance-authority') ||
+      // Skip pure utility libraries (but not React-dependent ones like lucide-react)
+      if (name?.includes('class-variance-authority') ||
           name?.includes('clsx') ||
           name?.includes('tailwind-merge') ||
-          keywords.includes('css') ||
-          keywords.includes('icons') ||
-          keywords.includes('utility')) {
+          (keywords.includes('css') && !keywords.includes('react')) ||
+          (keywords.includes('utility') && !keywords.includes('react'))) {
         return false;
+      }
+
+      // Special case: lucide-react depends on React despite being an icon library
+      if (name?.includes('lucide-react')) {
+        return true;
       }
 
       // Check for React in runtime dependencies (not devDependencies)
@@ -385,6 +383,7 @@ describe('Vite Manual Chunking Configuration', () => {
       const knownReactDeps = [
         '@clerk/clerk-react',
         '@tanstack/react-query',
+        'lucide-react',
         // Add more known React-dependent libraries here as they get added
       ];
 
@@ -417,9 +416,9 @@ describe('Vite Manual Chunking Configuration', () => {
       const testCases = [
         { path: 'node_modules/@clerk/clerk-react/index.js', expected: 'react-vendor' },
         { path: 'node_modules/@tanstack/react-query/index.js', expected: 'react-vendor' },
+        { path: 'node_modules/lucide-react/index.js', expected: 'react-vendor' },
         { path: 'node_modules/react/index.js', expected: 'react-vendor' },
         { path: 'node_modules/@supabase/supabase-js/index.js', expected: 'supabase' },
-        { path: 'node_modules/lucide-react/index.js', expected: 'ui-vendor' },
         { path: 'node_modules/zod/index.js', expected: 'utils' },
         { path: 'src/App.tsx', expected: 'app' },
       ];
