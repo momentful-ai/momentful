@@ -179,7 +179,7 @@ describe('useDeleteMediaAsset', () => {
         storagePath: 'user-uploads/user-1/project-1/test1.jpg',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected to throw
     }
 
@@ -207,7 +207,7 @@ describe('useDeleteMediaAsset', () => {
         storagePath: 'user-uploads/user-1/project-1/test1.jpg',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -251,7 +251,7 @@ describe('useDeleteMediaAsset', () => {
         storagePath: 'user-uploads/user-1/project-1/test1.jpg',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -291,7 +291,7 @@ describe('useDeleteMediaAsset', () => {
         storagePath: 'user-uploads/user-1/project-1/test1.jpg',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 

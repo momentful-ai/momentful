@@ -264,7 +264,7 @@ describe('useDeleteGeneratedVideo', () => {
         storagePath: 'user-uploads/user-1/project-1/video-1.mp4',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected to throw
     }
 
@@ -292,7 +292,7 @@ describe('useDeleteGeneratedVideo', () => {
         storagePath: 'user-uploads/user-1/project-1/video-1.mp4',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -336,7 +336,7 @@ describe('useDeleteGeneratedVideo', () => {
         storagePath: 'user-uploads/user-1/project-1/video-1.mp4',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -375,7 +375,7 @@ describe('useDeleteGeneratedVideo', () => {
         storagePath: 'user-uploads/user-1/project-1/video-1.mp4',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -472,7 +472,7 @@ describe('useDeleteGeneratedVideo', () => {
         storagePath: 'https://external-url.com/video.mp4',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 

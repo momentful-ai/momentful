@@ -1331,6 +1331,7 @@ describe('lineages', () => {
           lineage_id: 'lineage-1',
         },
       ];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockGeneratedVideos: any[] = [];
 
       // Mock queries

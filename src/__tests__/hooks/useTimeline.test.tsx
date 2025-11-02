@@ -62,6 +62,7 @@ describe('useTimeline', () => {
   });
 
   it('does not fetch when lineageId is null', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { result } = renderHook(() => useTimeline(null as any), { wrapper });
 
     expect(result.current.isFetching).toBe(false);
@@ -69,6 +70,7 @@ describe('useTimeline', () => {
   });
 
   it('does not fetch when lineageId is undefined', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { result } = renderHook(() => useTimeline(undefined as any), { wrapper });
 
     expect(result.current.isFetching).toBe(false);
@@ -112,6 +114,7 @@ describe('useTimelinesByProject', () => {
   });
 
   it('does not fetch when projectId is null', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { result } = renderHook(() => useTimelinesByProject(null as any), { wrapper });
 
     expect(result.current.isFetching).toBe(false);
@@ -119,6 +122,7 @@ describe('useTimelinesByProject', () => {
   });
 
   it('does not fetch when projectId is undefined', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { result } = renderHook(() => useTimelinesByProject(undefined as any), { wrapper });
 
     expect(result.current.isFetching).toBe(false);

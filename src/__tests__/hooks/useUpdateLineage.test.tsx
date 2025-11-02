@@ -228,7 +228,7 @@ describe('useUpdateLineage', () => {
         name: 'New Name',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected to throw
     }
 
@@ -265,7 +265,7 @@ describe('useUpdateLineage', () => {
         name: 'Should Fail',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -312,7 +312,7 @@ describe('useUpdateLineage', () => {
         name: 'New Name',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -336,7 +336,7 @@ describe('useUpdateLineage', () => {
         name: 'New Name',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 
@@ -361,7 +361,7 @@ describe('useUpdateLineage', () => {
         name: 'New Name',
         projectId: 'project-1',
       });
-    } catch (e) {
+    } catch {
       // Expected
     }
 

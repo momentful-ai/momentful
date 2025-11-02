@@ -38,8 +38,7 @@ describe('Generated Videos API [id] - Environment Variables', () => {
     delete process.env.VITE_SUPABASE_ANON_KEY;
 
     // Re-import the handler to trigger the warning
-    const handlerModule = await import('../generated-videos/[id]');
-    const testHandler = handlerModule.default;
+    await import('../generated-videos/[id]');
 
     // Restore environment variables
     process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
