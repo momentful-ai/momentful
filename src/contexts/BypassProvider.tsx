@@ -1,10 +1,12 @@
 import { ReactNode } from 'react';
 import { isLocalBypassEnabled } from '../lib/local-mode';
-import { BypassContext } from './bypass-context';
+import { getBypassContext } from './bypass-context';
 
 interface BypassProviderProps {
   children: ReactNode;
 }
+
+const BypassContext = getBypassContext();
 
 export function BypassProvider({ children }: BypassProviderProps) {
   const isBypassEnabled = isLocalBypassEnabled();

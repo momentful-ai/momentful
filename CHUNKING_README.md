@@ -274,6 +274,12 @@ npm test
 **Solution**: Move Lucide React to the `react-vendor` chunk since it has React as a peer dependency.
 **Prevention**: Updated dynamic React dependency validation to detect and prevent this issue.
 
+### Issue 4: Main chunk `createContext` undefined error
+**Error**: `Cannot read properties of undefined (reading 'createContext')` at main chunk
+**Root Cause**: React context objects were created at module load time (top level), but React wasn't available when the main chunk loaded.
+**Solution**: Implement lazy context initialization - move `createContext` calls inside getter functions that are called when contexts are actually used.
+**Prevention**: Context creation now happens on-demand, ensuring React is available.
+
 ## Common Pitfalls
 
 ### 1. Dependency Order Issues
@@ -300,6 +306,11 @@ npm test
 **Problem:** Chunking changes break without test updates
 **Solution:** Always update tests when modifying chunk logic
 **Prevention:** Tests run in CI/CD pipeline
+
+### 6. Module-Level Context Creation
+**Problem:** `createContext()` at top level causes "Cannot read properties of undefined" errors
+**Solution:** Use lazy context initialization with getter functions
+**Prevention:** Avoid `export const MyContext = createContext()` at module level
 
 ## Future-Proofing
 

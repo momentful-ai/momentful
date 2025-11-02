@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode } from 'react';
-import { ThemeProviderContext, Theme } from './theme-context';
+import { getThemeProviderContext, Theme } from './theme-context';
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -8,6 +8,7 @@ interface ThemeProviderProps {
 }
 
 // ThemeProviderContext is declared in theme-context.ts
+const ThemeProviderContext = getThemeProviderContext();
 
 export function ThemeProvider({
   children,

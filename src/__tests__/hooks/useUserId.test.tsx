@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { useUserId } from '../../hooks/useUserId';
-import { BypassContext } from '../../contexts/bypass-context';
+import { getBypassContext } from '../../contexts/bypass-context';
+
+const BypassContext = getBypassContext();
 
 // Mock Clerk
 const mockUseUser = vi.fn();

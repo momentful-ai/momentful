@@ -1,7 +1,7 @@
 import { useState, ReactNode, useCallback } from 'react';
 import { Toast } from '../components/Toast';
 import type { ToastProps } from '../components/Toast';
-import { ToastContext } from './toast-context';
+import { getToastContext } from './toast-context';
 
 interface ToastProviderProps {
   children: ReactNode;
@@ -12,6 +12,8 @@ interface ToastItem {
   message: string;
   type: ToastProps['type'];
 }
+
+const ToastContext = getToastContext();
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);

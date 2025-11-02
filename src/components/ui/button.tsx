@@ -2,6 +2,26 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { mergeName } from '../../lib/utils';
 
+// Lazy initialize Button to avoid forwardRef being called at module load time
+let ButtonComponent: React.ForwardRefExoticComponent<ButtonProps & React.RefAttributes<HTMLButtonElement>>;
+const getButton = () => {
+  if (!ButtonComponent) {
+    ButtonComponent = React.forwardRef<HTMLButtonElement, ButtonProps>(
+      ({ className, variant, size, ...props }, ref) => {
+        return (
+          <button
+            className={mergeName(buttonVariants({ variant, size, className }))}
+            ref={ref}
+            {...props}
+          />
+        );
+      }
+    );
+    ButtonComponent.displayName = 'Button';
+  }
+  return ButtonComponent;
+};
+
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
@@ -40,18 +60,7 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
-    return (
-      <button
-        className={mergeName(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
-Button.displayName = 'Button';
+export const Button = getButton();
 
 // eslint-disable-next-line react-refresh/only-export-components
-export { Button, buttonVariants };
+export { buttonVariants };

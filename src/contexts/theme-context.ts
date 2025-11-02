@@ -12,6 +12,13 @@ export const initialThemeState: ThemeProviderState = {
   setTheme: () => null,
 };
 
-export const ThemeProviderContext = createContext<ThemeProviderState>(initialThemeState);
+// Lazy initialize context to avoid createContext being called at module load time
+let ThemeProviderContext: React.Context<ThemeProviderState>;
+export const getThemeProviderContext = () => {
+  if (!ThemeProviderContext) {
+    ThemeProviderContext = createContext<ThemeProviderState>(initialThemeState);
+  }
+  return ThemeProviderContext;
+};
 
 

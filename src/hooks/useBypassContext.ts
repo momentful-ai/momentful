@@ -1,7 +1,8 @@
 import { useContext } from 'react';
-import { BypassContext } from '../contexts/bypass-context';
+import { getBypassContext } from '../contexts/bypass-context';
 
 export function useBypassContext(): boolean {
+  const BypassContext = getBypassContext();
   const context = useContext(BypassContext);
   if (context === undefined) {
     throw new Error('useBypassContext must be used within a BypassProvider');

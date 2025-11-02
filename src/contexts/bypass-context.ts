@@ -4,6 +4,13 @@ export interface BypassContextType {
   isBypassEnabled: boolean;
 }
 
-export const BypassContext = createContext<BypassContextType | undefined>(undefined);
+// Lazy initialize context to avoid createContext being called at module load time
+let BypassContext: React.Context<BypassContextType | undefined>;
+export const getBypassContext = () => {
+  if (!BypassContext) {
+    BypassContext = createContext<BypassContextType | undefined>(undefined);
+  }
+  return BypassContext;
+};
 
 
