@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Suspense } from 'react';
 import { ImageEditor } from '../../components/ImageEditor';
 import { MediaAsset, EditedImage } from '../../types';
 import { database } from '../../lib/database';
@@ -151,25 +152,31 @@ describe('ImageEditor', () => {
   });
 
   const renderWithQueryClient = (component: React.ReactElement) => {
-    return render(<QueryClientProvider client={queryClient}>{component}</QueryClientProvider>);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <Suspense fallback={<div>Loading...</div>}>
+          {component}
+        </Suspense>
+      </QueryClientProvider>
+    );
   };
 
   describe('Initial Rendering', () => {
-    it('renders without crashing', () => {
+    it('renders without crashing', async () => {
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      expect(screen.getByText('Image Editor')).toBeInTheDocument();
+      expect(await screen.findByText('Image Editor')).toBeInTheDocument();
       expect(screen.getByText('Back to Project')).toBeInTheDocument();
     });
 
-    it('displays the source image', () => {
+    it('displays the source image', async () => {
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      const image = screen.getByAltText('test-image.jpg');
+      const image = await screen.findByAltText('test-image.jpg');
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute(
         'src',
@@ -177,7 +184,7 @@ describe('ImageEditor', () => {
       );
     });
 
-    it('displays edited image as source when sourceEditedImage is provided', () => {
+    it('displays edited image as source when sourceEditedImage is provided', async () => {
       const mockEditedImage: EditedImage = {
         id: 'edited-1',
         project_id: 'test-project',
@@ -205,13 +212,13 @@ describe('ImageEditor', () => {
         />
       );
 
-      const image = screen.getByAltText('test-image.jpg');
+      const image = await screen.findByAltText('test-image.jpg');
       expect(image).toBeInTheDocument();
       // Should use the edited image URL instead of the asset's storage_path
       expect(image).toHaveAttribute('src', 'https://example.com/edited-image.png');
     });
 
-    it('falls back to asset storage_path when sourceEditedImage has no edited_url', () => {
+    it('falls back to asset storage_path when sourceEditedImage has no edited_url', async () => {
       const mockEditedImageWithoutUrl: EditedImage = {
         id: 'edited-1',
         project_id: 'test-project',
@@ -239,7 +246,7 @@ describe('ImageEditor', () => {
         />
       );
 
-      const image = screen.getByAltText('test-image.jpg');
+      const image = await screen.findByAltText('test-image.jpg');
       expect(image).toBeInTheDocument();
       // Should fall back to asset's storage_path
       expect(image).toHaveAttribute(
@@ -248,24 +255,24 @@ describe('ImageEditor', () => {
       );
     });
 
-    it('displays aspect ratio selection controls', () => {
+    it('displays aspect ratio selection controls', async () => {
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnSave} onSave={mockOnSave} />
       );
 
-      expect(screen.getByText('Aspect Ratio')).toBeInTheDocument();
+      expect(await screen.findByText('Aspect Ratio')).toBeInTheDocument();
       expect(screen.getByText('16:9')).toBeInTheDocument();
       expect(screen.getByText('9:16')).toBeInTheDocument();
       expect(screen.getByText('1:1')).toBeInTheDocument();
     });
 
-    it('defaults to first aspect ratio option', () => {
+    it('defaults to first aspect ratio option', async () => {
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // The first ratio (16:9 / 1280:720) should be selected by default
-      const ratioButtons = screen.getAllByText('16:9');
+      const ratioButtons = await screen.findAllByText('16:9');
       expect(ratioButtons.length).toBeGreaterThan(0);
     });
   });

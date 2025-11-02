@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo, Suspense } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { TimelineNode as TimelineNodeType } from '../../types/timeline';
@@ -735,14 +735,16 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       </Card>
 
       {showVideoGenerator && (
-        <VideoGenerator
-          projectId={project.id}
-          onClose={() => setShowVideoGenerator(false)}
-          onSave={() => {
-            setShowVideoGenerator(false);
-            // Cache invalidation handled by VideoGenerator
-          }}
-        />
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
+          <VideoGenerator
+            projectId={project.id}
+            onClose={() => setShowVideoGenerator(false)}
+            onSave={() => {
+              setShowVideoGenerator(false);
+              // Cache invalidation handled by VideoGenerator
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

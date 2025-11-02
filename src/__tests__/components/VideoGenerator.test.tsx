@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Suspense } from 'react';
 import { VideoGenerator } from '../../components/VideoGenerator';
 import { GeneratedVideosView } from '../../components/ProjectWorkspace/GeneratedVideosView';
 import { database } from '../../lib/database';
@@ -205,18 +206,20 @@ describe('VideoGenerator', () => {
   const renderWithQueryClient = (component: React.ReactElement) => {
     return render(
       <QueryClientProvider client={queryClient}>
-        {component}
+        <Suspense fallback={<div>Loading...</div>}>
+          {component}
+        </Suspense>
       </QueryClientProvider>
     );
   };
 
   describe('Initial Rendering', () => {
-    it('renders without crashing', () => {
+    it('renders without crashing', async () => {
       renderWithQueryClient(
         <VideoGenerator projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      expect(screen.getByText('Video Generator')).toBeInTheDocument();
+      expect(await screen.findByText('Video Generator')).toBeInTheDocument();
       expect(screen.getByText('Back to Project')).toBeInTheDocument();
     });
 

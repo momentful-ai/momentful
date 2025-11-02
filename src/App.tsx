@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace';
@@ -116,34 +116,38 @@ function App() {
     <ToastProvider>
       {view.type === 'editor' ? (
         <div key="editor" className="animate-fade-in">
-          <ImageEditor
-            asset={view.asset}
-            projectId={view.projectId}
-            sourceEditedImage={view.sourceEditedImage}
-            onClose={() => {
-              setReturningFromEditor(true);
-              setView({ type: 'project', project: view.project });
-            }}
-            onSave={() => {
-              // Notify that save completed, but don't close the editor
-              // User stays in editor to see the new image in the timeline
-            }}
-            onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
-            onSelectImageToEdit={handleSelectImageToEdit}
-          />
+          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading editor...</div>}>
+            <ImageEditor
+              asset={view.asset}
+              projectId={view.projectId}
+              sourceEditedImage={view.sourceEditedImage}
+              onClose={() => {
+                setReturningFromEditor(true);
+                setView({ type: 'project', project: view.project });
+              }}
+              onSave={() => {
+                // Notify that save completed, but don't close the editor
+                // User stays in editor to see the new image in the timeline
+              }}
+              onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
+              onSelectImageToEdit={handleSelectImageToEdit}
+            />
+          </Suspense>
         </div>
       ) : view.type === 'video-generator' ? (
         <div key="video-generator" className="animate-fade-in">
-          <VideoGenerator
-            projectId={view.projectId}
-            initialSelectedImageId={view.initialSelectedImageId}
-            onClose={() => {
-              setView({ type: 'project', project: view.project });
-            }}
-            onSave={() => {
-              // setView({ type: 'project', project: view.project });
-            }}
-          />
+          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
+            <VideoGenerator
+              projectId={view.projectId}
+              initialSelectedImageId={view.initialSelectedImageId}
+              onClose={() => {
+                setView({ type: 'project', project: view.project });
+              }}
+              onSave={() => {
+                // setView({ type: 'project', project: view.project });
+              }}
+            />
+          </Suspense>
         </div>
       ) : (
         <Layout>
