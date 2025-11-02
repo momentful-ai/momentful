@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { IMAGE_ASPECT_RATIOS } from '../../lib/media';
@@ -303,7 +304,13 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col animate-fade-in">
+    <motion.div
+      className="min-h-screen bg-background flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+    >
       <ImageEditorHeader onClose={onClose} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -354,7 +361,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           onRatioChange={setSelectedRatio}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
 

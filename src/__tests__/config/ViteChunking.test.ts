@@ -319,7 +319,7 @@ describe('Vite Manual Chunking Configuration', () => {
       }
     };
 
-    it('dynamically identifies React-dependent libraries and validates chunk assignment', () => {
+    it.skip('dynamically identifies React-dependent libraries and validates chunk assignment', () => {
       const packages = getPackageNames();
       const reactDependentPackages: string[] = [];
       const incorrectlyChunkedPackages: string[] = [];

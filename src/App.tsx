@@ -1,4 +1,5 @@
 import { useState, useCallback, Suspense } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace';
@@ -114,15 +115,14 @@ function App() {
 
   return (
     <ToastProvider>
-      {view.type === 'editor' ? (
-        <div key="editor" className="animate-fade-in">
-          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading editor...</div>}>
+      <AnimatePresence mode="wait">
+        {view.type === 'editor' ? (
+          <Suspense key="editor" fallback={<div className="flex items-center justify-center h-screen">Loading editor...</div>}>
             <ImageEditor
               asset={view.asset}
               projectId={view.projectId}
               sourceEditedImage={view.sourceEditedImage}
               onClose={() => {
-                setReturningFromEditor(true);
                 setView({ type: 'project', project: view.project });
               }}
               onSave={() => {
@@ -133,10 +133,8 @@ function App() {
               onSelectImageToEdit={handleSelectImageToEdit}
             />
           </Suspense>
-        </div>
-      ) : view.type === 'video-generator' ? (
-        <div key="video-generator" className="animate-fade-in">
-          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
+        ) : view.type === 'video-generator' ? (
+          <Suspense key="video-generator" fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
             <VideoGenerator
               projectId={view.projectId}
               initialSelectedImageId={view.initialSelectedImageId}
@@ -148,28 +146,28 @@ function App() {
               }}
             />
           </Suspense>
-        </div>
-      ) : (
-        <Layout>
-          {view.type === 'project' ? (
-            <div key={`project-${view.project.id}`} className="animate-fade-in">
-              <ProjectWorkspace
-                key={`workspace-${returningFromEditor ? 'from-editor' : 'normal'}-${view.project.id}`}
-                project={view.project}
-                onBack={handleBackToDashboard}
-                onUpdateProject={handleUpdateProject}
-                onEditImage={handleEditImage}
-                defaultTab={returningFromEditor ? 'edited' : undefined}
-                onMounted={handleProjectWorkspaceMounted}
-              />
-            </div>
-          ) : (
-            <div key="dashboard" className="animate-fade-in">
-              <Dashboard onSelectProject={handleSelectProject} />
-            </div>
-          )}
-        </Layout>
-      )}
+        ) : (
+          <Layout key="layout">
+            {view.type === 'project' ? (
+              <div key={`project-${view.project.id}`}>
+                <ProjectWorkspace
+                  key={`workspace-${returningFromEditor ? 'from-editor' : 'normal'}-${view.project.id}`}
+                  project={view.project}
+                  onBack={handleBackToDashboard}
+                  onUpdateProject={handleUpdateProject}
+                  onEditImage={handleEditImage}
+                  defaultTab={returningFromEditor ? 'edited' : undefined}
+                  onMounted={handleProjectWorkspaceMounted}
+                />
+              </div>
+            ) : (
+              <div key="dashboard">
+                <Dashboard onSelectProject={handleSelectProject} />
+              </div>
+            )}
+          </Layout>
+        )}
+      </AnimatePresence>
     </ToastProvider>
   );
 }

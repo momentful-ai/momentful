@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
@@ -374,7 +375,13 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
   const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col animate-fade-in">
+    <motion.div
+      className="fixed inset-0 bg-background z-50 flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+    >
       <VideoGeneratorHeader onClose={onClose} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -432,7 +439,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           onCameraMovementChange={setCameraMovement}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
