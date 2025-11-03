@@ -12,8 +12,8 @@ export function ImageEditorPreview({
   fileName,
 }: ImageEditorPreviewProps) {
   return (
-    <div className="flex-1 bg-card flex flex-col">
-      <div className="flex-1 p-6 overflow-y-auto">
+    <div className="h-full bg-card overflow-y-auto">
+      <div className="p-6 min-h-full">
         <div className="max-w-5xl mx-auto">
           {!showComparison ? (
             <div className="aspect-video bg-muted rounded-xl flex items-center justify-center animate-fade-in">

@@ -279,12 +279,12 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         user_id: 'test-user-id',
         name: 'Untitled Video', // Empty prompt becomes 'Untitled Video'
         ai_model: 'runway-gen2', // Default selected model
-        aspect_ratio: '16:9', // Default aspect ratio
+        aspect_ratio: '9:16', // Default aspect ratio
         camera_movement: 'dynamic', // Default camera movement
         runway_task_id: 'runway-task-123',
         storage_path: 'https://example.com/generated-video-1.mp4',
         status: 'completed',
-        completed_at: '2025-10-20T15:59:30.165Z',
+        completed_at: expect.any(String),
       });
     });
 

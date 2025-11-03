@@ -1,4 +1,6 @@
 import { Wand2, Play, Sparkles } from 'lucide-react';
+import { ReactNode } from 'react';
+import { mergeName } from '../../lib/utils';
 
 interface PromptControlsProps {
   prompt: string;
@@ -15,6 +17,8 @@ interface PromptControlsProps {
   icon?: 'wand' | 'play';
   additionalInfo?: string;
   errorMessage?: string;
+  children?: ReactNode;
+  fullHeight?: boolean;
 }
 
 export function PromptControls({
@@ -32,19 +36,27 @@ export function PromptControls({
   icon = 'wand',
   additionalInfo,
   errorMessage,
+  children,
+  fullHeight = false,
 }: PromptControlsProps) {
   const IconComponent = icon === 'play' ? Play : Wand2;
 
   return (
-    <div className="border-t border-border bg-card p-6">
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div className="flex items-center gap-2 mb-2">
+    <div className={mergeName('border-t border-border bg-card p-6', fullHeight && 'h-full flex flex-col overflow-hidden')}>
+      <div className={mergeName('max-w-5xl mx-auto flex flex-col gap-4', fullHeight && 'flex-1 overflow-hidden')}>
+        <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
           <span className="text-sm font-medium text-muted-foreground">
             Using {selectedModelName}
             {additionalInfo && ` • ${additionalInfo}`}
           </span>
         </div>
+
+        {children && (
+          <div className={mergeName(fullHeight && 'flex-1 overflow-y-auto pr-2 -mr-2 space-y-4', !fullHeight && 'space-y-4')}>
+            {children}
+          </div>
+        )}
 
         <div>
           <textarea

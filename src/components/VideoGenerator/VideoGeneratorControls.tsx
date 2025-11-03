@@ -1,4 +1,6 @@
 import { PromptControls } from '../shared/PromptControls';
+import { MediaGrid } from '../shared';
+import { SelectedSource } from './types';
 
 interface VideoGeneratorControlsProps {
   prompt: string;
@@ -6,8 +8,10 @@ interface VideoGeneratorControlsProps {
   cameraMovement: string;
   canGenerate: boolean;
   isGenerating: boolean;
+  selectedSources: SelectedSource[];
   onPromptChange: (prompt: string) => void;
   onGenerate: () => void;
+  onRemoveSource: (id: string) => void;
 }
 
 export function VideoGeneratorControls({
@@ -16,8 +20,10 @@ export function VideoGeneratorControls({
   cameraMovement,
   canGenerate,
   isGenerating,
+  selectedSources,
   onPromptChange,
   onGenerate,
+  onRemoveSource,
 }: VideoGeneratorControlsProps) {
   const additionalInfo = cameraMovement.replace('-', ' ');
 
@@ -35,7 +41,19 @@ export function VideoGeneratorControls({
       icon="play"
       additionalInfo={additionalInfo}
       errorMessage={!canGenerate ? 'Add at least one image or clip to generate video' : undefined}
-    />
+    >
+      {selectedSources.length > 0 && (
+        <MediaGrid
+          title="Source Media"
+          items={selectedSources}
+          onRemoveItem={onRemoveSource}
+          showIndex={true}
+          gridCols={{ default: 4, md: 6 }}
+          itemActions="remove"
+          itemType="source"
+        />
+      )}
+    </PromptControls>
   );
 }
 

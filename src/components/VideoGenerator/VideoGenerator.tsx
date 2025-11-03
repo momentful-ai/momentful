@@ -21,7 +21,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(videoModels[0].id);
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('16:9');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:5'>('9:16');
   const [cameraMovement, setCameraMovement] = useState('dynamic');
   const [prompt, setPrompt] = useState('');
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>([]);
@@ -376,7 +376,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
 
   return (
     <motion.div
-      className="fixed inset-0 bg-background z-50 flex flex-col"
+      className="fixed inset-0 bg-background z-50 flex flex-col overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -402,22 +402,35 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           }}
         />
 
-        <div className="flex-1 flex flex-col">
-          <VideoGeneratorPreview
-            aspectRatio={aspectRatio}
-            generatedVideoUrl={generatedVideoUrl}
-            videoError={videoError}
-            isGenerating={isGenerating}
-            selectedSources={selectedSources}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onRemoveSource={removeSource}
-            onRetryVideo={() => {
-              setVideoError(false);
-              setGeneratedVideoUrl(null);
-            }}
-            onVideoError={() => setVideoError(true)}
-          />
+        <div className="flex-1 flex flex-col bg-card overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <VideoGeneratorPreview
+              aspectRatio={aspectRatio}
+              generatedVideoUrl={generatedVideoUrl}
+              videoError={videoError}
+              isGenerating={isGenerating}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onRetryVideo={() => {
+                setVideoError(false);
+                setGeneratedVideoUrl(null);
+              }}
+              onVideoError={() => setVideoError(true)}
+            />
+          </div>
+          <div className="flex-shrink-0">
+            <VideoGeneratorControls
+              prompt={prompt}
+              selectedModel={selectedModelInfo?.name || ''}
+              cameraMovement={cameraMovement}
+              canGenerate={canGenerate}
+              isGenerating={isGenerating}
+              selectedSources={selectedSources}
+              onPromptChange={setPrompt}
+              onGenerate={handleGenerate}
+              onRemoveSource={removeSource}
+            />
+          </div>
         </div>
         <VideoGeneratorSidebar
           selectedModel={selectedModel}
@@ -428,15 +441,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           onCameraMovementChange={setCameraMovement}
         />
       </div>
-      <VideoGeneratorControls
-        prompt={prompt}
-        selectedModel={selectedModelInfo?.name || ''}
-        cameraMovement={cameraMovement}
-        canGenerate={canGenerate}
-        isGenerating={isGenerating}
-        onPromptChange={setPrompt}
-        onGenerate={handleGenerate}
-      />
     </motion.div>
   );
 }

@@ -9,8 +9,8 @@ export const ACCEPTABLE_IMAGE_TYPES = [
 
 // Aspect ratio options for image generation - mapped to Runway SDK ratios
 export const IMAGE_ASPECT_RATIOS = [
-  { id: '1280:720', label: '16:9', description: 'Landscape (YouTube, Web)', runwayRatio: '1280:720' },
   { id: '720:1280', label: '9:16', description: 'Portrait (TikTok, Stories)', runwayRatio: '720:1280' },
+  { id: '1280:720', label: '16:9', description: 'Landscape (YouTube, Web)', runwayRatio: '1280:720' },
   { id: '1024:1024', label: '1:1', description: 'Square (Instagram Feed)', runwayRatio: '1024:1024' },
   { id: '1920:1080', label: '16:9 (HD)', description: 'Full HD Landscape', runwayRatio: '1920:1080' },
   { id: '1080:1920', label: '9:16 (HD)', description: 'Full HD Portrait', runwayRatio: '1080:1920' },
@@ -18,8 +18,8 @@ export const IMAGE_ASPECT_RATIOS = [
 
 // Aspect ratio options for video generation
 export const VIDEO_ASPECT_RATIOS = [
-  { id: '16:9', label: '16:9', description: 'Landscape (YouTube, Web)' },
   { id: '9:16', label: '9:16', description: 'Portrait (TikTok, Stories)' },
+  { id: '16:9', label: '16:9', description: 'Landscape (YouTube, Web)' },
   { id: '1:1', label: '1:1', description: 'Square (Instagram Feed)' },
   { id: '4:5', label: '4:5', description: 'Portrait (Instagram)' },
 ] as const;

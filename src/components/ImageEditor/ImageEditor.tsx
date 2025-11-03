@@ -305,7 +305,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
 
   return (
     <motion.div
-      className="min-h-screen bg-background flex flex-col"
+      className="h-screen bg-background flex flex-col overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -313,44 +313,48 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
     >
       <ImageEditorHeader onClose={onClose} />
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col">
-          <ImageEditorPreview
-            originalImageUrl={originalImageUrl}
-            editedImageUrl={editedImageUrl}
-            showComparison={showComparison}
-            fileName={asset.file_name}
-          />
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0">
+            <ImageEditorPreview
+              originalImageUrl={originalImageUrl}
+              editedImageUrl={editedImageUrl}
+              showComparison={showComparison}
+              fileName={asset.file_name}
+            />
+          </div>
 
-          <ImageEditorImageList
-            editedImages={editingHistory}
-            isLoading={isLoadingHistory}
-            selectedImageId={selectedImageId}
-            onSelectImage={(image) => {
-              setSelectedImageId(image.id);
-              setEditedImageUrl(image.edited_url);
-              setShowComparison(true);
-            }}
-            onEditImage={(image) => {
-              if (onSelectImageToEdit) {
-                onSelectImageToEdit(image);
-              }
-            }}
-            onNavigateToVideo={onNavigateToVideo}
-          />
-
-          <PromptControls
-            prompt={productName}
-            selectedModelName={selectedModelInfo?.name || ''}
-            isGenerating={isGenerating}
-            canGenerate={!!productName.trim()}
-            generateLabel="Generate"
-            generatingLabel="Generating..."
-            placeholder="Product name (e.g., 'iPhone 15', 'Nike Air Max')"
-            onPromptChange={setProductName}
-            onGenerate={handleGenerate}
-            icon="wand"
-          />
+          <div className="flex-none">
+            <PromptControls
+              prompt={productName}
+              selectedModelName={selectedModelInfo?.name || ''}
+              isGenerating={isGenerating}
+              canGenerate={!!productName.trim()}
+              generateLabel="Generate"
+              generatingLabel="Generating..."
+              placeholder="Product name (e.g., 'iPhone 15', 'Nike Air Max')"
+              onPromptChange={setProductName}
+              onGenerate={handleGenerate}
+              icon="wand"
+            >
+              <ImageEditorImageList
+                editedImages={editingHistory}
+                isLoading={isLoadingHistory}
+                selectedImageId={selectedImageId}
+                onSelectImage={(image) => {
+                  setSelectedImageId(image.id);
+                  setEditedImageUrl(image.edited_url);
+                  setShowComparison(true);
+                }}
+                onEditImage={(image) => {
+                  if (onSelectImageToEdit) {
+                    onSelectImageToEdit(image);
+                  }
+                }}
+                onNavigateToVideo={onNavigateToVideo}
+              />
+            </PromptControls>
+          </div>
         </div>
 
         <ImageEditorSidebar

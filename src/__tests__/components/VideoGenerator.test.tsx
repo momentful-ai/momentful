@@ -331,7 +331,7 @@ describe('VideoGenerator', () => {
           user_id: 'test-user-id',
           name: 'Untitled Video', // Empty prompt becomes 'Untitled Video'
           ai_model: 'runway-gen2', // Default selected model
-          aspect_ratio: '16:9', // Default aspect ratio
+          aspect_ratio: '9:16', // Default aspect ratio
           camera_movement: 'dynamic', // Default camera movement
           runway_task_id: 'runway-task-123',
           storage_path: 'https://example.com/generated-video.mp4',

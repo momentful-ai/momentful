@@ -361,11 +361,11 @@ describe('ImageEditor', () => {
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
 
-      // Verify Runway API was called with default ratio (1280:720 for 16:9)
+      // Verify Runway API was called with default ratio (720:1280 for 9:16)
       await waitFor(() => {
         expect(RunwayAPI.createRunwayImageJob).toHaveBeenCalledWith(
           expect.objectContaining({
-            ratio: '1280:720',
+            ratio: '720:1280',
           })
         );
       });
