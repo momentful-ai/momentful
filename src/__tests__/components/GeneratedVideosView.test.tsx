@@ -6,6 +6,10 @@ import { GeneratedVideosView } from '../../components/ProjectWorkspace/Generated
 import { GeneratedVideo } from '../../types';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { ToastProvider } from '../../contexts/ToastProvider';
+import { mockSupabase } from '../test-utils.tsx';
+
+// Mock supabase
+mockSupabase();
 
 // Mock the useGeneratedVideos hook
 vi.mock('../../hooks/useGeneratedVideos', () => ({

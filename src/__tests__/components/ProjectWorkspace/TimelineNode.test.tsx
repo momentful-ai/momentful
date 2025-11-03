@@ -3,6 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TimelineNodeComponent } from '../../../components/ProjectWorkspace/TimelineNode';
 import { TimelineNode } from '../../../types/timeline';
 import { MediaAsset, EditedImage, GeneratedVideo } from '../../../types';
+import { mockSupabase } from '../../test-utils.tsx';
+
+// Mock supabase
+mockSupabase();
 
 // Mock MediaCard component - provide more complete mock to match actual behavior
 vi.mock('../../../components/shared/MediaCard', async () => {

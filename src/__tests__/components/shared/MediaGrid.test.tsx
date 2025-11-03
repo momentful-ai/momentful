@@ -53,7 +53,7 @@ describe('MediaGrid', () => {
         />
       );
 
-      expect(screen.getByText('Test Grid (2)')).toBeInTheDocument();
+      expect(screen.getByText('Test Grid')).toBeInTheDocument();
       expect(screen.getAllByRole('img')).toHaveLength(2);
     });
 
@@ -66,7 +66,7 @@ describe('MediaGrid', () => {
         />
       );
 
-      expect(screen.getByText('Custom Title (2)')).toBeInTheDocument();
+      expect(screen.getByText('Custom Title')).toBeInTheDocument();
     });
 
     it('applies bg-card class to container', () => {
@@ -78,7 +78,7 @@ describe('MediaGrid', () => {
         />
       );
 
-      const container = screen.getByText('Test (2)').closest('div');
+      const container = screen.getByText('Test').closest('div');
       expect(container).toHaveClass('bg-card');
     });
   });

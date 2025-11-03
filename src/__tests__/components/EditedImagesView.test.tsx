@@ -6,16 +6,20 @@ import { EditedImagesView } from '../../components/ProjectWorkspace/EditedImages
 import { EditedImage, MediaAsset } from '../../types';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { ToastProvider } from '../../contexts/ToastProvider';
+import { mockSupabase } from '../test-utils.tsx';
 
 // Mock the useEditedImages hook
 vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImages: vi.fn(),
 }));
 
+// Mock supabase
+mockSupabase();
+
 // Mock MediaCard component
 vi.mock('../../components/shared/MediaCard', () => ({
-  MediaCard: ({ item, onDownload, onDelete, onEditImage, viewMode }: { 
-    item: EditedImage; 
+  MediaCard: ({ item, onDownload, onDelete, onEditImage, viewMode }: {
+    item: EditedImage;
     onDownload?: () => void;
     onDelete?: () => void;
     onEditImage?: (item: EditedImage | MediaAsset) => void;

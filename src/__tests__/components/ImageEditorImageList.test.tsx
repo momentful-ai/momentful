@@ -86,7 +86,7 @@ describe('ImageEditorImageList', () => {
       />
     );
 
-    expect(screen.getByText('Editing History (2)')).toBeInTheDocument();
+    expect(screen.getByText('Editing History')).toBeInTheDocument();
     expect(screen.getAllByRole('img')).toHaveLength(2);
     // Alt text is truncated to 30 characters
     expect(screen.getByAltText('Make the background blue')).toBeInTheDocument();

@@ -8,6 +8,10 @@ import { Lineage } from '../../../types';
 import { UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { TimelineData } from '../../../types/timeline';
 import { ToastProvider } from '../../../contexts/ToastProvider';
+import { mockSupabaseAndDatabase } from '../../test-utils.tsx';
+
+// Mock supabase and database
+mockSupabaseAndDatabase();
 
 // Mock the hooks
 vi.mock('../../../hooks/useTimeline', () => ({

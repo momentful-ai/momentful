@@ -6,6 +6,10 @@ import { ProjectWorkspace } from '../../components/ProjectWorkspace/ProjectWorks
 import { database } from '../../lib/database';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import { EditedImage, MediaAsset } from '../../types';
+import { mockSupabase } from '../test-utils.tsx';
+
+// Mock supabase
+mockSupabase();
 
 // Mock ResizeObserver for test environment
 Object.defineProperty(window, 'ResizeObserver', {
