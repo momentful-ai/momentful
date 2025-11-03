@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus, FolderOpen } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { Project } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
+import { useProjects } from '../../hooks/useProjects';
 import { DashboardSkeleton } from '../LoadingSkeleton';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { Button } from '../ui/button';
@@ -17,43 +19,38 @@ interface DashboardProps {
 export function Dashboard({ onSelectProject }: DashboardProps) {
   const userId = useUserId();
   const { showToast } = useToast();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const projectsWithMedia = await database.projects.list();
-        setProjects(projectsWithMedia);
-      } catch (error) {
-        console.error('Error loading projects:', error);
-        showToast('Failed to load projects. Please refresh the page.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: projects = [], isLoading: loading, error } = useProjects();
 
-    loadProjects();
-  }, [showToast]);
+  // Handle error from the query
+  React.useEffect(() => {
+    if (error) {
+      console.error('Error loading projects:', error);
+      showToast('Failed to load projects. Please refresh the page.', 'error');
+    }
+  }, [error, showToast]);
 
   const createProject = useCallback(async () => {
     if (!userId) return;
 
     try {
       const data = await database.projects.create(userId, 'Untitled Project', '');
-      setProjects([data, ...projects]);
+      // Invalidate and refetch the projects query
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
       onSelectProject(data);
     } catch (error) {
       console.error('Error creating project:', error);
       showToast('Failed to create project. Please try again.', 'error');
     }
-  }, [userId, projects, showToast, onSelectProject]);
+  }, [userId, showToast, onSelectProject, queryClient]);
 
   const deleteProject = useCallback(async (project: Project) => {
     try {
       await database.projects.delete(project.id);
-      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+      // Invalidate and refetch the projects query
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
       showToast('Project deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -61,7 +58,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     } finally {
       setProjectToDelete(null);
     }
-  }, [showToast]);
+  }, [showToast, queryClient]);
 
   const handleSelectProject = useCallback((projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -80,15 +77,14 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   const handleUpdateProjectName = useCallback(async (projectId: string, name: string) => {
     try {
       await database.projects.update(projectId, { name });
-      setProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, name } : p))
-      );
+      // Invalidate and refetch the projects query
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
       showToast('Project name updated', 'success');
     } catch (error) {
       console.error('Error updating project name:', error);
       showToast('Failed to update project name', 'error');
     }
-  }, [showToast]);
+  }, [showToast, queryClient]);
 
 
   if (loading) {

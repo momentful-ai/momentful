@@ -33,9 +33,47 @@ vi.mock('../../../hooks/useToast', () => ({
   })),
 }));
 
+vi.mock('../../../hooks/useProjects', () => ({
+  useProjects: vi.fn(),
+}));
+
+// Helper to create mock query results
+const createMockQueryResult = (overrides = {}) => ({
+  data: [],
+  error: null,
+  isError: false,
+  isPending: false,
+  isLoading: false,
+  isLoadingError: false,
+  isRefetchError: false,
+  isSuccess: true,
+  isFetched: true,
+  isFetchedAfterMount: true,
+  isFetching: false,
+  isRefetching: false,
+  isStale: false,
+  isPlaceholderData: false,
+  isInitialLoading: false,
+  isEnabled: true,
+  dataUpdatedAt: Date.now(),
+  errorUpdatedAt: 0,
+  failureCount: 0,
+  failureReason: null,
+  errorUpdateCount: 0,
+  isPaused: false,
+  fetchStatus: 'idle' as const,
+  status: 'success' as const,
+  refetch: vi.fn().mockResolvedValue({}),
+  promise: undefined,
+  ...overrides,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as any);
+
 // Import to access mocks
 import { useToast } from '../../../hooks/useToast';
+import { useProjects } from '../../../hooks/useProjects';
 const mockUseToast = vi.mocked(useToast);
+const mockUseProjects = vi.mocked(useProjects);
 const mockShowToast = vi.fn();
 
 // Mock components
@@ -115,10 +153,18 @@ describe('Dashboard', () => {
     mockUseToast.mockReturnValue({
       showToast: mockShowToast,
     });
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: mockProjects,
+    }));
   });
 
   it('shows loading skeleton while loading projects', () => {
-    mockListProjects.mockReturnValue(new Promise(() => {})); // Never resolves
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: [],
+      isLoading: true,
+      isPending: true,
+      status: 'pending',
+    }));
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -130,7 +176,9 @@ describe('Dashboard', () => {
   });
 
   it('displays empty state when no projects exist', async () => {
-    mockListProjects.mockResolvedValue([]);
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: [],
+    }));
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -145,8 +193,6 @@ describe('Dashboard', () => {
   });
 
   it('displays projects when they exist', async () => {
-    mockListProjects.mockResolvedValue(mockProjects);
-
     render(
       <QueryClientProvider client={queryClient}>
         <Dashboard onSelectProject={mockOnSelectProject} />
@@ -161,7 +207,9 @@ describe('Dashboard', () => {
 
   it('creates a new project when New Project button is clicked', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue([]);
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: [],
+    }));
     const newProject: Project = {
       id: 'project-new',
       user_id: 'test-user-id',
@@ -171,6 +219,7 @@ describe('Dashboard', () => {
       updated_at: '2025-01-03T00:00:00Z',
     };
     mockCreateProject.mockResolvedValue(newProject);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -187,12 +236,18 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockCreateProject).toHaveBeenCalledWith('test-user-id', 'Untitled Project', '');
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
       expect(mockOnSelectProject).toHaveBeenCalledWith(newProject);
     });
   });
 
   it('handles error when loading projects fails', async () => {
-    mockListProjects.mockRejectedValue(new Error('Failed to load'));
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: [],
+      error: new Error('Failed to load'),
+      isError: true,
+      status: 'error',
+    }));
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -210,7 +265,9 @@ describe('Dashboard', () => {
 
   it('handles error when creating project fails', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue([]);
+    mockUseProjects.mockReturnValue(createMockQueryResult({
+      data: [],
+    }));
     mockCreateProject.mockRejectedValue(new Error('Create failed'));
 
     render(
@@ -236,8 +293,8 @@ describe('Dashboard', () => {
 
   it('updates project name when onUpdateName is called', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue(mockProjects);
     mockUpdateProject.mockResolvedValue(undefined);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -254,14 +311,15 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockUpdateProject).toHaveBeenCalledWith('project-1', { name: 'Updated Name' });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project name updated', 'success');
     });
   });
 
   it('deletes project when delete is confirmed', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue(mockProjects);
     mockDeleteProject.mockResolvedValue(undefined);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -286,13 +344,13 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockDeleteProject).toHaveBeenCalledWith('project-1');
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project deleted successfully', 'success');
     });
   });
 
   it('cancels delete when cancel is clicked', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue(mockProjects);
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -322,7 +380,6 @@ describe('Dashboard', () => {
 
   it('calls onSelectProject when a project is clicked', async () => {
     const user = userEvent.setup({ delay: null });
-    mockListProjects.mockResolvedValue(mockProjects);
 
     render(
       <QueryClientProvider client={queryClient}>
