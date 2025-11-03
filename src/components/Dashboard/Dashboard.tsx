@@ -43,12 +43,12 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     try {
       const data = await database.projects.create(userId, 'Untitled Project', '');
       setProjects([data, ...projects]);
-      showToast('Project created successfully!', 'success');
+      onSelectProject(data);
     } catch (error) {
       console.error('Error creating project:', error);
       showToast('Failed to create project. Please try again.', 'error');
     }
-  }, [userId, projects, showToast]);
+  }, [userId, projects, showToast, onSelectProject]);
 
   const deleteProject = useCallback(async (project: Project) => {
     try {

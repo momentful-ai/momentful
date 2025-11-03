@@ -187,7 +187,7 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockCreateProject).toHaveBeenCalledWith('test-user-id', 'Untitled Project', '');
-      expect(mockShowToast).toHaveBeenCalledWith('Project created successfully!', 'success');
+      expect(mockOnSelectProject).toHaveBeenCalledWith(newProject);
     });
   });
 
