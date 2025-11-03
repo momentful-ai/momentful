@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
-import { IMAGE_ASPECT_RATIOS } from '../../lib/media';
+import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImagesBySource } from '../../hooks/useEditedImages';
@@ -26,7 +26,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const selectedModel = 'flux-pro';
-  const [productName, setProductName] = useState('');
+  const [productName, setProductName] = useState('the product');
   const [selectedRatio, setSelectedRatio] = useState<string>(IMAGE_ASPECT_RATIOS[0].id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
@@ -99,13 +99,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
     return { storagePath, width, height };
   };
 
-  /**
-   * Build enhanced prompt for product image generation using product name
-   */
-  const buildEnhancedPrompt = (productName: string): string => {
-    const cleanProductName = productName.trim();
-    return `keep the ${cleanProductName} exactly the same. turn it into a studio quality photo, with excellent lighting, contrasting background and realistic placement`;
-  };
 
   const handleGenerate = async () => {
     if (!productName.trim()) return;
@@ -125,7 +118,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
       const imageUrl = getAssetUrl(asset.storage_path);
 
       // Build enhanced prompt
-      const enhancedPrompt = buildEnhancedPrompt(productName);
+      const enhancedPrompt = buildEnhancedImagePrompt(productName);
 
       showToast('Starting image generation...', 'info');
 
@@ -286,9 +279,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
               prompt={productName}
               isGenerating={isGenerating}
               canGenerate={!!productName.trim()}
-              generateLabel="Generate"
+              generateLabel="Edit Image With AI"
               generatingLabel="Generating..."
-              placeholder="Product name (e.g., 'iPhone 15', 'Nike Air Max')"
+              placeholder="Product name (e.g., 'Shoes', 'Candle', 'Mug')"
               onPromptChange={setProductName}
               onGenerate={handleGenerate}
               icon="wand"

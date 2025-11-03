@@ -9,12 +9,12 @@ export function CameraMovementSelector({ cameraMovement, onCameraMovementChange 
   return (
     <div className="p-6">
       <h3 className="font-semibold text-foreground mb-4">Camera Movement</h3>
-      <div className="space-y-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         {VIDEO_CAMERA_MOVEMENTS.map((camera) => (
           <button
             key={camera.id}
             onClick={() => onCameraMovementChange(camera.id)}
-            className={`w-full text-left p-2.5 rounded-lg border transition-all hover:scale-[1.02] ${
+            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${
               cameraMovement === camera.id
                 ? 'border-primary bg-primary/10'
                 : 'border-border hover:border-border/70'

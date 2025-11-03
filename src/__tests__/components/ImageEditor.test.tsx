@@ -88,6 +88,49 @@ vi.mock('../../hooks/useToast', () => ({
   })),
 }));
 
+// Helper functions to consolidate repeated test logic
+const createUser = () => userEvent.setup();
+
+const findPromptInput = () => screen.getByPlaceholderText(/Product name/);
+
+const findGenerateButton = () => screen.getByRole('button', { name: /Edit Image With AI/i });
+
+const findEditImageButton = () => screen.getByText("Edit Image With AI");
+
+const generateImage = async (user: ReturnType<typeof userEvent.setup>, prompt: string, useEditButton = false) => {
+  const promptInput = findPromptInput();
+  await user.type(promptInput, prompt);
+  const button = useEditButton ? findEditImageButton() : findGenerateButton();
+  await user.click(button);
+};
+
+const waitForGenerationComplete = async (timeout = 5000) => {
+  await waitFor(
+    () => {
+      expect(database.editedImages.create).toHaveBeenCalled();
+    },
+    { timeout }
+  );
+};
+
+const waitForApiCall = async (apiCall: any, timeout = 5000) => {
+  await waitFor(
+    () => {
+      expect(apiCall).toHaveBeenCalled();
+    },
+    { timeout }
+  );
+};
+
+const setupDefaultMocks = () => {
+  vi.clearAllMocks();
+  mockUseUserId.mockReturnValue('test-user-id');
+  mockUseEditedImagesBySource.mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as any);
+};
+
 describe('ImageEditor', () => {
   let queryClient: QueryClient;
   let mockOnClose: ReturnType<typeof vi.fn>;
@@ -122,12 +165,7 @@ describe('ImageEditor', () => {
     mockOnSave = vi.fn();
 
     // Reset all mocks
-    vi.clearAllMocks();
-    mockUseUserId.mockReturnValue('test-user-id');
-    mockUseEditedImagesBySource.mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as any);
+    setupDefaultMocks();
 
     // Setup default mock implementations
     vi.mocked(database.editedImages.create).mockResolvedValue({
@@ -320,17 +358,17 @@ describe('ImageEditor', () => {
 
   describe('Image Generation Workflow', () => {
     it('validates that prompt is required before generating', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Find the Generate button (it's in a button element)
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      const generateButton = findGenerateButton();
       expect(generateButton).toBeDisabled();
 
       // Enter a prompt
-      const promptInput = screen.getByPlaceholderText(/Product name/);
+      const promptInput = findPromptInput();
       await user.type(promptInput, 'Make it look professional');
 
       // Now the button should be enabled
@@ -340,7 +378,7 @@ describe('ImageEditor', () => {
     });
 
     it('calls Runway API with correct parameters including ratio', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
@@ -349,86 +387,67 @@ describe('ImageEditor', () => {
       const squareRatio = screen.getByText('1:1');
       await user.click(squareRatio);
 
-      // Enter prompt
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Add a gradient background');
-
-      // Click generate
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      // Enter prompt and generate
+      await generateImage(user, 'Add a gradient background');
 
       // Verify Replicate API was called with correct parameters
-      await waitFor(() => {
-        expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith({
-          imageUrl: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg',
-          prompt: expect.stringContaining('keep the Add a gradient background exactly the same'),
-          aspectRatio: '1024:1024',
-        });
+      await waitForApiCall(ReplicateAPI.createReplicateImageJob);
+      expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith({
+        imageUrl: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg',
+        prompt: expect.stringContaining('keep the Add a gradient background exactly the same'),
+        aspectRatio: '1024:1024',
       });
     });
 
     it('uses default ratio (16:9) when no ratio is explicitly selected', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      // Enter prompt without changing ratio
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Enhance the colors');
-
-      // Click generate
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      // Enter prompt and generate (without changing ratio)
+      await generateImage(user, 'Enhance the colors');
 
       // Verify Replicate API was called with default aspect ratio (720:1280)
-      await waitFor(() => {
-        expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith(
-          expect.objectContaining({
-            aspectRatio: '720:1280',
-          })
-        );
-      });
+      await waitForApiCall(ReplicateAPI.createReplicateImageJob);
+      expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aspectRatio: '720:1280',
+        })
+      );
     });
 
 
     it('polls for job completion and extracts image URL', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Verify polling was called
-      await waitFor(() => {
-        expect(ReplicateAPI.pollReplicatePrediction).toHaveBeenCalledWith(
-          'prediction-123',
-          expect.any(Function),
-          120,
-          2000
-        );
-      });
+      await waitForApiCall(ReplicateAPI.pollReplicatePrediction);
+      expect(ReplicateAPI.pollReplicatePrediction).toHaveBeenCalledWith(
+        'prediction-123',
+        expect.any(Function),
+        120,
+        2000
+      );
 
       // Verify image URL extraction
       expect(ReplicateAPI.extractImageUrl).toHaveBeenCalled();
     });
 
     it('uploads generated image to storage and saves to database immediately', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image to be generated and uploaded
       await waitFor(
@@ -439,22 +458,7 @@ describe('ImageEditor', () => {
       );
 
       // Verify the edited image is saved to database immediately after upload
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalledWith(
-            expect.objectContaining({
-              project_id: 'test-project',
-              user_id: 'test-user-id',
-              prompt: 'Test prompt',
-              ai_model: 'flux-pro',
-              storage_path: expect.stringContaining('test-user-id/test-project/edited-'),
-              width: 1920,
-              height: 1080,
-            })
-          );
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify the comparison view is shown
       await waitFor(() => {
@@ -464,32 +468,24 @@ describe('ImageEditor', () => {
 
       // Verify success toast indicates both generation and save
       expect(mockShowToast).toHaveBeenCalledWith('Image generated and saved successfully!', 'success');
-      
+
       // Verify onSave callback IS called to notify parent, but editor stays open (onClose not called)
       expect(mockOnSave).toHaveBeenCalledTimes(1);
       expect(mockOnClose).not.toHaveBeenCalled();
     });
 
     it('calls onSave when image is saved but editor stays open', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Generate an image (which automatically saves)
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for generation and automatic save to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-          expect(mockOnSave).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
+      expect(mockOnSave).toHaveBeenCalled();
 
       // Verify onSave was called to notify parent, but editor stays open (onClose not called)
       expect(mockOnSave).toHaveBeenCalledTimes(1);
@@ -497,16 +493,13 @@ describe('ImageEditor', () => {
     });
 
     it('includes source_asset_id when creating edited image', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image to be saved
       await waitFor(
@@ -522,7 +515,7 @@ describe('ImageEditor', () => {
     });
 
     it('optimistically updates query cache immediately after image creation', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       const createdImage = {
         id: 'edited-image-1',
         project_id: 'test-project',
@@ -542,10 +535,10 @@ describe('ImageEditor', () => {
       };
 
       vi.mocked(database.editedImages.create).mockResolvedValue(createdImage);
-      
+
       // Mock listBySourceAsset to return the created image (simulating refetch result)
       vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue([createdImage]);
-      
+
       // Mock list to return the created image (for project-wide query)
       vi.mocked(database.editedImages.list).mockResolvedValue([createdImage]);
 
@@ -556,18 +549,10 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image creation to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify setQueryData was called for optimistic updates
       expect(setQueryDataSpy).toHaveBeenCalledWith(
@@ -587,7 +572,7 @@ describe('ImageEditor', () => {
 
           expect(sourceCacheData).toBeDefined();
           expect(projectCacheData).toBeDefined();
-          
+
           if (Array.isArray(sourceCacheData) && sourceCacheData.length > 0) {
             expect(sourceCacheData[0]).toMatchObject({
               id: createdImage.id,
@@ -606,7 +591,7 @@ describe('ImageEditor', () => {
     });
 
     it('invalidates and refetches edited images queries after creation', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
       const refetchSpy = vi.spyOn(queryClient, 'refetchQueries');
 
@@ -615,18 +600,10 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image creation to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify invalidateQueries was called for project and source queries
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'test-project'] });
@@ -638,7 +615,7 @@ describe('ImageEditor', () => {
     });
 
     it('invalidates timeline queries when lineage_id is present', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       const createdImageWithLineage = {
         id: 'edited-image-1',
         project_id: 'test-project',
@@ -665,18 +642,10 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image creation to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify timeline queries were invalidated
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timeline', 'lineage-123'] });
@@ -684,7 +653,7 @@ describe('ImageEditor', () => {
     });
 
     it('does not invalidate timeline queries when lineage_id is missing', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       const createdImageWithoutLineage = {
         id: 'edited-image-1',
         project_id: 'test-project',
@@ -711,22 +680,14 @@ describe('ImageEditor', () => {
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt');
 
       // Wait for image creation to complete
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify timeline query with lineage_id was NOT called
       expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ['timeline', expect.any(String)] });
-      
+
       // But project timelines should still be invalidated
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timelines', 'test-project'] });
     });
@@ -772,8 +733,8 @@ describe('ImageEditor', () => {
     });
 
     it('shows warning when save fails during generation', async () => {
-      const user = userEvent.setup();
-      
+      const user = createUser();
+
       // Mock initial save failure
       vi.mocked(database.editedImages.create).mockRejectedValueOnce(new Error('Database error'));
 
@@ -782,10 +743,7 @@ describe('ImageEditor', () => {
       );
 
       // Generate an image (save will fail)
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       // Wait for generation to complete (save will fail but generation succeeds)
       // The error message will be the actual error message from the mock
@@ -808,24 +766,16 @@ describe('ImageEditor', () => {
     });
 
     it('asserts project_id is never empty when saving edited image', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project-id" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       // Wait for save to be called
-      await waitFor(
-        () => {
-          expect(database.editedImages.create).toHaveBeenCalled();
-        },
-        { timeout: 5000 }
-      );
+      await waitForGenerationComplete();
 
       // Verify project_id is present and not empty in the payload
       const createCall = vi.mocked(database.editedImages.create).mock.calls[0][0];
@@ -836,16 +786,13 @@ describe('ImageEditor', () => {
     });
 
     it('throws error when projectId is empty string', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Enter prompt and generate
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       // Wait for generation to complete, then check for error during save
       // The image will be generated successfully, but save will fail due to empty projectId
@@ -866,7 +813,7 @@ describe('ImageEditor', () => {
     });
 
     it('validates user is logged in before generation', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       // Mock useUserId to return null (not logged in) from the start
       // This will prevent generation, but we can still test the save validation
       mockUseUserId.mockReturnValue(null);
@@ -876,10 +823,7 @@ describe('ImageEditor', () => {
       );
 
       // Try to generate image - this should fail due to missing userId
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByRole('button', { name: /Generate/i });
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       // Verify error toast is shown for generation
       await waitFor(() => {
@@ -894,17 +838,14 @@ describe('ImageEditor', () => {
 
   describe('Error Handling', () => {
     it('shows error toast when Replicate API fails', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       vi.mocked(ReplicateAPI.createReplicateImageJob).mockRejectedValue(new Error('API Error'));
 
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByText('Generate');
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       await waitFor(() => {
         expect(mockShowToast).toHaveBeenCalledWith('API Error', 'error');
@@ -912,17 +853,14 @@ describe('ImageEditor', () => {
     });
 
     it('shows error toast when image URL extraction fails', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       vi.mocked(ReplicateAPI.extractImageUrl).mockReturnValue(null);
 
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'Test prompt');
-      const generateButton = screen.getByText('Generate');
-      await user.click(generateButton);
+      await generateImage(user, 'Test prompt', true);
 
       await waitFor(() => {
         expect(mockShowToast).toHaveBeenCalledWith(
@@ -936,16 +874,13 @@ describe('ImageEditor', () => {
 
   describe('Version History', () => {
     it('tracks version history after generating images', async () => {
-      const user = userEvent.setup();
+      const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Generate first image
-      const promptInput = screen.getByPlaceholderText(/Product name/);
-      await user.type(promptInput, 'First version');
-      const generateButton = screen.getByText('Generate');
-      await user.click(generateButton);
+      await generateImage(user, 'First version', true);
 
       // Wait for generation to complete
       await waitFor(

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { buildEnhancedVideoPrompt } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImages } from '../../hooks/useEditedImages';
@@ -63,42 +64,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
     return database.storage.getPublicUrl('user-uploads', storagePath);
   };
 
-  /**
-   * Build enhanced prompt for video generation with camera movement details
-   */
-  const buildEnhancedPrompt = (userPrompt: string, cameraMovement: string): string => {
-    let enhancedPrompt = userPrompt.trim();
-
-    // Add camera movement specific instructions
-    switch (cameraMovement) {
-      case 'static':
-        enhancedPrompt += '. Keep the camera completely still and static throughout the video.';
-        break;
-      case 'zoom-in':
-        enhancedPrompt += '. Use a gradual zoom-in effect that brings the viewer closer to the product details.';
-        break;
-      case 'zoom-out':
-        enhancedPrompt += '. Use a gradual zoom-out effect that shows the product in its environment.';
-        break;
-      case 'pan-left':
-        enhancedPrompt += '. Use a smooth leftward panning motion across the product.';
-        break;
-      case 'pan-right':
-        enhancedPrompt += '. Use a smooth rightward panning motion across the product.';
-        break;
-      case 'rotate-around':
-        enhancedPrompt += '. Create a 360-degree rotation around the product, showing it from all angles.';
-        break;
-      case 'dynamic':
-        enhancedPrompt += '. Use dynamic, intelligent camera movements that highlight the product effectively.';
-        break;
-      default:
-        break;
-    }
-
-    return enhancedPrompt;
-  };
-
   const handleGenerate = async () => {
     if (selectedSources.length === 0) {
       showToast('Please select at least one image to generate a video', 'warning');
@@ -140,7 +105,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
       }
 
       // Prepare the request for Runway API with enhanced prompt
-      const enhancedPrompt = buildEnhancedPrompt(prompt, cameraMovement);
+      const enhancedPrompt = buildEnhancedVideoPrompt(prompt, cameraMovement);
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
         promptImage: imageUrl,
