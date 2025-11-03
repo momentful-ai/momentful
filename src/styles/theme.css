@@ -37,6 +37,10 @@
     --font-mono: Source Code Pro, monospace;
 
     --radius: 0.5rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
 
     --shadow-2xs: 0px 5px 10px -2px rgb(0 0 0 / 0.05);
     --shadow-xs: 0px 5px 10px -2px rgb(0 0 0 / 0.05);
@@ -128,11 +132,6 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
