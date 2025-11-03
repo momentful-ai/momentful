@@ -270,20 +270,19 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
     if (isSelected) {
       // Always allow unselecting a selected image
       removeSource(source.id);
-    } else if (selectedSources.length < MAX_SELECTED_SOURCES) {
-      // Only select if we haven't reached the limit
+    } else {
+      // For single selection mode (MAX_SELECTED_SOURCES === 1), always allow selection (toggle behavior)
       if (MAX_SELECTED_SOURCES === 1) {
-        // Single selection: simple toggle
         setSelectedSources([source]);
-      } else {
+      } else if (selectedSources.length < MAX_SELECTED_SOURCES) {
         // Multi-selection: use drag selection logic
         setSelectionMode('add');
         setIsSelecting(true);
         selectionStartRef.current = { id: source.id, type: source.type };
         addSource(source);
       }
+      // If not selected and at limit in multi-selection mode, do nothing
     }
-    // If not selected and at limit, do nothing (could add feedback here if desired)
   };
 
   const handleImageMouseEnter = (source: SelectedSource) => {

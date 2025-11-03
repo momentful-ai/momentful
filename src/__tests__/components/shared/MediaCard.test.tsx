@@ -397,10 +397,14 @@ describe('MediaCard', () => {
 
     it('does not show edit overlay for non-editable items', () => {
       const handleEdit = vi.fn();
+      const timelineNode: TimelineNode = {
+        type: 'generated_video',
+        data: mockGeneratedVideo,
+      };
 
       render(
         <MediaCard
-          item={mockGeneratedVideo}
+          item={timelineNode}
           viewMode="grid"
           onEditImage={handleEdit}
           getAssetUrl={mockGetAssetUrl}

@@ -83,11 +83,9 @@ vi.mock('../../../components/shared/MediaCard', () => ({
         label = data.prompt;
       }
     } else if (item && typeof item === 'object') {
-      // Direct item types
+      // Direct item types (MediaAsset or EditedImage)
       if ('file_name' in item) {
         label = item.file_name;
-      } else if ('name' in item) {
-        label = item.name;
       } else if ('prompt' in item) {
         label = item.prompt;
       }

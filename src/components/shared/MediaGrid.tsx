@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Video, Trash2, Film, Loader2 } from 'lucide-react';
+import { Edit2, Video, X, Film, Loader2 } from 'lucide-react';
 
 interface MediaItem {
   id: string;
@@ -139,7 +139,7 @@ export function MediaGrid({
                       }}
                       className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-white" />
+                      <X className="w-4 h-4 text-white" />
                     </button>
                   )}
                   {itemActions === 'edit' && (
@@ -198,7 +198,7 @@ export function MediaGrid({
                           }}
                           className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
                         >
-                          <Trash2 className="w-4 h-4 text-white" />
+                          <X className="w-4 h-4 text-white" />
                         </button>
                       )}
                     </div>

@@ -272,7 +272,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
               originalImageUrl={originalImageUrl}
               editedImageUrl={editedImageUrl}
               showComparison={showComparison}
-              fileName={'file_name' in asset ? asset.file_name : asset.prompt}
+              fileName={asset.file_name}
             />
           </div>
 
