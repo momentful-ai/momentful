@@ -89,8 +89,8 @@ export function MediaGrid({
 
   return (
     <div className="bg-card">
-      <h3 className="text-sm font-medium text-foreground mb-3">
-        {title} ({items.length})
+      <h3 className="text-sm font-medium text-foreground mb-3 ">
+        {title}
       </h3>
       <div className={`grid gap-3 ${gridCols.default === 2 ? 'grid-cols-2' : gridCols.default === 4 ? 'grid-cols-4' : 'grid-cols-6'} ${gridCols.md ? (gridCols.md === 4 ? 'md:grid-cols-4' : gridCols.md === 6 ? 'md:grid-cols-6' : '') : ''}`}>
         {items.map((item, index) => {

@@ -8,6 +8,7 @@ interface VideoGeneratorControlsProps {
   canGenerate: boolean;
   isGenerating: boolean;
   selectedSources: SelectedSource[];
+  maxSelectedSources: number;
   onPromptChange: (prompt: string) => void;
   onGenerate: () => void;
   onRemoveSource: (id: string) => void;
@@ -19,6 +20,7 @@ export function VideoGeneratorControls({
   canGenerate,
   isGenerating,
   selectedSources,
+  maxSelectedSources,
   onPromptChange,
   onGenerate,
   onRemoveSource,
@@ -37,11 +39,11 @@ export function VideoGeneratorControls({
       onGenerate={onGenerate}
       icon="play"
       additionalInfo={additionalInfo}
-      errorMessage={!canGenerate ? 'Add at least one image to generate video' : undefined}
+      errorMessage={!canGenerate ? `Select ${maxSelectedSources} image${maxSelectedSources > 1 ? 's' : ''} to generate a video (${selectedSources.length}/${maxSelectedSources})` : undefined}
     >
       {selectedSources.length > 0 && (
         <MediaGrid
-          title="Source Media"
+          title={`Source Media`}
           items={selectedSources}
           onRemoveItem={onRemoveSource}
           showIndex={true}

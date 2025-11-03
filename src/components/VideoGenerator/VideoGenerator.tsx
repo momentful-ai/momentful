@@ -18,6 +18,9 @@ import { VideoGeneratorSidebar } from './VideoGeneratorSidebar';
 import { SelectedSource, VideoGeneratorProps } from './types';
 
 export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImageId }: VideoGeneratorProps) {
+  // Maximum number of images that can be selected for video generation
+  const MAX_SELECTED_SOURCES = 1;
+
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -229,7 +232,15 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
 
   const addSource = (source: SelectedSource) => {
     if (!selectedSources.find((s) => s.id === source.id)) {
-      setSelectedSources([...selectedSources, source]);
+      if (MAX_SELECTED_SOURCES === 1) {
+        // Toggle behavior: replace current selection
+        setSelectedSources([source]);
+      } else {
+        // Multi-select behavior: add to existing selections (up to limit)
+        if (selectedSources.length < MAX_SELECTED_SOURCES) {
+          setSelectedSources([...selectedSources, source]);
+        }
+      }
     }
   };
 
@@ -255,19 +266,29 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
 
   const handleImageMouseDown = (source: SelectedSource) => {
     const isSelected = selectedSources.find((s) => s.id === source.id);
-    setSelectionMode(isSelected ? 'remove' : 'add');
-    setIsSelecting(true);
-    selectionStartRef.current = { id: source.id, type: source.type };
 
     if (isSelected) {
+      // Always allow unselecting a selected image
       removeSource(source.id);
-    } else {
-      addSource(source);
+    } else if (selectedSources.length < MAX_SELECTED_SOURCES) {
+      // Only select if we haven't reached the limit
+      if (MAX_SELECTED_SOURCES === 1) {
+        // Single selection: simple toggle
+        setSelectedSources([source]);
+      } else {
+        // Multi-selection: use drag selection logic
+        setSelectionMode('add');
+        setIsSelecting(true);
+        selectionStartRef.current = { id: source.id, type: source.type };
+        addSource(source);
+      }
     }
+    // If not selected and at limit, do nothing (could add feedback here if desired)
   };
 
   const handleImageMouseEnter = (source: SelectedSource) => {
-    if (!isSelecting) return;
+    // Skip multi-select drag behavior when in toggle mode (MAX_SELECTED_SOURCES === 1)
+    if (!isSelecting || MAX_SELECTED_SOURCES === 1) return;
 
     const isSelected = selectedSources.find((s) => s.id === source.id);
 
@@ -336,7 +357,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
     await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
   };
 
-  const canGenerate = selectedSources.length > 0;
+  const canGenerate = selectedSources.length === MAX_SELECTED_SOURCES;
 
   return (
     <motion.div
@@ -389,6 +410,7 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
               canGenerate={canGenerate}
               isGenerating={isGenerating}
               selectedSources={selectedSources}
+              maxSelectedSources={MAX_SELECTED_SOURCES}
               onPromptChange={setPrompt}
               onGenerate={handleGenerate}
               onRemoveSource={removeSource}
