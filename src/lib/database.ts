@@ -158,7 +158,7 @@ export const database = {
         throw new Error('user_id is required and cannot be empty');
       }
 
-      // First, create the media_asset without lineage_id (will be set to NULL initially)
+      // Insert the media asset - lineage will be created automatically by trigger
       const { data, error } = await supabase
         .from('media_assets')
         .insert(asset)
@@ -167,31 +167,7 @@ export const database = {
 
       if (error) throw error;
 
-      // Now create the lineage with the actual root_media_asset_id
-      const { data: lineageData, error: lineageError } = await supabase
-        .from('lineages')
-        .insert({
-          project_id: asset.project_id,
-          user_id: asset.user_id,
-          root_media_asset_id: data.id,
-          name: asset.file_name,
-        })
-        .select()
-        .single();
-
-      if (lineageError) throw lineageError;
-
-      // Update the media_asset with the lineage_id
-      const { data: updatedAsset, error: updateError } = await supabase
-        .from('media_assets')
-        .update({ lineage_id: lineageData.id })
-        .eq('id', data.id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      return updatedAsset;
+      return data;
     },
 
     async delete(assetId: string) {

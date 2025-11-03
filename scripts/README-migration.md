@@ -1,6 +1,6 @@
 # Supabase Project Migration Guide
 
-This guide explains how to migrate your Supabase project from one account to another using the migration script.
+This guide explains how to migrate your Supabase project from one account to another using the migration script, and how to link to and push migrations to an existing project.
 
 ## Overview
 
@@ -99,6 +99,64 @@ node scripts/migrate-supabase-project.js \
 - Found in Project Settings → API → Project API keys → `anon` `public`
 - **Note**: This is safe to use in client-side code, but keep it secure
 
+## Link and Push to Existing Project
+
+If you already have a Supabase project and just want to link to it and push your migrations, use the `link-and-push` script.
+
+### Usage
+
+You can use either the Node.js script or the Shell script:
+
+#### Option 1: Node.js Script (Recommended)
+
+**Method 1: Command Line Arguments**
+
+```bash
+node scripts/link-and-push.js --project-id <project-id>
+```
+
+**Method 2: Environment Variables**
+
+```bash
+SUPABASE_PROJECT_ID=<project-id> node scripts/link-and-push.js
+```
+
+**Method 3: NPM Script** (if configured)
+
+```bash
+SUPABASE_PROJECT_ID=<project-id> npm run link:supabase
+```
+
+#### Option 2: Shell Script
+
+```bash
+./scripts/link-and-push.sh <project-id>
+```
+
+Or with environment variables:
+
+```bash
+export SUPABASE_PROJECT_ID=<project-id>
+./scripts/link-and-push.sh
+```
+
+### Example
+
+```bash
+node scripts/link-and-push.js --project-id abcdefghijklmnop
+```
+
+### What the Script Does
+
+1. **Links to project** - Uses Supabase CLI to link to the specified project
+2. **Pushes migrations** - Runs `supabase db push` to apply all pending migrations
+3. **Verifies completion** - Confirms the operation was successful
+
+This is perfect for:
+- Setting up a fresh development environment
+- Deploying migrations to staging/production
+- Switching between different Supabase projects
+
 ## Step-by-Step Process
 
 ### 1. Authenticate with Supabase CLI
@@ -171,6 +229,23 @@ npm run dev
 - Check that all migration files are valid SQL
 - Verify Supabase CLI is working: `./bin/supabase --version`
 - Run with more verbose output if needed
+
+### Link and Push Script Issues
+
+**Error: "Failed to link to project"**
+
+**Solution:**
+- Make sure you're authenticated: `./bin/supabase login`
+- Verify you have access to the project
+- Check that the project ID is correct
+- The project should already exist (this script doesn't create projects)
+
+**Error: "No migrations to push"**
+
+**Solution:**
+- Check that you have migration files in `supabase/migrations/`
+- Verify the migrations haven't already been applied to this project
+- Use `supabase db reset` if you need to reset the project first
 
 ## Important Notes
 

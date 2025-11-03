@@ -366,8 +366,7 @@ describe('database', () => {
 
     describe('create', () => {
       it('successfully creates a media asset', async () => {
-        const mockAsset = {
-          id: 'asset-new',
+        const mockAssetInput = {
           project_id: 'project-1',
           user_id: 'user-1',
           file_name: 'new-image.jpg',
@@ -378,35 +377,20 @@ describe('database', () => {
           height: 1080,
         };
 
-        const mockLineage = {
-          id: 'lineage-1',
-          project_id: 'project-1',
-          user_id: 'user-1',
-          root_media_asset_id: 'asset-new',
-          name: 'new-image.jpg',
+        const mockAssetWithLineage = {
+          ...mockAssetInput,
+          id: 'asset-new',
+          lineage_id: 'lineage-1', // Set by trigger
         };
 
-        const mockUpdatedAsset = {
-          ...mockAsset,
-          lineage_id: 'lineage-1',
-        };
+        // Mock the insert (media_asset with lineage_id set by trigger)
+        const insertBuilder = createQueryBuilder({ data: mockAssetWithLineage, error: null });
+        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder);
 
-        // Mock the first insert (media_asset)
-        const insertBuilder1 = createQueryBuilder({ data: mockAsset, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder1);
+        const result = await database.mediaAssets.create(mockAssetInput);
 
-        // Mock the lineage creation
-        const insertBuilder2 = createQueryBuilder({ data: mockLineage, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder2);
-
-        // Mock the update (media_asset with lineage_id)
-        const updateBuilder = createQueryBuilder({ data: mockUpdatedAsset, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(updateBuilder);
-
-        const result = await database.mediaAssets.create(mockAsset);
-
-        expect(insertBuilder1.insert).toHaveBeenCalledWith(mockAsset);
-        expect(result).toEqual(mockUpdatedAsset);
+        expect(insertBuilder.insert).toHaveBeenCalledWith(mockAssetInput);
+        expect(result).toEqual(mockAssetWithLineage);
       });
 
       it('handles database errors on create', async () => {
