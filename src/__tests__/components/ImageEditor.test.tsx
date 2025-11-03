@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import { ImageEditor } from '../../components/ImageEditor';
 import { MediaAsset, EditedImage } from '../../types';
 import { database } from '../../lib/database';
-import * as RunwayAPI from '../../services/aiModels/runway/api-client';
+import * as ReplicateAPI from '../../services/aiModels/replicate/api-client';
 
 // Mock ResizeObserver for test environment
 Object.defineProperty(window, 'ResizeObserver', {
@@ -59,10 +59,10 @@ vi.mock('../../lib/database', () => ({
   },
 }));
 
-// Mock the Runway API client
-vi.mock('../../services/aiModels/runway/api-client', () => ({
-  createRunwayImageJob: vi.fn(),
-  pollJobStatus: vi.fn(),
+// Mock the Replicate API client
+vi.mock('../../services/aiModels/replicate/api-client', () => ({
+  createReplicateImageJob: vi.fn(),
+  pollReplicatePrediction: vi.fn(),
   extractImageUrl: vi.fn(),
 }));
 
@@ -125,7 +125,7 @@ describe('ImageEditor', () => {
       user_id: 'test-user-id',
       prompt: 'Test prompt',
       context: {},
-      ai_model: 'runway-gen4-turbo',
+      ai_model: 'flux-pro',
       storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
       edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
       width: 1920,
@@ -135,20 +135,22 @@ describe('ImageEditor', () => {
       created_at: '2025-10-20T15:59:30.165+00:00',
     });
 
-    // Mock Runway API functions
-    vi.mocked(RunwayAPI.createRunwayImageJob).mockResolvedValue({
-      taskId: 'runway-task-123',
-      status: 'processing',
+    // Mock Replicate API functions
+    vi.mocked(ReplicateAPI.createReplicateImageJob).mockResolvedValue({
+      id: 'prediction-123',
+      status: 'starting',
     });
 
-    vi.mocked(RunwayAPI.pollJobStatus).mockResolvedValue({
-      id: 'runway-task-123',
-      status: 'SUCCEEDED',
-      output: 'https://example.com/generated-image.png',
-      progress: 100,
+    vi.mocked(ReplicateAPI.pollReplicatePrediction).mockResolvedValue({
+      id: 'prediction-123',
+      status: 'succeeded',
+      output: ['https://example.com/generated-image.png'],
+      logs: '',
+      metrics: {},
+      created_at: new Date().toISOString(),
     });
 
-    vi.mocked(RunwayAPI.extractImageUrl).mockReturnValue('https://example.com/generated-image.png');
+    vi.mocked(ReplicateAPI.extractImageUrl).mockReturnValue('https://example.com/generated-image.png');
   });
 
   const renderWithQueryClient = (component: React.ReactElement) => {
@@ -191,7 +193,7 @@ describe('ImageEditor', () => {
         user_id: 'test-user-id',
         prompt: 'Make it more vibrant',
         context: {},
-        ai_model: 'runway-gen4-turbo',
+        ai_model: 'flux-pro',
         storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
         edited_url: 'https://example.com/edited-image.png',
         width: 1920,
@@ -225,7 +227,7 @@ describe('ImageEditor', () => {
         user_id: 'test-user-id',
         prompt: 'Make it more vibrant',
         context: {},
-        ai_model: 'runway-gen4-turbo',
+        ai_model: 'flux-pro',
         storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
         edited_url: '', // Empty URL
         width: 1920,
@@ -335,14 +337,12 @@ describe('ImageEditor', () => {
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
 
-      // Verify Runway API was called with correct parameters
+      // Verify Replicate API was called with correct parameters
       await waitFor(() => {
-        expect(RunwayAPI.createRunwayImageJob).toHaveBeenCalledWith({
-          mode: 'image-generation',
-          promptImage: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg',
-          promptText: expect.stringContaining('Add a gradient background'),
-          model: 'gen4_image_turbo',
-          ratio: '1024:1024', // 1:1 ratio maps to 1024:1024
+        expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith({
+          imageUrl: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg',
+          prompt: expect.stringContaining('keep the Add a gradient background exactly the same'),
+          aspectRatio: '1024:1024',
         });
       });
     });
@@ -361,11 +361,11 @@ describe('ImageEditor', () => {
       const generateButton = screen.getByRole('button', { name: /Generate/i });
       await user.click(generateButton);
 
-      // Verify Runway API was called with default ratio (720:1280 for 9:16)
+      // Verify Replicate API was called with default aspect ratio (720:1280)
       await waitFor(() => {
-        expect(RunwayAPI.createRunwayImageJob).toHaveBeenCalledWith(
+        expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith(
           expect.objectContaining({
-            ratio: '720:1280',
+            aspectRatio: '720:1280',
           })
         );
       });
@@ -386,16 +386,16 @@ describe('ImageEditor', () => {
 
       // Verify polling was called
       await waitFor(() => {
-        expect(RunwayAPI.pollJobStatus).toHaveBeenCalledWith(
-          'runway-task-123',
+        expect(ReplicateAPI.pollReplicatePrediction).toHaveBeenCalledWith(
+          'prediction-123',
           expect.any(Function),
-          60,
+          120,
           2000
         );
       });
 
       // Verify image URL extraction
-      expect(RunwayAPI.extractImageUrl).toHaveBeenCalled();
+      expect(ReplicateAPI.extractImageUrl).toHaveBeenCalled();
     });
 
     it('uploads generated image to storage and saves to database immediately', async () => {
@@ -426,7 +426,7 @@ describe('ImageEditor', () => {
               project_id: 'test-project',
               user_id: 'test-user-id',
               prompt: 'Test prompt',
-              ai_model: 'runway-gen4-turbo',
+              ai_model: 'flux-pro',
               storage_path: expect.stringContaining('test-user-id/test-project/edited-'),
               width: 1920,
               height: 1080,
@@ -509,7 +509,7 @@ describe('ImageEditor', () => {
         user_id: 'test-user-id',
         prompt: 'Test prompt',
         context: {},
-        ai_model: 'runway-gen4-turbo',
+        ai_model: 'flux-pro',
         storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
         edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
         width: 1920,
@@ -625,7 +625,7 @@ describe('ImageEditor', () => {
         user_id: 'test-user-id',
         prompt: 'Test prompt',
         context: {},
-        ai_model: 'runway-gen4-turbo',
+        ai_model: 'flux-pro',
         storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
         edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
         width: 1920,
@@ -671,7 +671,7 @@ describe('ImageEditor', () => {
         user_id: 'test-user-id',
         prompt: 'Test prompt',
         context: {},
-        ai_model: 'runway-gen4-turbo',
+        ai_model: 'flux-pro',
         storage_path: 'user-uploads/test-user-id/test-project/edited-1234567890.png',
         edited_url: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/edited-1234567890.png',
         width: 1920,
@@ -719,7 +719,7 @@ describe('ImageEditor', () => {
           user_id: 'test-user-id',
           prompt: 'Previous edit',
           context: {},
-          ai_model: 'runway-gen4-turbo',
+          ai_model: 'flux-pro',
           storage_path: 'path/to/edited-1.png',
           edited_url: 'https://example.com/edited-1.png',
           width: 1920,
@@ -869,9 +869,9 @@ describe('ImageEditor', () => {
   });
 
   describe('Error Handling', () => {
-    it('shows error toast when Runway API fails', async () => {
+    it('shows error toast when Replicate API fails', async () => {
       const user = userEvent.setup();
-      vi.mocked(RunwayAPI.createRunwayImageJob).mockRejectedValue(new Error('API Error'));
+      vi.mocked(ReplicateAPI.createReplicateImageJob).mockRejectedValue(new Error('API Error'));
 
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -889,7 +889,7 @@ describe('ImageEditor', () => {
 
     it('shows error toast when image URL extraction fails', async () => {
       const user = userEvent.setup();
-      vi.mocked(RunwayAPI.extractImageUrl).mockReturnValue(null);
+      vi.mocked(ReplicateAPI.extractImageUrl).mockReturnValue(null);
 
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -902,7 +902,7 @@ describe('ImageEditor', () => {
 
       await waitFor(() => {
         expect(mockShowToast).toHaveBeenCalledWith(
-          'Failed to extract image URL from Runway response',
+          'Failed to extract image URL from Replicate response',
           'error'
         );
       });

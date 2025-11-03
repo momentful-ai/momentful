@@ -88,14 +88,35 @@ function App() {
     }
   }, [view]);
 
-  const handleSelectImageToEdit = useCallback(() => {
-    // For now, we'll need to convert EditedImage to MediaAsset or handle differently
-    // This is a placeholder - the actual implementation may need to fetch the MediaAsset
-    // or allow ImageEditor to accept EditedImage directly
-    // For now, just navigate back to project workspace
+  const handleSelectImageToEdit = useCallback((image: EditedImage) => {
+    // When editing an image from the history, we want to use it as the new source
+    // for generating further edits. We need to create/update the editor view
+    // to use this image as the sourceEditedImage
     if (view.type === 'editor') {
-      setReturningFromEditor(true);
-      setView({ type: 'project', project: view.project });
+      // Create a synthetic MediaAsset from the edited image so the editor can work with it
+      const syntheticAsset: MediaAsset = {
+        id: image.id,
+        project_id: image.project_id,
+        user_id: image.user_id,
+        file_name: `edited-${image.id}.png`,
+        file_type: 'image',
+        file_size: 0, // We don't have the actual file size
+        storage_path: image.edited_url,
+        thumbnail_url: image.edited_url,
+        width: image.width,
+        height: image.height,
+        sort_order: 0,
+        created_at: image.created_at,
+      };
+
+      // Update the editor view to use this edited image as the new source
+      setView({
+        type: 'editor',
+        asset: syntheticAsset,
+        projectId: view.projectId,
+        project: view.project,
+        sourceEditedImage: image, // This will be used as the source in the preview
+      });
     }
   }, [view]);
 

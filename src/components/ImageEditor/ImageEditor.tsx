@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
@@ -6,13 +6,7 @@ import { IMAGE_ASPECT_RATIOS } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImagesBySource } from '../../hooks/useEditedImages';
-import { imageModels } from '../../data/aiModels';
 import { EditedImage } from '../../types';
-import {
-  createRunwayImageJob,
-  pollJobStatus,
-  extractImageUrl,
-} from '../../services/aiModels/runway/api-client';
 import {
   createReplicateImageJob,
   pollReplicatePrediction,
@@ -31,7 +25,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [selectedModel, setSelectedModel] = useState(imageModels[0].id);
+  const selectedModel = 'flux-pro';
   const [productName, setProductName] = useState('');
   const [selectedRatio, setSelectedRatio] = useState<string>(IMAGE_ASPECT_RATIOS[0].id);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,6 +36,13 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
 
   // Fetch editing history for this source asset
   const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(asset.id);
+
+  useEffect(() => {
+    setEditedImageUrl(null);
+    setShowComparison(false);
+    setSelectedImageId(null);
+    setProductName(sourceEditedImage?.prompt ?? '');
+  }, [asset.id, sourceEditedImage?.id, sourceEditedImage?.prompt]);
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
@@ -128,77 +129,32 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
 
       let generatedImageUrl: string | null = null;
 
-      // Handle Runway Gen-4 Turbo
-      if (selectedModel === 'runway-gen4-turbo') {
-        // Get the Runway ratio from selected aspect ratio
-        const selectedRatioOption = IMAGE_ASPECT_RATIOS.find((r) => r.id === selectedRatio);
-        const runwayRatio = selectedRatioOption?.runwayRatio || IMAGE_ASPECT_RATIOS[0].runwayRatio;
+      // Create Replicate image generation job with Flux Pro
+      const { id: predictionId } = await createReplicateImageJob({
+        imageUrl,
+        prompt: enhancedPrompt,
+        aspectRatio: selectedRatio,
+      });
 
-        // Create Runway image generation job
-        const { taskId } = await createRunwayImageJob({
-          mode: 'image-generation',
-          promptImage: imageUrl,
-          promptText: enhancedPrompt,
-          model: 'gen4_image_turbo',
-          ratio: runwayRatio,
-        });
+      // Poll for completion
+      showToast('Generating image...', 'info');
+      const result = await pollReplicatePrediction(
+        predictionId,
+        (prediction) => {
+          if (prediction.status === 'processing' || prediction.status === 'starting') {
+            showToast(`Generating... ${prediction.status}`, 'info');
+          } else if (prediction.status === 'succeeded') {
+            showToast('Generation complete!', 'success');
+          }
+        },
+        120, // maxAttempts (4 minutes)
+        2000 // intervalMs
+      );
 
-        // Poll for completion
-        showToast('Generating image...', 'info');
-        const result = await pollJobStatus(
-          taskId,
-          (status, progress) => {
-            if (progress !== undefined) {
-              showToast(`Generating... ${progress}%`, 'info');
-            } else {
-              showToast(`Status: ${status}`, 'info');
-            }
-          },
-          60, // maxAttempts
-          2000 // intervalMs
-        );
-
-        // Extract image URL from response
-        generatedImageUrl = extractImageUrl(result);
-        if (!generatedImageUrl) {
-          throw new Error('Failed to extract image URL from Runway response');
-        }
-      }
-      // Handle Replicate Flux Pro
-      else if (selectedModel === 'flux-pro') {
-        // Create Replicate image generation job
-        const { id: predictionId } = await createReplicateImageJob({
-          imageUrl,
-          prompt: enhancedPrompt,
-          aspectRatio: selectedRatio,
-        });
-
-        // Poll for completion
-        showToast('Generating image...', 'info');
-        const result = await pollReplicatePrediction(
-          predictionId,
-          (prediction) => {
-            if (prediction.status === 'processing' || prediction.status === 'starting') {
-              showToast(`Generating... ${prediction.status}`, 'info');
-            } else if (prediction.status === 'succeeded') {
-              showToast('Generation complete!', 'success');
-            }
-          },
-          120, // maxAttempts (4 minutes)
-          2000 // intervalMs
-        );
-
-        // Extract image URL from response
-        generatedImageUrl = extractReplicateImageUrl(result);
-        if (!generatedImageUrl) {
-          throw new Error('Failed to extract image URL from Replicate response');
-        }
-      }
-      // Unsupported model
-      else {
-        showToast(`${selectedModel} is not yet implemented. Please use Runway Gen-4 Turbo or Flux Pro.`, 'warning');
-        setIsGenerating(false);
-        return;
+      // Extract image URL from response
+      generatedImageUrl = extractReplicateImageUrl(result);
+      if (!generatedImageUrl) {
+        throw new Error('Failed to extract image URL from Replicate response');
       }
 
       showToast('Image generated! Uploading...', 'info');
@@ -298,7 +254,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
     }
   };
 
-  const selectedModelInfo = imageModels.find((m) => m.id === selectedModel);
+  const selectedModelName = 'Flux Pro';
   // If sourceEditedImage is provided, use its edited_url as the source image
   // Otherwise, use the asset's storage_path
   const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
@@ -327,7 +283,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           <div className="flex-none">
             <PromptControls
               prompt={productName}
-              selectedModelName={selectedModelInfo?.name || ''}
+              selectedModelName={selectedModelName}
               isGenerating={isGenerating}
               canGenerate={!!productName.trim()}
               generateLabel="Generate"
@@ -358,10 +314,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
         </div>
 
         <ImageEditorSidebar
-          selectedModel={selectedModel}
           selectedRatio={selectedRatio}
           versions={versions}
-          onModelChange={setSelectedModel}
           onRatioChange={setSelectedRatio}
         />
       </div>

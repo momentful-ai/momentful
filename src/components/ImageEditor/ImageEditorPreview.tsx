@@ -11,11 +11,13 @@ export function ImageEditorPreview({
   showComparison,
   fileName,
 }: ImageEditorPreviewProps) {
+  const shouldShowComparison = showComparison && !!editedImageUrl && editedImageUrl !== originalImageUrl;
+
   return (
     <div className="h-full bg-card overflow-y-auto">
       <div className="p-6 min-h-full">
         <div className="max-w-5xl mx-auto">
-          {!showComparison ? (
+          {!shouldShowComparison ? (
             <div className="aspect-video bg-muted rounded-xl flex items-center justify-center animate-fade-in">
               <img
                 src={originalImageUrl}
