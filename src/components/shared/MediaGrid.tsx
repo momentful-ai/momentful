@@ -30,6 +30,7 @@ interface MediaGridProps {
   itemActions?: 'edit' | 'remove' | 'both';
   showPrompt?: boolean;
   itemType?: 'image' | 'source';
+  isSelectable?: boolean;
 }
 
 export function MediaGrid({
@@ -47,6 +48,7 @@ export function MediaGrid({
   itemActions = 'edit',
   showPrompt = false,
   itemType = 'image',
+  isSelectable = true,
 }: MediaGridProps) {
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
@@ -97,14 +99,17 @@ export function MediaGrid({
           const isSelected = selectedItemId === item.id;
           const isHovered = hoveredItemId === item.id;
           const imageSrc = getImageSrc(item);
+          const canSelectItem = isSelectable && Boolean(onSelectItem);
 
           return (
             <div
               key={item.id}
-              onClick={() => onSelectItem?.(item)}
+              onClick={canSelectItem ? () => onSelectItem?.(item) : undefined}
               onMouseEnter={() => setHoveredItemId(item.id)}
               onMouseLeave={() => setHoveredItemId(null)}
-              className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all group animate-scale-in hover:scale-105 ${
+              className={`relative aspect-square rounded-lg overflow-hidden transition-all group animate-scale-in ${
+                canSelectItem ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+              } ${
                 itemType === 'image'
                   ? `border-2 ${isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'} hover:shadow-lg`
                   : 'bg-muted'
@@ -143,7 +148,9 @@ export function MediaGrid({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectItem?.(item);
+                            if (canSelectItem) {
+                              onSelectItem?.(item);
+                            }
                             onEditItem(item);
                           }}
                           className="p-2 bg-primary hover:bg-primary/90 rounded-lg transition-colors"
@@ -172,7 +179,9 @@ export function MediaGrid({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectItem?.(item);
+                            if (canSelectItem) {
+                              onSelectItem?.(item);
+                            }
                             onEditItem(item);
                           }}
                           className="p-2 bg-primary hover:bg-primary/90 rounded-lg transition-colors"

@@ -34,17 +34,19 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const [versions, setVersions] = useState<VersionHistoryItem[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
-  // Fetch editing history for this source asset
-  // When editing an edited image, use its source_asset_id to get the full lineage history
-  const sourceAssetId = sourceEditedImage?.source_asset_id || asset.id;
-  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId);
+  // Determine source asset ID for editing history
+  // If asset is EditedImage, use its source_asset_id; otherwise use asset.id
+  const sourceAssetId = ('source_asset_id' in asset) ? asset.source_asset_id : (sourceEditedImage?.source_asset_id || asset.id);
+  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId || '');
 
   useEffect(() => {
     setEditedImageUrl(null);
     setShowComparison(false);
     setSelectedImageId(null);
-    setProductName(sourceEditedImage?.prompt ?? '');
-  }, [asset.id, sourceEditedImage?.id, sourceEditedImage?.prompt]);
+    // If asset is EditedImage, use its prompt; otherwise use sourceEditedImage's prompt
+    const prompt = ('prompt' in asset) ? asset.prompt : (sourceEditedImage?.prompt ?? '');
+    setProductName(prompt);
+  }, [asset, sourceEditedImage]);
 
   const getAssetUrl = (storagePath: string) => {
     return database.storage.getPublicUrl('user-uploads', storagePath);
@@ -249,9 +251,10 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
     }
   };
 
-  // If sourceEditedImage is provided, use its edited_url as the source image
-  // Otherwise, use the asset's storage_path
-  const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
+  // Determine the original image URL
+  // Priority: sourceEditedImage?.edited_url > asset.edited_url (if EditedImage) > asset.storage_path (if MediaAsset)
+  const originalImageUrl = sourceEditedImage?.edited_url ||
+    ('edited_url' in asset ? asset.edited_url : getAssetUrl(asset.storage_path));
 
   return (
     <motion.div
@@ -270,7 +273,7 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
               originalImageUrl={originalImageUrl}
               editedImageUrl={editedImageUrl}
               showComparison={showComparison}
-              fileName={asset.file_name}
+              fileName={'file_name' in asset ? asset.file_name : asset.prompt}
             />
           </div>
 
@@ -290,11 +293,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
                 editedImages={editingHistory}
                 isLoading={isLoadingHistory}
                 selectedImageId={selectedImageId}
-                onSelectImage={(image) => {
-                  setSelectedImageId(image.id);
-                  setEditedImageUrl(image.edited_url);
-                  setShowComparison(true);
-                }}
                 onEditImage={(image) => {
                   if (onSelectImageToEdit) {
                     onSelectImageToEdit(image);

@@ -174,6 +174,40 @@ describe('ImageEditorImageList', () => {
     expect(mockOnEditImage).toHaveBeenCalledWith(mockEditedImages[0]);
   });
 
+  it('renders non-selectable items when onSelectImage is not provided', () => {
+    render(
+      <ImageEditorImageList
+        editedImages={mockEditedImages}
+        isLoading={false}
+        selectedImageId={null}
+      />
+    );
+
+    const imageContainer = screen.getAllByRole('img')[0].closest('div');
+    expect(imageContainer).toHaveClass('cursor-default');
+  });
+
+  it('allows editing without selection handler', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ImageEditorImageList
+        editedImages={mockEditedImages}
+        isLoading={false}
+        selectedImageId={null}
+        onEditImage={mockOnEditImage}
+      />
+    );
+
+    const imageContainer = screen.getAllByRole('img')[0].closest('div')!;
+    await user.hover(imageContainer);
+
+    const editButton = await screen.findByTitle('Edit this image');
+    editButton.click();
+
+    expect(mockOnEditImage).toHaveBeenCalledWith(mockEditedImages[0]);
+  });
+
   it('shows video button on hover when onNavigateToVideo is provided', async () => {
     const user = userEvent.setup();
     render(

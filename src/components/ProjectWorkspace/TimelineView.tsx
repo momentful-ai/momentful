@@ -11,12 +11,13 @@ import { Button } from '../ui/button';
 
 interface TimelineViewProps {
   projectId: string;
+  viewMode?: 'grid' | 'list';
   onEditImage?: (asset: MediaAsset | EditedImage) => void;
   onDownload?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
   onDelete?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
 }
 
-export function TimelineView({ projectId, onEditImage, onDownload, onDelete }: TimelineViewProps) {
+export function TimelineView({ projectId, viewMode = 'grid', onEditImage, onDownload, onDelete }: TimelineViewProps) {
   const { data: lineages = [], isLoading } = useTimelinesByProject(projectId);
   const [selectedLineageId, setSelectedLineageId] = useState<string | null>(null);
   const [editingLineageId, setEditingLineageId] = useState<string | null>(null);
@@ -180,8 +181,9 @@ export function TimelineView({ projectId, onEditImage, onDownload, onDelete }: T
 
       {/* Selected timeline */}
       {selectedLineageId && (
-        <TimelineLane 
-          lineageId={selectedLineageId} 
+        <TimelineLane
+          lineageId={selectedLineageId}
+          viewMode={viewMode}
           onEditImage={onEditImage}
           onDownload={onDownload}
           onDelete={onDelete}
@@ -191,13 +193,15 @@ export function TimelineView({ projectId, onEditImage, onDownload, onDelete }: T
   );
 }
 
-function TimelineLane({ 
-  lineageId, 
-  onEditImage, 
-  onDownload, 
-  onDelete 
-}: { 
+function TimelineLane({
+  lineageId,
+  viewMode,
+  onEditImage,
+  onDownload,
+  onDelete
+}: {
   lineageId: string;
+  viewMode: 'grid' | 'list';
   onEditImage?: (asset: MediaAsset | EditedImage) => void;
   onDownload?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
   onDelete?: (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => void;
@@ -214,13 +218,14 @@ function TimelineLane({
 
   return (
     <div className="flex-1 overflow-x-auto relative">
-      <div className="flex gap-8 p-4 min-w-max">
+      <div className="flex gap-8 p-4 min-w-max items-stretch">
         {timeline.nodes.map((node, index) => (
-          <TimelineNodeComponent 
-            key={node.data.id} 
-            node={node} 
-            index={index} 
+          <TimelineNodeComponent
+            key={node.data.id}
+            node={node}
+            index={index}
             total={timeline.nodes.length}
+            viewMode={viewMode}
             onEditImage={onEditImage}
             onDownload={onDownload}
             onDelete={onDelete}

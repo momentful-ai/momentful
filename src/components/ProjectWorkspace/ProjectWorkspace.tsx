@@ -12,6 +12,7 @@ import { TimelineView } from './TimelineView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { ConfirmDialog } from '../ConfirmDialog';
 import { mergeName } from '../../lib/utils';
 import { downloadBulkAsZip, downloadFile } from '../../lib/download';
 import { getAssetUrl, ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../../lib/media';
@@ -55,6 +56,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [timelineItemToDelete, setTimelineItemToDelete] = useState<{ item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType; type: string } | null>(null);
   const { showToast } = useToast();
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
@@ -312,86 +314,81 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     }
   }, [showToast]);
 
-  // Handle timeline item delete
-  const handleTimelineDelete = useCallback(async (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
-    try {
-      // Extract the actual item from TimelineNode if needed
-      let actualItem: MediaAsset | EditedImage | GeneratedVideo;
-      if ('type' in item && 'data' in item) {
-        actualItem = item.data;
-      } else {
-        actualItem = item;
-      }
-
+  // Handle timeline item delete - set item to confirm deletion
+  const handleTimelineDelete = useCallback((item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
+    // Extract the actual item from TimelineNode if needed
+    let actualItem: MediaAsset | EditedImage | GeneratedVideo;
+    let itemType: string;
+    if ('type' in item && 'data' in item) {
+      actualItem = item.data;
+      itemType = item.type;
+    } else {
+      actualItem = item;
       if ('file_type' in actualItem) {
-        // MediaAsset
-        deleteMediaAssetMutation.mutate(
-          {
-            assetId: actualItem.id,
-            storagePath: actualItem.storage_path,
-            projectId: project.id,
-          },
-          {
-            onSuccess: () => {
-              showToast('Asset deleted successfully', 'success');
-            },
-            onError: () => {
-              showToast('Failed to delete asset. Please try again.', 'error');
-            },
-          }
-        );
+        itemType = 'media_asset';
       } else if ('edited_url' in actualItem) {
-        // EditedImage
-        deleteEditedImageMutation.mutate(
-          {
-            imageId: actualItem.id,
-            storagePath: actualItem.storage_path,
-            projectId: project.id,
-          },
-          {
-            onSuccess: () => {
-              showToast('Image deleted successfully', 'success');
-            },
-            onError: () => {
-              showToast('Failed to delete image. Please try again.', 'error');
-            },
-          }
-        );
+        itemType = 'edited_image';
       } else {
-        showToast('Delete not supported for this item type', 'error');
+        itemType = 'generated_video';
       }
-    } catch (error) {
-      console.error('Error deleting timeline item:', error);
-      showToast('Failed to delete item. Please try again.', 'error');
     }
-  }, [project.id, deleteMediaAssetMutation, deleteEditedImageMutation, showToast]);
 
-  // Handle timeline edit image - fetch source MediaAsset for EditedImage
+    setTimelineItemToDelete({ item: actualItem, type: itemType });
+  }, []);
+
+  const confirmTimelineDelete = useCallback(() => {
+    if (!timelineItemToDelete) return;
+
+    const { item, type } = timelineItemToDelete;
+
+    if (type === 'media_asset' && 'file_type' in item) {
+      // MediaAsset
+      deleteMediaAssetMutation.mutate(
+        {
+          assetId: item.id,
+          storagePath: item.storage_path,
+          projectId: project.id,
+        },
+        {
+          onSuccess: () => {
+            showToast('Asset deleted successfully', 'success');
+          },
+          onError: () => {
+            showToast('Failed to delete asset. Please try again.', 'error');
+          },
+        }
+      );
+    } else if (type === 'edited_image' && 'edited_url' in item) {
+      // EditedImage
+      deleteEditedImageMutation.mutate(
+        {
+          imageId: item.id,
+          storagePath: item.storage_path,
+          projectId: project.id,
+        },
+        {
+          onSuccess: () => {
+            showToast('Image deleted successfully', 'success');
+          },
+          onError: () => {
+            showToast('Failed to delete image. Please try again.', 'error');
+          },
+        }
+      );
+    } else {
+      showToast('Delete not supported for this item type', 'error');
+    }
+
+    setTimelineItemToDelete(null);
+  }, [timelineItemToDelete, project.id, deleteMediaAssetMutation, deleteEditedImageMutation, showToast]);
+
+  // Handle timeline edit image - same logic as EditedImagesView
   const handleTimelineEditImage = useCallback((item: MediaAsset | EditedImage) => {
     if (!onEditImage) return;
-    
-    // If it's already a MediaAsset, use it directly
-    if ('file_type' in item) {
-      onEditImage(item, project.id);
-      return;
-    }
-    
-    // If it's an EditedImage, we need to fetch the source MediaAsset
-    // This will be handled by EditedImagesView's logic, but for timeline we'll show an error
-    // since we don't have the hook available here
-    if (item.source_asset_id) {
-      // Fetch and call onEditImage
-      database.mediaAssets.getById(item.source_asset_id)
-        .then((sourceAsset) => {
-          onEditImage(sourceAsset, project.id);
-        })
-        .catch(() => {
-          showToast('Cannot edit: Source image not found', 'error');
-        });
-    } else {
-      showToast('Cannot edit: Source image not found', 'error');
-    }
-  }, [onEditImage, project.id, showToast]);
+
+    // Pass the item directly to onEditImage, same as EditedImagesView
+    onEditImage(item, project.id);
+  }, [onEditImage, project.id]);
 
   const handleDownloadAllMedia = useCallback(async () => {
     if (mediaAssets.length === 0) return;
@@ -724,8 +721,9 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           )}
           {activeTab === 'timeline' && (
             <div key="timeline-tab" className="animate-fade-in">
-              <TimelineView 
+              <TimelineView
                 projectId={project.id}
+                viewMode={viewMode}
                 onEditImage={handleTimelineEditImage}
                 onDownload={handleTimelineDownload}
                 onDelete={handleTimelineDelete}
@@ -734,6 +732,18 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           )}
         </div>
       </Card>
+
+      {timelineItemToDelete && (
+        <ConfirmDialog
+          title="Delete Item"
+          message="Are you sure you want to delete this item? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmTimelineDelete}
+          onCancel={() => setTimelineItemToDelete(null)}
+        />
+      )}
 
       <AnimatePresence>
         {showVideoGenerator && (

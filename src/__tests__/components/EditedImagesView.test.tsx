@@ -8,6 +8,50 @@ import { useEditedImages } from '../../hooks/useEditedImages';
 import { ToastProvider } from '../../contexts/ToastProvider';
 import { mockSupabase } from '../test-utils.tsx';
 
+// Mock Supabase and database dependencies
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
+// Mock Supabase and database dependencies
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
 // Mock the useEditedImages hook
 vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImages: vi.fn(),

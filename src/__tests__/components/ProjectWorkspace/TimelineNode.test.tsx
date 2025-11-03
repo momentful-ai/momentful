@@ -8,6 +8,50 @@ import { mockSupabase } from '../../test-utils.tsx';
 // Mock supabase
 mockSupabase();
 
+// Mock Supabase and database dependencies
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
+// Mock Supabase and database dependencies
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
 // Mock MediaCard component - provide more complete mock to match actual behavior
 vi.mock('../../../components/shared/MediaCard', async () => {
   const React = await import('react');
@@ -184,7 +228,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Original')).toBeInTheDocument();
     expect(screen.getByText('test-image.jpg')).toBeInTheDocument();
@@ -202,7 +246,7 @@ describe('TimelineNodeComponent', () => {
       data: mockEditedImage,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Edited')).toBeInTheDocument();
     // Title shows truncated prompt (first 20 chars) - "Make it more vibrant" is exactly 20 chars, so it shows fully
@@ -221,7 +265,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Video')).toBeInTheDocument();
     expect(screen.getByText('Test Video')).toBeInTheDocument();
@@ -243,7 +287,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Image Placeholder')).toBeInTheDocument();
@@ -262,7 +306,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Image Placeholder')).toBeInTheDocument();
@@ -278,7 +322,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Video Placeholder')).toBeInTheDocument();
@@ -294,7 +338,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const img = screen.getByAltText('test-image.jpg') as HTMLImageElement;
     
@@ -313,7 +357,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const video = document.querySelector('video') as HTMLVideoElement;
     expect(video).toBeInTheDocument();
@@ -333,7 +377,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const video = document.querySelector('video');
     expect(video).toBeInTheDocument();
@@ -347,7 +391,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // The date should be formatted by toLocaleString - check that it contains the year
     const dateElements = screen.getAllByText((_content, element) => {
@@ -366,7 +410,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show truncated prompt in title (first 20 chars)
     expect(screen.getByText('A'.repeat(20))).toBeInTheDocument();
@@ -384,7 +428,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should not show duration metadata
     expect(screen.queryByText(/Duration:/)).not.toBeInTheDocument();
@@ -400,7 +444,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // The mock MediaCard shows the video name or "Untitled" as fallback
     // Since name is undefined, it will show "Untitled" in the mock
@@ -413,7 +457,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    const { container } = render(<TimelineNodeComponent node={node} index={0} total={1} />);
+    const { container } = render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // TimelineNode wraps MediaCard in a div with the id
     const wrapper = container.querySelector('[id="node-asset-1"]');

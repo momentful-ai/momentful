@@ -3,10 +3,10 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName, formatFileSize, formatDuration, formatDate } from '../../lib/utils';
-import { MediaAsset, EditedImage } from '../../types';
+import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { TimelineNode } from '../../types/timeline';
 
-export type MediaCardItem = MediaAsset | EditedImage | TimelineNode;
+export type MediaCardItem = MediaAsset | EditedImage | GeneratedVideo | TimelineNode;
 
 interface MediaCardProps {
   item: MediaCardItem;
@@ -29,7 +29,11 @@ function isMediaAsset(item: MediaCardItem): item is MediaAsset {
 }
 
 function isEditedImage(item: MediaCardItem): item is EditedImage {
-  return !isTimelineNode(item) && 'prompt' in item;
+  return !isTimelineNode(item) && 'prompt' in item && 'edited_url' in item;
+}
+
+function isGeneratedVideo(item: MediaCardItem): item is GeneratedVideo {
+  return !isTimelineNode(item) && !isMediaAsset(item) && !isEditedImage(item) && 'storage_path' in item && 'name' in item;
 }
 
 export function MediaCard({
@@ -56,6 +60,7 @@ export function MediaCard({
   let aiModel: string | undefined;
   let createdAt: string;
   let typeLabel: string | undefined;
+  let editTarget: MediaAsset | EditedImage | undefined;
 
   if (isTimelineNode(item)) {
     const { type, data } = item;
@@ -71,6 +76,7 @@ export function MediaCard({
       height = data.height;
       createdAt = data.created_at;
       typeLabel = showTypeLabel ? 'Original' : undefined;
+      editTarget = data;
     } else if (type === 'edited_image') {
       thumbnailUrl = data.edited_url;
       altText = data.prompt;
@@ -83,6 +89,7 @@ export function MediaCard({
       aiModel = data.ai_model;
       createdAt = data.created_at;
       typeLabel = showTypeLabel ? 'Edited' : undefined;
+      editTarget = data;
     } else {
       // generated_video
       thumbnailUrl = data.thumbnail_url || (data.storage_path ? getAssetUrl(data.storage_path) : '');
@@ -103,7 +110,8 @@ export function MediaCard({
     width = item.width;
     height = item.height;
     createdAt = item.created_at;
-  } else {
+    editTarget = item;
+  } else if (isEditedImage(item)) {
     // EditedImage
     thumbnailUrl = item.edited_url;
     altText = item.prompt;
@@ -115,34 +123,48 @@ export function MediaCard({
     prompt = item.prompt;
     aiModel = item.ai_model;
     createdAt = item.created_at;
+    editTarget = item;
+  } else if (isGeneratedVideo(item)) {
+    // GeneratedVideo
+    const videoItem = item as GeneratedVideo;
+    thumbnailUrl = videoItem.thumbnail_url || (videoItem.storage_path ? getAssetUrl(videoItem.storage_path) : '');
+    altText = videoItem.name || 'Video';
+    isImage = false;
+    duration = videoItem.duration;
+    fileName = videoItem.name;
+    createdAt = videoItem.created_at;
+  } else {
+    // Fallback - shouldn't happen
+    thumbnailUrl = '';
+    altText = 'Unknown';
+    isImage = false;
+    createdAt = new Date().toISOString();
   }
 
-  const canEdit = isImage && onEditImage;
-  const shouldShowEditOverlay = canEdit && viewMode !== 'timeline';
+  const canEdit = Boolean(isImage && onEditImage && editTarget);
+  const shouldShowEditOverlay = canEdit;
 
   // Determine if this is an EditedImage that needs source lookup
-  const isEditedImageItem = isEditedImage(item) || (isTimelineNode(item) && item.type === 'edited_image');
-  const editHandler = isEditedImageItem && onEditImage ? () => onEditImage(item as EditedImage) : canEdit ? () => onEditImage(item as MediaAsset) : undefined;
+  const editHandler = canEdit && onEditImage && editTarget ? () => onEditImage(editTarget) : undefined;
 
   const cardClassName = mergeName(
-    'group relative overflow-hidden transition-all animate-slide-up',
-    viewMode === 'timeline' ? 'w-48 h-64 flex flex-col items-center p-2' : 'cursor-pointer hover-lift hover-glow',
-    isSelected && viewMode !== 'timeline' ? 'ring-2 ring-primary shadow-xl' : viewMode !== 'timeline' ? 'hover:ring-2 hover:ring-primary/50' : '',
+    'group relative overflow-hidden transition-all animate-slide-up cursor-pointer hover-lift hover-glow',
+    isSelected ? 'ring-2 ring-primary shadow-xl' : 'hover:ring-2 hover:ring-primary/50',
     viewMode === 'list' && 'flex flex-row',
   );
 
   const imageContainerClassName = mergeName(
     'bg-muted overflow-hidden relative',
-    viewMode === 'timeline' ? 'w-full h-32 rounded' : viewMode === 'grid' ? 'aspect-square' : 'w-32 h-32 flex-shrink-0'
+    viewMode === 'grid' ? 'aspect-square' : 'w-32 h-32 flex-shrink-0'
   );
 
   return (
     <Card
       className={cardClassName}
-      style={viewMode !== 'timeline' ? {
+      style={{
         animationDelay: `${Math.random() * 100}ms`,
         animationFillMode: 'backwards'
-      } : undefined}
+      }}
       onClick={onClick}
     >
       {showTypeLabel && typeLabel && (
@@ -194,7 +216,7 @@ export function MediaCard({
           </div>
         )}
 
-        {(onDownload || onDelete) && viewMode !== 'timeline' && (
+        {(onDownload || onDelete) && (
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
             {onDownload && (
               <Button
@@ -227,122 +249,49 @@ export function MediaCard({
           </div>
         )}
 
-        {/* Timeline mode action buttons */}
-        {viewMode === 'timeline' && (onDownload || onDelete || editHandler) && (
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            {editHandler && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  editHandler();
-                }}
-                size="icon"
-                variant="secondary"
-                className="glass shadow-lg h-8 w-8"
-                title="Edit with AI"
-              >
-                <Wand2 className="w-4 h-4" />
-              </Button>
-            )}
-            {onDownload && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload(item);
-                }}
-                size="icon"
-                variant="secondary"
-                className="glass shadow-lg h-8 w-8"
-                title="Download"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(item);
-                }}
-                size="icon"
-                variant="destructive"
-                className="shadow-lg h-8 w-8"
-                title="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Metadata section */}
-      {viewMode !== 'timeline' && (
-        <div className={mergeName('p-3', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
-          {prompt ? (
-            <>
-              <p className="text-sm font-medium mb-2 line-clamp-2" title={prompt}>
-                {prompt}
-              </p>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                {aiModel && <Badge variant="secondary">{aiModel}</Badge>}
-                <span>{formatDate(createdAt)}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium truncate mb-1" title={fileName}>
-                {fileName || 'Untitled'}
-              </p>
-              <div className={mergeName(
-                'flex items-center gap-2',
-                viewMode === 'grid' ? 'justify-between' : 'flex-wrap'
-              )}>
-                {fileSize && (
-                  <Badge variant="secondary" className="text-xs">
-                    {formatFileSize(fileSize)}
-                  </Badge>
-                )}
-                {width && height && (
-                  <span className="text-xs text-muted-foreground">
-                    {width} × {height}
-                  </span>
-                )}
-                {viewMode === 'list' && duration && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {formatDuration(duration)}
-                  </Badge>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Timeline mode metadata */}
-      {viewMode === 'timeline' && (
-        <div className="mt-2 text-center w-full">
-          <p className="font-medium text-sm truncate">
-            {fileName || prompt?.substring(0, 20) || 'Untitled'}
-          </p>
-          {prompt && (
-            <>
-              <p className="text-sm">Prompt: {prompt.substring(0, 50)}</p>
-              {aiModel && <p className="text-xs text-muted">Model: {aiModel}</p>}
-            </>
-          )}
-          {duration !== undefined && (
-            <p className="text-sm">Duration: {duration}s</p>
-          )}
-          {aiModel && !prompt && (
-            <p className="text-xs text-muted">Model: {aiModel}</p>
-          )}
-          <p className="text-xs text-muted mt-1">
-            {new Date(createdAt).toLocaleString()}
-          </p>
-        </div>
-      )}
+      <div className={mergeName('p-3 w-full', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
+        {prompt ? (
+          <>
+            <p className="text-sm font-medium mb-2 line-clamp-2" title={prompt}>
+              {prompt}
+            </p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              {aiModel && <Badge variant="secondary">{aiModel}</Badge>}
+              <span>{formatDate(createdAt)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium truncate mb-1" title={fileName}>
+              {fileName || 'Untitled'}
+            </p>
+            <div className={mergeName(
+              'flex items-center gap-2',
+              viewMode === 'grid' ? 'justify-between' : 'flex-wrap'
+            )}>
+              {fileSize && (
+                <Badge variant="secondary" className="text-xs">
+                  {formatFileSize(fileSize)}
+                </Badge>
+              )}
+              {width && height && (
+                <span className="text-xs text-muted-foreground">
+                  {width} × {height}
+                </span>
+              )}
+              {duration !== undefined && duration > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {formatDuration(duration)}
+                </Badge>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </Card>
   );
 }

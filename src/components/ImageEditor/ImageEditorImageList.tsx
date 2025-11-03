@@ -5,7 +5,7 @@ interface ImageEditorImageListProps {
   editedImages: EditedImage[];
   isLoading?: boolean;
   selectedImageId?: string | null;
-  onSelectImage: (image: EditedImage) => void;
+  onSelectImage?: (image: EditedImage) => void;
   onEditImage?: (image: EditedImage) => void;
   onNavigateToVideo?: (imageId: string) => void;
 }
@@ -29,13 +29,14 @@ export function ImageEditorImageList({
           subtitle: "Generated images will appear here"
         }}
         selectedItemId={selectedImageId}
-        onSelectItem={(item) => onSelectImage(item as EditedImage)}
+        onSelectItem={onSelectImage ? (item) => onSelectImage(item as EditedImage) : undefined}
         onEditItem={(item) => onEditImage?.(item as EditedImage)}
         onNavigateToVideo={onNavigateToVideo}
         gridCols={{ default: 4, md: 6 }}
         itemActions="edit"
         showPrompt={true}
         itemType="image"
+        isSelectable={Boolean(onSelectImage)}
       />
     </div>
   );

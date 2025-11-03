@@ -4,6 +4,28 @@ import { MediaCard } from '../../../components/shared/MediaCard';
 import { MediaAsset, EditedImage, GeneratedVideo } from '../../../types';
 import { TimelineNode } from '../../../types/timeline';
 
+// Mock Supabase and database dependencies
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
 const mockGetAssetUrl = vi.fn((path: string) => `https://example.com/${path}`);
 
 const mockMediaAsset: MediaAsset = {
@@ -354,22 +376,52 @@ describe('MediaCard', () => {
     });
   });
 
-  describe('Timeline mode actions', () => {
-    it('shows action buttons on hover in timeline mode', () => {
+  describe('Edit overlay behavior', () => {
+    it('shows edit overlay on hover for editable images', () => {
       const handleEdit = vi.fn();
-      const handleDownload = vi.fn();
-      const handleDelete = vi.fn();
-      
-      const node: TimelineNode = {
-        type: 'media_asset',
-        data: mockMediaAsset,
-      };
 
       render(
         <MediaCard
-          item={node}
-          viewMode="timeline"
-          showTypeLabel={true}
+          item={mockMediaAsset}
+          viewMode="grid"
+          onEditImage={handleEdit}
+          getAssetUrl={mockGetAssetUrl}
+        />
+      );
+
+      const card = screen.getByAltText('test-image.jpg').closest('.group');
+      fireEvent.mouseEnter(card!);
+
+      expect(screen.getByText('Edit with AI')).toBeInTheDocument();
+    });
+
+    it('does not show edit overlay for non-editable items', () => {
+      const handleEdit = vi.fn();
+
+      render(
+        <MediaCard
+          item={mockGeneratedVideo}
+          viewMode="grid"
+          onEditImage={handleEdit}
+          getAssetUrl={mockGetAssetUrl}
+        />
+      );
+
+      const card = screen.getByText('Test Video').closest('.group');
+      fireEvent.mouseEnter(card!);
+
+      expect(screen.queryByText('Edit with AI')).not.toBeInTheDocument();
+    });
+
+    it('shows action buttons on hover for all view modes', () => {
+      const handleEdit = vi.fn();
+      const handleDownload = vi.fn();
+      const handleDelete = vi.fn();
+
+      render(
+        <MediaCard
+          item={mockMediaAsset}
+          viewMode="grid"
           onEditImage={handleEdit}
           onDownload={handleDownload}
           onDelete={handleDelete}
@@ -379,34 +431,9 @@ describe('MediaCard', () => {
 
       const card = screen.getByAltText('test-image.jpg').closest('.group');
       fireEvent.mouseEnter(card!);
-      
-      expect(screen.getByTitle('Edit with AI')).toBeInTheDocument();
+
       expect(screen.getByTitle('Download')).toBeInTheDocument();
       expect(screen.getByTitle('Delete')).toBeInTheDocument();
-    });
-
-    it('does not show Edit with AI for generated_video in timeline', () => {
-      const handleEdit = vi.fn();
-      
-      const node: TimelineNode = {
-        type: 'generated_video',
-        data: mockGeneratedVideo,
-      };
-
-      render(
-        <MediaCard
-          item={node}
-          viewMode="timeline"
-          showTypeLabel={true}
-          onEditImage={handleEdit}
-          getAssetUrl={mockGetAssetUrl}
-        />
-      );
-
-      const card = screen.getByText('Video').closest('.group');
-      fireEvent.mouseEnter(card!);
-      
-      expect(screen.queryByTitle('Edit with AI')).not.toBeInTheDocument();
     });
   });
 

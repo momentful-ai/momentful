@@ -8,10 +8,55 @@ import { Lineage } from '../../../types';
 import { UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { TimelineData } from '../../../types/timeline';
 import { ToastProvider } from '../../../contexts/ToastProvider';
+import { MediaCardItem } from '../../../components/shared/MediaCard';
 import { mockSupabaseAndDatabase } from '../../test-utils.tsx';
 
 // Mock supabase and database
 mockSupabaseAndDatabase();
+
+// Mock Supabase and database dependencies
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
+
+// Mock Supabase and database dependencies
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
+      })),
+    },
+  },
+}));
+
+vi.mock('../../../lib/database', () => ({
+  database: {
+    mediaAssets: {
+      getById: vi.fn(),
+    },
+    storage: {
+      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
+    },
+  },
+}));
 
 // Mock the hooks
 vi.mock('../../../hooks/useTimeline', () => ({
@@ -21,6 +66,39 @@ vi.mock('../../../hooks/useTimeline', () => ({
 
 vi.mock('../../../hooks/useUpdateLineage', () => ({
   useUpdateLineage: vi.fn(),
+}));
+
+vi.mock('../../../components/shared/MediaCard', () => ({
+  MediaCard: ({ item }: { item: MediaCardItem }) => {
+    let label = 'Timeline item';
+
+    if (item && typeof item === 'object' && 'data' in item) {
+      // TimelineNode
+      const data = item.data;
+      if ('file_name' in data) {
+        label = data.file_name;
+      } else if ('name' in data) {
+        label = data.name;
+      } else if ('prompt' in data) {
+        label = data.prompt;
+      }
+    } else if (item && typeof item === 'object') {
+      // Direct item types
+      if ('file_name' in item) {
+        label = item.file_name;
+      } else if ('name' in item) {
+        label = item.name;
+      } else if ('prompt' in item) {
+        label = item.prompt;
+      }
+    }
+
+    return <div>{label}</div>;
+  },
+}));
+
+vi.mock('../../../lib/media', () => ({
+  getAssetUrl: vi.fn(() => 'mock-url'),
 }));
 
 
@@ -273,6 +351,98 @@ describe('TimelineView', () => {
 
     // Verify timeline nodes are rendered (via the node ID)
     expect(screen.getByText('test.jpg')).toBeInTheDocument();
+  });
+
+  it('applies grid layout width to timeline nodes by default', async () => {
+    const mockTimelineData: TimelineData = {
+      nodes: [
+        {
+          type: 'media_asset',
+          data: {
+            id: 'asset-1',
+            project_id: 'test-project',
+            user_id: 'test-user',
+            file_name: 'grid-test.jpg',
+            file_type: 'image',
+            file_size: 1024,
+            storage_path: 'path/to/grid-test.jpg',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(useTimeline).mockReturnValue({
+      data: mockTimelineData,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('grid-test.jpg')).toBeInTheDocument();
+    });
+
+    const nodeWrapper = document.getElementById('node-asset-1');
+    expect(nodeWrapper).toHaveClass('w-[260px]');
+  });
+
+  it('applies list layout width to timeline nodes when viewMode is list', async () => {
+    const mockTimelineData: TimelineData = {
+      nodes: [
+        {
+          type: 'media_asset',
+          data: {
+            id: 'asset-1',
+            project_id: 'test-project',
+            user_id: 'test-user',
+            file_name: 'list-test.jpg',
+            file_type: 'image',
+            file_size: 2048,
+            storage_path: 'path/to/list-test.jpg',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    vi.mocked(useTimelinesByProject).mockReturnValue({
+      data: mockLineages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isSuccess: true,
+    } as unknown as UseQueryResult<Lineage[], Error>);
+
+    vi.mocked(useTimeline).mockReturnValue({
+      data: mockTimelineData,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as UseQueryResult<TimelineData, Error>);
+
+    renderWithProviders(<TimelineView projectId="test-project" viewMode="list" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('list-test.jpg')).toBeInTheDocument();
+    });
+
+    const nodeWrapper = document.getElementById('node-asset-1');
+    expect(nodeWrapper).toHaveClass('w-[360px]');
   });
 
   it('does not auto-select when no lineages are available', () => {

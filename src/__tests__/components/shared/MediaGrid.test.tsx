@@ -420,6 +420,26 @@ describe('MediaGrid', () => {
       expect(mockOnSelectItem).toHaveBeenCalledWith(mockImageItems[0]);
     });
 
+    it('does not call onSelectItem when isSelectable is false', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <MediaGrid
+          title="Test"
+          items={mockImageItems}
+          onSelectItem={mockOnSelectItem}
+          isSelectable={false}
+        />
+      );
+
+      const firstItem = screen.getAllByRole('img')[0].closest('div.cursor-default')!;
+      expect(firstItem).toBeInTheDocument();
+
+      await user.click(firstItem);
+
+      expect(mockOnSelectItem).not.toHaveBeenCalled();
+    });
+
     it('calls onEditItem when edit button is clicked', async () => {
       const user = userEvent.setup();
 
@@ -441,6 +461,30 @@ describe('MediaGrid', () => {
       editButton.click();
 
       expect(mockOnSelectItem).toHaveBeenCalledWith(mockImageItems[0]);
+      expect(mockOnEditItem).toHaveBeenCalledWith(mockImageItems[0]);
+    });
+
+    it('calls onEditItem without triggering onSelectItem when non-selectable', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <MediaGrid
+          title="Test"
+          items={mockImageItems}
+          itemActions="edit"
+          onSelectItem={mockOnSelectItem}
+          onEditItem={mockOnEditItem}
+          isSelectable={false}
+        />
+      );
+
+      const firstItem = screen.getAllByRole('img')[0].closest('div')!;
+      await user.hover(firstItem);
+
+      const editButton = await screen.findByTitle('Edit this image');
+      editButton.click();
+
+      expect(mockOnSelectItem).not.toHaveBeenCalled();
       expect(mockOnEditItem).toHaveBeenCalledWith(mockImageItems[0]);
     });
 
