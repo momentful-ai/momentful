@@ -3,10 +3,10 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName, formatFileSize, formatDuration, formatDate } from '../../lib/utils';
-import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
+import { MediaAsset, EditedImage } from '../../types';
 import { TimelineNode } from '../../types/timeline';
 
-export type MediaCardItem = MediaAsset | EditedImage | GeneratedVideo | TimelineNode;
+export type MediaCardItem = MediaAsset | EditedImage | TimelineNode;
 
 interface MediaCardProps {
   item: MediaCardItem;
@@ -28,13 +28,6 @@ function isMediaAsset(item: MediaCardItem): item is MediaAsset {
   return !isTimelineNode(item) && 'file_type' in item;
 }
 
-function isEditedImage(item: MediaCardItem): item is EditedImage {
-  return !isTimelineNode(item) && 'prompt' in item && 'edited_url' in item;
-}
-
-function isGeneratedVideo(item: MediaCardItem): item is GeneratedVideo {
-  return !isTimelineNode(item) && !isMediaAsset(item) && !isEditedImage(item) && 'storage_path' in item && 'name' in item;
-}
 
 export function MediaCard({
   item,
@@ -111,7 +104,7 @@ export function MediaCard({
     height = item.height;
     createdAt = item.created_at;
     editTarget = item;
-  } else if (isEditedImage(item)) {
+  } else {
     // EditedImage
     thumbnailUrl = item.edited_url;
     altText = item.prompt;
@@ -124,21 +117,6 @@ export function MediaCard({
     aiModel = item.ai_model;
     createdAt = item.created_at;
     editTarget = item;
-  } else if (isGeneratedVideo(item)) {
-    // GeneratedVideo
-    const videoItem = item as GeneratedVideo;
-    thumbnailUrl = videoItem.thumbnail_url || (videoItem.storage_path ? getAssetUrl(videoItem.storage_path) : '');
-    altText = videoItem.name || 'Video';
-    isImage = false;
-    duration = videoItem.duration;
-    fileName = videoItem.name;
-    createdAt = videoItem.created_at;
-  } else {
-    // Fallback - shouldn't happen
-    thumbnailUrl = '';
-    altText = 'Unknown';
-    isImage = false;
-    createdAt = new Date().toISOString();
   }
 
   const canEdit = Boolean(isImage && onEditImage && editTarget);

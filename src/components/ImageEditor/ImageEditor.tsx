@@ -35,16 +35,16 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   // Determine source asset ID for editing history
-  // If asset is EditedImage, use its source_asset_id; otherwise use asset.id
-  const sourceAssetId = ('source_asset_id' in asset) ? asset.source_asset_id : (sourceEditedImage?.source_asset_id || asset.id);
-  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId || '');
+  // Use sourceEditedImage's source_asset_id if available, otherwise use asset.id
+  const sourceAssetId = sourceEditedImage?.source_asset_id || asset.id;
+  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId);
 
   useEffect(() => {
     setEditedImageUrl(null);
     setShowComparison(false);
     setSelectedImageId(null);
-    // If asset is EditedImage, use its prompt; otherwise use sourceEditedImage's prompt
-    const prompt = ('prompt' in asset) ? asset.prompt : (sourceEditedImage?.prompt ?? '');
+    // Use sourceEditedImage's prompt if available, otherwise empty string
+    const prompt = sourceEditedImage?.prompt ?? '';
     setProductName(prompt);
   }, [asset, sourceEditedImage]);
 
@@ -116,8 +116,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
         return;
       }
 
-      // Get source image URL
-      const imageUrl = getAssetUrl(asset.storage_path);
+      // Get source image URL - use sourceEditedImage if available, otherwise use asset
+      const imageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
 
       // Build enhanced prompt
       const enhancedPrompt = buildEnhancedImagePrompt(productName);
@@ -252,9 +252,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   };
 
   // Determine the original image URL
-  // Priority: sourceEditedImage?.edited_url > asset.edited_url (if EditedImage) > asset.storage_path (if MediaAsset)
-  const originalImageUrl = sourceEditedImage?.edited_url ||
-    ('edited_url' in asset ? asset.edited_url : getAssetUrl(asset.storage_path));
+  // Priority: sourceEditedImage?.edited_url > asset.storage_path
+  const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
 
   return (
     <motion.div

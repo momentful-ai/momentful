@@ -99,6 +99,7 @@ const findEditImageButton = () => screen.getByText("Edit Image With AI");
 
 const generateImage = async (user: ReturnType<typeof userEvent.setup>, prompt: string, useEditButton = false) => {
   const promptInput = findPromptInput();
+  await user.clear(promptInput);
   await user.type(promptInput, prompt);
   const button = useEditButton ? findEditImageButton() : findGenerateButton();
   await user.click(button);
@@ -930,6 +931,62 @@ describe('ImageEditor', () => {
       await waitFor(() => {
         expect(mockUseEditedImagesBySource).toHaveBeenCalledWith('different-source-asset-id');
       });
+    });
+
+    it('sends the currently selected edited image URL to AI models when editing an edited image', async () => {
+      const user = createUser();
+
+      // Create a mock edited image that represents what was previously generated
+      const mockEditedImage: EditedImage = {
+        id: 'edited-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Make it more vibrant',
+        context: {},
+        ai_model: 'flux-pro',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
+        edited_url: 'https://example.com/edited-image.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: undefined,
+        source_asset_id: mockAsset.id,
+        created_at: '2025-10-20T16:00:00.000+00:00',
+      };
+
+      renderWithQueryClient(
+        <ImageEditor
+          asset={mockAsset}
+          projectId="test-project"
+          onClose={mockOnClose}
+          onSave={mockOnSave}
+          sourceEditedImage={mockEditedImage}
+        />
+      );
+
+      // Wait for the component to fully load
+      await waitFor(() => {
+        expect(screen.getByText('Image Editor')).toBeInTheDocument();
+      });
+
+      // Enter a new prompt and generate (editing the already-edited image)
+      await generateImage(user, 'Add more contrast');
+
+      // Verify that the Replicate API was called with the edited image URL,
+      // NOT the original asset's storage_path URL
+      await waitForApiCall(ReplicateAPI.createReplicateImageJob);
+      expect(ReplicateAPI.createReplicateImageJob).toHaveBeenCalledWith({
+        imageUrl: 'https://example.com/edited-image.png', // Should be the edited image URL
+        prompt: expect.stringContaining('keep the Add more contrast exactly the same'),
+        aspectRatio: '720:1280',
+      });
+
+      // Verify it was NOT called with the original asset's URL
+      expect(ReplicateAPI.createReplicateImageJob).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          imageUrl: 'https://example.com/user-uploads/user-uploads/test-user-id/test-project/test-image.jpg',
+        })
+      );
     });
   });
 });

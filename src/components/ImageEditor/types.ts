@@ -1,7 +1,7 @@
 import { MediaAsset, EditedImage } from '../../types';
 
 export interface ImageEditorProps {
-  asset: MediaAsset | EditedImage;
+  asset: MediaAsset; // Always a MediaAsset (original or synthetic created from EditedImage)
   projectId: string;
   onClose: () => void;
   onSave: () => void;
