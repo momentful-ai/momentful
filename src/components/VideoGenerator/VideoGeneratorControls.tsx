@@ -40,7 +40,7 @@ export function VideoGeneratorControls({
       onGenerate={onGenerate}
       icon="play"
       additionalInfo={additionalInfo}
-      errorMessage={!canGenerate ? 'Add at least one image or clip to generate video' : undefined}
+      errorMessage={!canGenerate ? 'Add at least one image to generate video' : undefined}
     >
       {selectedSources.length > 0 && (
         <MediaGrid
