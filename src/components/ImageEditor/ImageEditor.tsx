@@ -186,12 +186,18 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           storage_path: storagePath,
           width,
           height,
-          source_asset_id: asset.id,
+          ...(sourceEditedImage
+            ? { parent_id: sourceEditedImage.id } // Re-editing an edited image
+            : { source_asset_id: asset.id } // Editing from original asset
+          ),
         });
+
+        // Determine the lineage source ID for cache updates
+        const lineageSourceId = sourceEditedImage?.source_asset_id || asset.id;
 
         // Optimistically update the source-specific query cache for immediate UI feedback
         queryClient.setQueryData<EditedImage[]>(
-          ['edited-images', 'source', asset.id],
+          ['edited-images', 'source', lineageSourceId],
           (old = []) => [createdImage, ...old]
         );
 
@@ -203,11 +209,11 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
 
         // Invalidate edited images queries (for future mounts/refocus)
         await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', asset.id] });
+        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', lineageSourceId] });
 
         // Force immediate refetch of active queries (for currently mounted components)
         await queryClient.refetchQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', asset.id] });
+        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', lineageSourceId] });
 
         // Invalidate timeline queries if lineage_id is available
         if (createdImage.lineage_id) {

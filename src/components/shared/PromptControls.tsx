@@ -52,7 +52,7 @@ export function PromptControls({
             value={prompt}
             onChange={(e) => onPromptChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full h-24 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            className="w-full h-16 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
 
