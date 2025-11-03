@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -71,8 +72,14 @@ vi.mock('../../hooks/useUserId', () => ({
   useUserId: vi.fn(() => 'test-user-id'),
 }));
 
+vi.mock('../../hooks/useEditedImages', () => ({
+  useEditedImagesBySource: vi.fn(),
+}));
+
 import { useUserId } from '../../hooks/useUserId';
+import { useEditedImagesBySource } from '../../hooks/useEditedImages';
 const mockUseUserId = vi.mocked(useUserId);
+const mockUseEditedImagesBySource = vi.mocked(useEditedImagesBySource);
 
 const mockShowToast = vi.fn();
 vi.mock('../../hooks/useToast', () => ({
@@ -117,6 +124,10 @@ describe('ImageEditor', () => {
     // Reset all mocks
     vi.clearAllMocks();
     mockUseUserId.mockReturnValue('test-user-id');
+    mockUseEditedImagesBySource.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
 
     // Setup default mock implementations
     vi.mocked(database.editedImages.create).mockResolvedValue({
@@ -204,11 +215,17 @@ describe('ImageEditor', () => {
         created_at: '2025-10-20T16:00:00.000+00:00',
       };
 
+      // When sourceEditedImage is provided, the hook should be called with source_asset_id
+      mockUseEditedImagesBySource.mockReturnValue({
+        data: [],
+        isLoading: false,
+      } as any);
+
       renderWithQueryClient(
-        <ImageEditor 
-          asset={mockAsset} 
-          projectId="test-project" 
-          onClose={mockOnClose} 
+        <ImageEditor
+          asset={mockAsset}
+          projectId="test-project"
+          onClose={mockOnClose}
           onSave={mockOnSave}
           sourceEditedImage={mockEditedImage}
         />
@@ -218,6 +235,9 @@ describe('ImageEditor', () => {
       expect(image).toBeInTheDocument();
       // Should use the edited image URL instead of the asset's storage_path
       expect(image).toHaveAttribute('src', 'https://example.com/edited-image.png');
+
+      // Verify that useEditedImagesBySource was called with the source_asset_id
+      expect(mockUseEditedImagesBySource).toHaveBeenCalledWith(mockEditedImage.source_asset_id);
     });
 
     it('falls back to asset storage_path when sourceEditedImage has no edited_url', async () => {
@@ -730,7 +750,11 @@ describe('ImageEditor', () => {
         },
       ];
 
-      vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue(mockHistory);
+      // Mock the hook to return the history data
+      mockUseEditedImagesBySource.mockReturnValue({
+        data: mockHistory,
+        isLoading: false,
+      } as any);
 
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -738,7 +762,7 @@ describe('ImageEditor', () => {
 
       // Wait for history to load
       await waitFor(() => {
-        expect(database.editedImages.listBySourceAsset).toHaveBeenCalledWith(mockAsset.id);
+        expect(mockUseEditedImagesBySource).toHaveBeenCalledWith(mockAsset.id);
       });
 
       // Verify history is displayed
@@ -936,6 +960,41 @@ describe('ImageEditor', () => {
       // Use getAllByText since the prompt might appear in multiple places
       const firstVersionPrompts = screen.getAllByText('First version');
       expect(firstVersionPrompts.length).toBeGreaterThan(0);
+    });
+
+    it('correctly uses source_asset_id for editing history when sourceEditedImage is provided', async () => {
+      const mockEditedImage: EditedImage = {
+        id: 'edited-1',
+        project_id: 'test-project',
+        user_id: 'test-user-id',
+        prompt: 'Make it more vibrant',
+        context: {},
+        ai_model: 'flux-pro',
+        storage_path: 'user-uploads/test-user-id/test-project/edited-1.png',
+        edited_url: 'https://example.com/edited-image.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: undefined,
+        source_asset_id: 'different-source-asset-id',
+        created_at: '2025-10-20T16:00:00.000+00:00',
+      };
+
+      renderWithQueryClient(
+        <ImageEditor
+          asset={mockAsset}
+          projectId="test-project"
+          onClose={mockOnClose}
+          onSave={mockOnSave}
+          sourceEditedImage={mockEditedImage}
+        />
+      );
+
+      // Verify that useEditedImagesBySource was called with the source_asset_id from the edited image,
+      // not the asset.id (which would be 'asset-1')
+      await waitFor(() => {
+        expect(mockUseEditedImagesBySource).toHaveBeenCalledWith('different-source-asset-id');
+      });
     });
   });
 });

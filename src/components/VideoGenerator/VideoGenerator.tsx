@@ -372,7 +372,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
   };
 
   const canGenerate = selectedSources.length > 0;
-  const selectedModelInfo = videoModels.find((m) => m.id === selectedModel);
 
   return (
     <motion.div
@@ -421,7 +420,6 @@ export function VideoGenerator({ projectId, onClose, onSave, initialSelectedImag
           <div className="flex-shrink-0">
             <VideoGeneratorControls
               prompt={prompt}
-              selectedModel={selectedModelInfo?.name || ''}
               cameraMovement={cameraMovement}
               canGenerate={canGenerate}
               isGenerating={isGenerating}

@@ -1,10 +1,9 @@
-import { Wand2, Play, Sparkles } from 'lucide-react';
+import { Wand2, Play } from 'lucide-react';
 import { ReactNode } from 'react';
 import { mergeName } from '../../lib/utils';
 
 interface PromptControlsProps {
   prompt: string;
-  selectedModelName: string;
   isGenerating: boolean;
   canGenerate?: boolean;
   generateLabel?: string;
@@ -23,7 +22,6 @@ interface PromptControlsProps {
 
 export function PromptControls({
   prompt,
-  selectedModelName,
   isGenerating,
   canGenerate = true,
   generateLabel = 'Generate',
@@ -34,7 +32,6 @@ export function PromptControls({
   onPromptChange,
   onGenerate,
   icon = 'wand',
-  additionalInfo,
   errorMessage,
   children,
   fullHeight = false,
@@ -44,14 +41,6 @@ export function PromptControls({
   return (
     <div className={mergeName('border-t border-border bg-card p-6', fullHeight && 'h-full flex flex-col overflow-hidden')}>
       <div className={mergeName('max-w-5xl mx-auto flex flex-col gap-4', fullHeight && 'flex-1 overflow-hidden')}>
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <span className="text-sm font-medium text-muted-foreground">
-            Using {selectedModelName}
-            {additionalInfo && ` • ${additionalInfo}`}
-          </span>
-        </div>
-
         {children && (
           <div className={mergeName(fullHeight && 'flex-1 overflow-y-auto pr-2 -mr-2 space-y-4', !fullHeight && 'space-y-4')}>
             {children}

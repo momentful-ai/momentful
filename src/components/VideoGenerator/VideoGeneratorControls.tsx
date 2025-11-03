@@ -4,7 +4,6 @@ import { SelectedSource } from './types';
 
 interface VideoGeneratorControlsProps {
   prompt: string;
-  selectedModel: string;
   cameraMovement: string;
   canGenerate: boolean;
   isGenerating: boolean;
@@ -16,7 +15,6 @@ interface VideoGeneratorControlsProps {
 
 export function VideoGeneratorControls({
   prompt,
-  selectedModel,
   cameraMovement,
   canGenerate,
   isGenerating,
@@ -30,7 +28,6 @@ export function VideoGeneratorControls({
   return (
     <PromptControls
       prompt={prompt}
-      selectedModelName={selectedModel}
       isGenerating={isGenerating}
       canGenerate={canGenerate}
       generateLabel="Generate Video"

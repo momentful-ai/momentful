@@ -35,7 +35,9 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   // Fetch editing history for this source asset
-  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(asset.id);
+  // When editing an edited image, use its source_asset_id to get the full lineage history
+  const sourceAssetId = sourceEditedImage?.source_asset_id || asset.id;
+  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId);
 
   useEffect(() => {
     setEditedImageUrl(null);
@@ -254,7 +256,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
     }
   };
 
-  const selectedModelName = 'Flux Pro';
   // If sourceEditedImage is provided, use its edited_url as the source image
   // Otherwise, use the asset's storage_path
   const originalImageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
@@ -283,7 +284,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           <div className="flex-none">
             <PromptControls
               prompt={productName}
-              selectedModelName={selectedModelName}
               isGenerating={isGenerating}
               canGenerate={!!productName.trim()}
               generateLabel="Generate"
