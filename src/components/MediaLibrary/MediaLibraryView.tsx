@@ -119,10 +119,10 @@ export function MediaLibraryView({
             <ImageIcon className="w-10 h-10 text-muted-foreground" />
           </div>
           <h3 className="text-2xl font-semibold mb-3">
-            No media assets yet
+            No uploaded images yet
           </h3>
           <p className="text-muted-foreground max-w-md mx-auto text-lg mb-2">
-            Upload images and videos to get started with your project
+            Upload images to get started with your project
           </p>
           <p className="text-muted-foreground/60 flex items-center gap-2 justify-center">
             <Upload className="w-4 h-4" />

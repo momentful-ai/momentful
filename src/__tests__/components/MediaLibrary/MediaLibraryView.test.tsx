@@ -88,8 +88,8 @@ describe('MediaLibraryView', () => {
   it('renders empty state when no assets', () => {
     render(<MediaLibraryView {...defaultProps} assets={[]} />);
 
-    expect(screen.getByText('No media assets yet')).toBeInTheDocument();
-    expect(screen.getByText('Upload images and videos to get started with your project')).toBeInTheDocument();
+    expect(screen.getByText('No uploaded images yet')).toBeInTheDocument();
+    expect(screen.getByText('Upload images to get started with your project')).toBeInTheDocument();
   });
 
   it('renders assets in grid view', () => {
@@ -203,12 +203,12 @@ describe('MediaLibraryView', () => {
   it('handles empty assets array in list view', () => {
     render(<MediaLibraryView {...defaultProps} assets={[]} viewMode="list" />);
 
-    expect(screen.getByText('No media assets yet')).toBeInTheDocument();
+    expect(screen.getByText('No uploaded images yet')).toBeInTheDocument();
   });
 
   it('handles empty assets array in grid view', () => {
     render(<MediaLibraryView {...defaultProps} assets={[]} viewMode="grid" />);
 
-    expect(screen.getByText('No media assets yet')).toBeInTheDocument();
+    expect(screen.getByText('No uploaded images yet')).toBeInTheDocument();
   });
 });
