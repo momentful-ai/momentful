@@ -51,7 +51,7 @@ vi.mock('../../lib/database', () => ({
     editedImages: {
       create: vi.fn(),
       list: vi.fn(() => Promise.resolve([])),
-      listBySourceAsset: vi.fn(() => Promise.resolve([])),
+      listByLineage: vi.fn(() => Promise.resolve([])),
     },
     storage: {
       getPublicUrl: vi.fn((bucket, path) => `https://example.com/${bucket}/${path}`),
@@ -73,13 +73,13 @@ vi.mock('../../hooks/useUserId', () => ({
 }));
 
 vi.mock('../../hooks/useEditedImages', () => ({
-  useEditedImagesBySource: vi.fn(),
+  useEditedImagesByLineage: vi.fn(),
 }));
 
 import { useUserId } from '../../hooks/useUserId';
-import { useEditedImagesBySource } from '../../hooks/useEditedImages';
+import { useEditedImagesByLineage } from '../../hooks/useEditedImages';
 const mockUseUserId = vi.mocked(useUserId);
-const mockUseEditedImagesBySource = vi.mocked(useEditedImagesBySource);
+const mockUseEditedImagesByLineage = vi.mocked(useEditedImagesByLineage);
 
 const mockShowToast = vi.fn();
 vi.mock('../../hooks/useToast', () => ({
@@ -126,7 +126,7 @@ const waitForApiCall = async (apiCall: any, timeout = 5000) => {
 const setupDefaultMocks = () => {
   vi.clearAllMocks();
   mockUseUserId.mockReturnValue('test-user-id');
-  mockUseEditedImagesBySource.mockReturnValue({
+  mockUseEditedImagesByLineage.mockReturnValue({
     data: [],
     isLoading: false,
   } as any);
@@ -151,6 +151,7 @@ describe('ImageEditor', () => {
     duration: undefined,
     sort_order: 1,
     created_at: '2025-10-20T15:59:30.165+00:00',
+    lineage_id: 'lineage-123',
   };
 
   beforeEach(() => {
@@ -250,12 +251,12 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: undefined,
-        source_asset_id: 'asset-1',
+        lineage_id: 'lineage-123',
         created_at: '2025-10-20T16:00:00.000+00:00',
       };
 
-      // When sourceEditedImage is provided, the hook should be called with source_asset_id
-      mockUseEditedImagesBySource.mockReturnValue({
+      // When sourceEditedImage is provided, the hook should be called with lineage_id
+      mockUseEditedImagesByLineage.mockReturnValue({
         data: [],
         isLoading: false,
       } as any);
@@ -275,8 +276,8 @@ describe('ImageEditor', () => {
       // Should use the edited image URL instead of the asset's storage_path
       expect(image).toHaveAttribute('src', 'https://example.com/edited-image.png');
 
-      // Verify that useEditedImagesBySource was called with the source_asset_id
-      expect(mockUseEditedImagesBySource).toHaveBeenCalledWith(mockEditedImage.source_asset_id);
+      // Verify that useEditedImagesByLineage was called with the lineage_id
+      expect(mockUseEditedImagesByLineage).toHaveBeenCalledWith(mockEditedImage.lineage_id);
     });
 
     it('falls back to asset storage_path when sourceEditedImage has no edited_url', async () => {
@@ -293,7 +294,6 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: undefined,
-        source_asset_id: 'asset-1',
         created_at: '2025-10-20T16:00:00.000+00:00',
       };
 
@@ -507,7 +507,6 @@ describe('ImageEditor', () => {
         () => {
           expect(database.editedImages.create).toHaveBeenCalledWith(
             expect.objectContaining({
-              source_asset_id: mockAsset.id,
             })
           );
         },
@@ -530,15 +529,14 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: null,
-        source_asset_id: mockAsset.id,
         created_at: '2025-10-20T15:59:30.165+00:00',
         lineage_id: 'lineage-1',
       };
 
       vi.mocked(database.editedImages.create).mockResolvedValue(createdImage);
 
-      // Mock listBySourceAsset to return the created image (simulating refetch result)
-      vi.mocked(database.editedImages.listBySourceAsset).mockResolvedValue([createdImage]);
+      // Mock listByLineage to return the created image (simulating refetch result)
+      vi.mocked(database.editedImages.listByLineage).mockResolvedValue([createdImage]);
 
       // Mock list to return the created image (for project-wide query)
       vi.mocked(database.editedImages.list).mockResolvedValue([createdImage]);
@@ -630,7 +628,6 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: null,
-        source_asset_id: mockAsset.id,
         created_at: '2025-10-20T15:59:30.165+00:00',
         lineage_id: 'lineage-123',
       };
@@ -668,7 +665,6 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: null,
-        source_asset_id: mockAsset.id,
         created_at: '2025-10-20T15:59:30.165+00:00',
         lineage_id: undefined,
       };
@@ -693,7 +689,7 @@ describe('ImageEditor', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['timelines', 'test-project'] });
     });
 
-    it('fetches editing history for the source asset', async () => {
+    it('fetches editing history for the lineage', async () => {
       const mockHistory = [
         {
           id: 'edited-1',
@@ -707,13 +703,12 @@ describe('ImageEditor', () => {
           width: 1920,
           height: 1080,
           version: 1,
-          source_asset_id: mockAsset.id,
           created_at: '2025-10-20T15:59:30.165+00:00',
         },
       ];
 
       // Mock the hook to return the history data
-      mockUseEditedImagesBySource.mockReturnValue({
+      mockUseEditedImagesByLineage.mockReturnValue({
         data: mockHistory,
         isLoading: false,
       } as any);
@@ -724,12 +719,13 @@ describe('ImageEditor', () => {
 
       // Wait for history to load
       await waitFor(() => {
-        expect(mockUseEditedImagesBySource).toHaveBeenCalledWith(mockAsset.id);
+        expect(mockUseEditedImagesByLineage).toHaveBeenCalledWith(mockAsset.lineage_id);
       });
 
       // Verify history is displayed
       await waitFor(() => {
-        expect(screen.getByText(/Editing History/)).toBeInTheDocument();
+        expect(screen.getByText('Previous edit')).toBeInTheDocument();
+        expect(screen.getByAltText('Previous edit')).toBeInTheDocument();
       });
     });
 
@@ -898,7 +894,7 @@ describe('ImageEditor', () => {
       expect(firstVersionPrompts.length).toBeGreaterThan(0);
     });
 
-    it('correctly uses source_asset_id for editing history when sourceEditedImage is provided', async () => {
+    it('correctly uses lineage_id for editing history when sourceEditedImage is provided', async () => {
       const mockEditedImage: EditedImage = {
         id: 'edited-1',
         project_id: 'test-project',
@@ -912,7 +908,7 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: undefined,
-        source_asset_id: 'different-source-asset-id',
+        lineage_id: 'lineage-456',
         created_at: '2025-10-20T16:00:00.000+00:00',
       };
 
@@ -926,10 +922,9 @@ describe('ImageEditor', () => {
         />
       );
 
-      // Verify that useEditedImagesBySource was called with the source_asset_id from the edited image,
-      // not the asset.id (which would be 'asset-1')
+      // Verify that useEditedImagesByLineage was called with the lineage_id from the edited image
       await waitFor(() => {
-        expect(mockUseEditedImagesBySource).toHaveBeenCalledWith('different-source-asset-id');
+        expect(mockUseEditedImagesByLineage).toHaveBeenCalledWith('lineage-456');
       });
     });
 
@@ -950,7 +945,7 @@ describe('ImageEditor', () => {
         height: 1080,
         version: 1,
         parent_id: undefined,
-        source_asset_id: mockAsset.id,
+        lineage_id: 'lineage-789',
         created_at: '2025-10-20T16:00:00.000+00:00',
       };
 

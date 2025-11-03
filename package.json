@@ -22,7 +22,9 @@
     "test:e2e:ci": "playwright test --project=chromium",
     "supabase:migrate": "node scripts/migrate-supabase-project.js",
     "supabase:link": "node scripts/link-and-push.js",
-    "supabase:push": "./bin/supabase db push"
+    "supabase:push": "./bin/supabase db push",
+    "supabase:pull": "./bin/supabase db push --include-all",
+    "supabase:reset": "./bin/supabase db pull"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.0.0",

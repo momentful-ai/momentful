@@ -40,7 +40,6 @@ export interface EditedImage {
   height: number;
   version: number;
   parent_id?: string;
-  source_asset_id?: string;
   created_at: string;
   lineage_id?: string;
 }

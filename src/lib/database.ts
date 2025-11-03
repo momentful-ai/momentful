@@ -195,11 +195,12 @@ export const database = {
       }));
     },
 
-    async listBySourceAsset(sourceAssetId: string) {
+
+    async listByLineage(lineageId: string) {
       const { data, error } = await supabase
         .from('edited_images')
         .select('*')
-        .eq('source_asset_id', sourceAssetId)
+        .eq('lineage_id', lineageId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -218,8 +219,8 @@ export const database = {
       storage_path: string;
       width: number;
       height: number;
-      source_asset_id?: string;
       parent_id?: string;
+      lineage_id?: string;
     }) {
       // Validate required fields
       if (!image.project_id || !image.project_id.trim()) {
@@ -229,35 +230,11 @@ export const database = {
         throw new Error('user_id is required and cannot be empty');
       }
 
-      let lineage_id: string | undefined;
-
-      // Lookup lineage_id from source
-      if (image.source_asset_id) {
-        const { data: sourceData, error: sourceError } = await supabase
-          .from('media_assets')
-          .select('lineage_id')
-          .eq('id', image.source_asset_id)
-          .single();
-
-        if (sourceError) throw sourceError;
-        lineage_id = sourceData?.lineage_id;
-      } else if (image.parent_id) {
-        const { data: parentData, error: parentError } = await supabase
-          .from('edited_images')
-          .select('lineage_id')
-          .eq('id', image.parent_id)
-          .single();
-
-        if (parentError) throw parentError;
-        lineage_id = parentData?.lineage_id;
-      }
-
       const { data, error } = await supabase
         .from('edited_images')
         .insert({
           ...image,
           context: image.context || {},
-          lineage_id,
         })
         .select()
         .single();
@@ -469,6 +446,15 @@ export const database = {
     },
 
     async getTimelineData(lineageId: string) {
+      // Fetch the lineage to get the root media asset ID
+      const { data: lineageData, error: lineageError } = await supabase
+        .from('lineages')
+        .select('root_media_asset_id')
+        .eq('id', lineageId)
+        .single();
+
+      if (lineageError) throw lineageError;
+
       // Fetch all media_assets with this lineage_id
       const { data: mediaAssetsData, error: maError } = await supabase
         .from('media_assets')
@@ -521,12 +507,14 @@ export const database = {
       // Build edges
       const edges: TimelineEdge[] = [];
 
-      // Edges from edited_images source_asset_id or parent_id
+      // Edges from edited_images to their parents or root media asset
       for (const ei of editedImagesData) {
-        if (ei.source_asset_id) {
-          edges.push({ from: ei.source_asset_id, to: ei.id });
-        } else if (ei.parent_id) {
+        if (ei.parent_id) {
+          // Connect to parent edited image
           edges.push({ from: ei.parent_id, to: ei.id });
+        } else {
+          // Connect to root media asset (no parent means this is a root edit)
+          edges.push({ from: lineageData.root_media_asset_id, to: ei.id });
         }
       }
 

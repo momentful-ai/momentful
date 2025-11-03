@@ -5,7 +5,7 @@ import { database } from '../../lib/database';
 import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt } from '../../lib/media';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
-import { useEditedImagesBySource } from '../../hooks/useEditedImages';
+import { useEditedImagesByLineage } from '../../hooks/useEditedImages';
 import { EditedImage } from '../../types';
 import {
   createReplicateImageJob,
@@ -34,10 +34,10 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
   const [versions, setVersions] = useState<VersionHistoryItem[]>([]);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
-  // Determine source asset ID for editing history
-  // Use sourceEditedImage's source_asset_id if available, otherwise use asset.id
-  const sourceAssetId = sourceEditedImage?.source_asset_id || asset.id;
-  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesBySource(sourceAssetId);
+  // Determine lineage ID for editing history
+  // Use sourceEditedImage's lineage_id if available, otherwise use asset's lineage_id
+  const lineageId = sourceEditedImage?.lineage_id || asset.lineage_id || null;
+  const { data: editingHistory = [], isLoading: isLoadingHistory } = useEditedImagesByLineage(lineageId);
 
   useEffect(() => {
     setEditedImageUrl(null);
@@ -186,18 +186,19 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           storage_path: storagePath,
           width,
           height,
+          lineage_id: lineageId || undefined, // Always set lineage_id from the asset
           ...(sourceEditedImage
             ? { parent_id: sourceEditedImage.id } // Re-editing an edited image
-            : { source_asset_id: asset.id } // Editing from original asset
+            : undefined // First edit from original asset - no parent_id needed
           ),
         });
 
-        // Determine the lineage source ID for cache updates
-        const lineageSourceId = sourceEditedImage?.source_asset_id || asset.id;
+        // For cache updates, we use the asset ID (which should be the root of the lineage)
+        const rootAssetId = asset.id;
 
         // Optimistically update the source-specific query cache for immediate UI feedback
         queryClient.setQueryData<EditedImage[]>(
-          ['edited-images', 'source', lineageSourceId],
+          ['edited-images', 'source', rootAssetId],
           (old = []) => [createdImage, ...old]
         );
 
@@ -207,19 +208,34 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
           (old = []) => [createdImage, ...old]
         );
 
+        // Optimistically update the lineage-specific query cache
+        if (createdImage.lineage_id) {
+          queryClient.setQueryData<EditedImage[]>(
+            ['edited-images', 'lineage', createdImage.lineage_id],
+            (old = []) => [createdImage, ...old]
+          );
+        }
+
         // Invalidate edited images queries (for future mounts/refocus)
         await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', lineageSourceId] });
+        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', rootAssetId] });
+        if (createdImage.lineage_id) {
+          await queryClient.invalidateQueries({ queryKey: ['edited-images', 'lineage', createdImage.lineage_id] });
+        }
 
         // Force immediate refetch of active queries (for currently mounted components)
         await queryClient.refetchQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', lineageSourceId] });
+        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', rootAssetId] });
+        if (createdImage.lineage_id) {
+          await queryClient.refetchQueries({ queryKey: ['edited-images', 'lineage', createdImage.lineage_id] });
+        }
 
-        // Invalidate timeline queries if lineage_id is available
+        // Invalidate timeline queries - always invalidate project timelines,
+        // and invalidate specific timeline if lineage_id is available
+        await queryClient.invalidateQueries({ queryKey: ['timelines', projectId] });
         if (createdImage.lineage_id) {
           await queryClient.invalidateQueries({ queryKey: ['timeline', createdImage.lineage_id] });
         }
-        await queryClient.invalidateQueries({ queryKey: ['timelines', projectId] });
 
         // Set the newly created image as selected
         setSelectedImageId(createdImage.id);

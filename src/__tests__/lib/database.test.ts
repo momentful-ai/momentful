@@ -479,60 +479,6 @@ describe('database', () => {
       });
     });
 
-    describe('listBySourceAsset', () => {
-      it('successfully lists edited images by source asset with public URLs', async () => {
-        const mockImages = [
-          {
-            id: 'image-1',
-            project_id: 'project-1',
-            source_asset_id: 'source-asset-1',
-            storage_path: 'path/to/image1.jpg',
-          },
-          {
-            id: 'image-2',
-            project_id: 'project-1',
-            source_asset_id: 'source-asset-1',
-            storage_path: 'path/to/image2.jpg',
-          },
-        ];
-
-        const queryBuilder = createQueryBuilder({ data: mockImages, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
-
-        // Mock storage.getPublicUrl for each image
-        const mockStorageBucket = {
-          getPublicUrl: vi.fn((path) => ({
-            data: { publicUrl: `https://example.com/user-uploads/${path}` },
-          })),
-        };
-        mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
-
-        const result = await database.editedImages.listBySourceAsset('source-asset-1');
-
-        expect(mockSupabaseClient.from).toHaveBeenCalledWith('edited_images');
-        expect(queryBuilder.eq).toHaveBeenCalledWith('source_asset_id', 'source-asset-1');
-        expect(result).toHaveLength(2);
-        expect(result[0].edited_url).toBe('https://example.com/user-uploads/path/to/image1.jpg');
-        expect(result[1].edited_url).toBe('https://example.com/user-uploads/path/to/image2.jpg');
-      });
-
-      it('returns empty array when no images exist for source asset', async () => {
-        const queryBuilder = createQueryBuilder({ data: [], error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
-
-        const result = await database.editedImages.listBySourceAsset('source-asset-1');
-
-        expect(result).toEqual([]);
-      });
-
-      it('handles database errors', async () => {
-        const dbError = { message: 'Database error', code: 'PGRST301' };
-        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
-
-        await expect(database.editedImages.listBySourceAsset('source-asset-1')).rejects.toEqual(dbError);
-      });
-    });
 
     describe('create', () => {
       it('successfully creates an edited image with context', async () => {
@@ -1244,7 +1190,6 @@ describe('lineages', () => {
       const mockEditedImages = [
         {
           id: 'edit-1',
-          source_asset_id: 'asset-1',
           storage_path: 'path/to/edit.jpg',
           created_at: '2025-01-02T00:00:00Z',
           lineage_id: 'lineage-1',
@@ -1260,7 +1205,14 @@ describe('lineages', () => {
       ];
       const mockVideoSources = [{ video_id: 'video-1', source_id: 'edit-1', source_type: 'edited_image' }];
 
-      // Mock queries - each needs a query builder that chains select -> eq
+      // Mock queries - each needs a query builder that chains select -> eq -> single
+      const lineageBuilder = {
+        select: vi.fn(() => lineageBuilder),
+        eq: vi.fn(() => lineageBuilder),
+        single: vi.fn(() => ({ data: { root_media_asset_id: 'asset-1' }, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
+
       const mediaAssetsBuilder = {
         select: vi.fn(() => mediaAssetsBuilder),
         eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
@@ -1286,6 +1238,14 @@ describe('lineages', () => {
       };
       mockSupabaseClient.from.mockReturnValueOnce(videoSourcesBuilder1);
 
+      // Mock storage for getPublicUrl calls
+      const mockStorageBucket = {
+        getPublicUrl: vi.fn(() => ({
+          data: { publicUrl: 'https://example.com/storage/path' },
+        })),
+      };
+      mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
+
       const result = await database.lineages.getTimelineData('lineage-1');
 
       expect(result.nodes).toHaveLength(3);
@@ -1308,7 +1268,6 @@ describe('lineages', () => {
       const mockEditedImages = [
         {
           id: 'edit-1',
-          source_asset_id: null, // No source_asset_id
           parent_id: 'edit-parent', // Has parent_id instead
           storage_path: 'path/to/edit.jpg',
           created_at: '2025-01-02T00:00:00Z',
@@ -1319,6 +1278,13 @@ describe('lineages', () => {
       const mockGeneratedVideos: any[] = [];
 
       // Mock queries
+      const lineageBuilder = {
+        select: vi.fn(() => lineageBuilder),
+        eq: vi.fn(() => lineageBuilder),
+        single: vi.fn(() => ({ data: { root_media_asset_id: 'asset-1' }, error: null })),
+      };
+      mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
+
       const mediaAssetsBuilder = {
         select: vi.fn(() => mediaAssetsBuilder),
         eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
@@ -1336,6 +1302,14 @@ describe('lineages', () => {
         eq: vi.fn(() => ({ data: mockGeneratedVideos, error: null })),
       };
       mockSupabaseClient.from.mockReturnValueOnce(generatedVideosBuilder);
+
+      // Mock storage for getPublicUrl calls
+      const mockStorageBucket = {
+        getPublicUrl: vi.fn(() => ({
+          data: { publicUrl: 'https://example.com/storage/path' },
+        })),
+      };
+      mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
 
       const result = await database.lineages.getTimelineData('lineage-1');
 

@@ -31,16 +31,17 @@ function App() {
       // If it's an EditedImage, we need to fetch the source MediaAsset for the editor
       // The editor needs the source asset for history, but we'll use the edited image as the source
       if ('prompt' in asset && 'edited_url' in asset) {
-        // It's an EditedImage - fetch the source MediaAsset
-        if (asset.source_asset_id) {
-          try {
-            const sourceAsset = await database.mediaAssets.getById(asset.source_asset_id);
-            setView({ type: 'editor', asset: sourceAsset, projectId, project: view.project, sourceEditedImage: asset });
-          } catch (error) {
-            console.error('Failed to fetch source asset:', error);
-            // Fallback: create a synthetic asset
+        // It's an EditedImage - we need to find the root media asset for the editor
+        try {
+          // Try to find the root media asset using lineage information
+          if (asset.lineage_id) {
+            const lineage = await database.lineages.getById(asset.lineage_id);
+            const rootAsset = await database.mediaAssets.getById(lineage.root_media_asset_id);
+            setView({ type: 'editor', asset: rootAsset, projectId, project: view.project, sourceEditedImage: asset });
+          } else {
+            // Fallback: create synthetic asset using the edited image's info
             const syntheticAsset: MediaAsset = {
-              id: asset.source_asset_id,
+              id: `synthetic-${asset.id}`,
               project_id: asset.project_id,
               user_id: asset.user_id,
               file_name: `edited-${asset.id}.png`,
@@ -52,13 +53,15 @@ function App() {
               height: asset.height,
               sort_order: 0,
               created_at: asset.created_at,
+              lineage_id: asset.lineage_id,
             };
             setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
           }
-        } else {
-          // No source_asset_id - create synthetic asset
+        } catch (error) {
+          console.error('Failed to fetch root asset:', error);
+          // Fallback: create synthetic asset
           const syntheticAsset: MediaAsset = {
-            id: asset.id,
+            id: `synthetic-${asset.id}`,
             project_id: asset.project_id,
             user_id: asset.user_id,
             file_name: `edited-${asset.id}.png`,
@@ -70,6 +73,7 @@ function App() {
             height: asset.height,
             sort_order: 0,
             created_at: asset.created_at,
+            lineage_id: asset.lineage_id,
           };
           setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
         }
