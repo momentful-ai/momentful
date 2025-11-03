@@ -180,7 +180,7 @@ describe('TimelineView', () => {
 
     renderWithProviders(<TimelineView projectId="test-project" />);
 
-    expect(screen.getByText('No timelines available. Start by uploading media and editing.')).toBeInTheDocument();
+    expect(screen.getByText('No timelines yet')).toBeInTheDocument();
   });
 
   it('renders lineage selectors', () => {
