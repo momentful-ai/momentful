@@ -1255,8 +1255,8 @@ describe('lineages', () => {
       ]);
     });
 
-    it('creates edges using parent_id when source_asset_id is missing', async () => {
-      // Mock data with an edited image that has parent_id but no source_asset_id
+    it('creates edges using parent_id for derived edits', async () => {
+      // Mock data with an edited image that has parent_id referencing another edit
       const mockMediaAssets = [
         {
           id: 'asset-1',

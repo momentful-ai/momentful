@@ -55,7 +55,6 @@ const mockEditedImage: EditedImage = {
   width: 1920,
   height: 1080,
   version: 1,
-  source_asset_id: 'asset-1',
   created_at: '2025-01-01T01:00:00Z',
 };
 

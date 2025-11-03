@@ -194,14 +194,6 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
         });
 
         // For cache updates, we use the asset ID (which should be the root of the lineage)
-        const rootAssetId = asset.id;
-
-        // Optimistically update the source-specific query cache for immediate UI feedback
-        queryClient.setQueryData<EditedImage[]>(
-          ['edited-images', 'source', rootAssetId],
-          (old = []) => [createdImage, ...old]
-        );
-
         // Optimistically update the project-wide query cache
         queryClient.setQueryData<EditedImage[]>(
           ['edited-images', projectId],
@@ -218,14 +210,12 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
 
         // Invalidate edited images queries (for future mounts/refocus)
         await queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.invalidateQueries({ queryKey: ['edited-images', 'source', rootAssetId] });
         if (createdImage.lineage_id) {
           await queryClient.invalidateQueries({ queryKey: ['edited-images', 'lineage', createdImage.lineage_id] });
         }
 
         // Force immediate refetch of active queries (for currently mounted components)
         await queryClient.refetchQueries({ queryKey: ['edited-images', projectId] });
-        await queryClient.refetchQueries({ queryKey: ['edited-images', 'source', rootAssetId] });
         if (createdImage.lineage_id) {
           await queryClient.refetchQueries({ queryKey: ['edited-images', 'lineage', createdImage.lineage_id] });
         }
@@ -235,6 +225,8 @@ export function ImageEditor({ asset, projectId, onClose, onSave, onNavigateToVid
         await queryClient.invalidateQueries({ queryKey: ['timelines', projectId] });
         if (createdImage.lineage_id) {
           await queryClient.invalidateQueries({ queryKey: ['timeline', createdImage.lineage_id] });
+          // Force immediate refetch of timeline query for currently mounted components
+          await queryClient.refetchQueries({ queryKey: ['timeline', createdImage.lineage_id] });
         }
 
         // Set the newly created image as selected

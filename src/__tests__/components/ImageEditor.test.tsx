@@ -183,6 +183,7 @@ describe('ImageEditor', () => {
       height: 1080,
       version: 1,
       parent_id: null,
+      lineage_id: 'lineage-1',
       created_at: '2025-10-20T15:59:30.165+00:00',
     });
 
@@ -493,7 +494,7 @@ describe('ImageEditor', () => {
       expect(mockOnClose).not.toHaveBeenCalled();
     });
 
-    it('includes source_asset_id when creating edited image', async () => {
+    it('includes lineage_id when creating edited image', async () => {
       const user = createUser();
       renderWithQueryClient(
         <ImageEditor asset={mockAsset} projectId="test-project" onClose={mockOnClose} onSave={mockOnSave} />
@@ -507,6 +508,7 @@ describe('ImageEditor', () => {
         () => {
           expect(database.editedImages.create).toHaveBeenCalledWith(
             expect.objectContaining({
+              lineage_id: 'lineage-123',
             })
           );
         },
@@ -555,31 +557,31 @@ describe('ImageEditor', () => {
 
       // Verify setQueryData was called for optimistic updates
       expect(setQueryDataSpy).toHaveBeenCalledWith(
-        ['edited-images', 'source', mockAsset.id],
+        ['edited-images', 'test-project'],
         expect.any(Function)
       );
       expect(setQueryDataSpy).toHaveBeenCalledWith(
-        ['edited-images', 'test-project'],
+        ['edited-images', 'lineage', 'lineage-1'],
         expect.any(Function)
       );
 
       // Wait for refetch to complete and verify cache contains the image
       await waitFor(
         () => {
-          const sourceCacheData = queryClient.getQueryData(['edited-images', 'source', mockAsset.id]);
           const projectCacheData = queryClient.getQueryData(['edited-images', 'test-project']);
+          const lineageCacheData = queryClient.getQueryData(['edited-images', 'lineage', 'lineage-1']);
 
-          expect(sourceCacheData).toBeDefined();
           expect(projectCacheData).toBeDefined();
+          expect(lineageCacheData).toBeDefined();
 
-          if (Array.isArray(sourceCacheData) && sourceCacheData.length > 0) {
-            expect(sourceCacheData[0]).toMatchObject({
+          if (Array.isArray(projectCacheData) && projectCacheData.length > 0) {
+            expect(projectCacheData[0]).toMatchObject({
               id: createdImage.id,
               prompt: createdImage.prompt,
             });
           }
-          if (Array.isArray(projectCacheData) && projectCacheData.length > 0) {
-            expect(projectCacheData[0]).toMatchObject({
+          if (Array.isArray(lineageCacheData) && lineageCacheData.length > 0) {
+            expect(lineageCacheData[0]).toMatchObject({
               id: createdImage.id,
               prompt: createdImage.prompt,
             });
@@ -604,13 +606,13 @@ describe('ImageEditor', () => {
       // Wait for image creation to complete
       await waitForGenerationComplete();
 
-      // Verify invalidateQueries was called for project and source queries
+      // Verify invalidateQueries was called for project and lineage queries
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'test-project'] });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'source', mockAsset.id] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'lineage', 'lineage-1'] });
 
       // Verify refetchQueries was called for active queries
       expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'test-project'] });
-      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'source', mockAsset.id] });
+      expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['edited-images', 'lineage', 'lineage-1'] });
     });
 
     it('invalidates timeline queries when lineage_id is present', async () => {

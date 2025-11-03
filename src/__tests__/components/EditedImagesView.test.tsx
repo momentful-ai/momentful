@@ -142,6 +142,7 @@ describe('EditedImagesView', () => {
       height: 1080,
       version: 1,
       parent_id: undefined,
+      lineage_id: 'lineage-123',
       created_at: '2025-10-20T15:59:30.165+00:00',
     },
   ];
@@ -337,13 +338,8 @@ describe('EditedImagesView', () => {
   });
 
   it('calls onEditImage with EditedImage when Edit with AI button is clicked', async () => {
-    const editedImageWithSource: EditedImage = {
-      ...mockEditedImages[0],
-      source_asset_id: 'source-asset-1',
-    };
-
     mockUseEditedImages.mockReturnValue({
-      data: [editedImageWithSource],
+      data: mockEditedImages,
       isLoading: false,
       isError: false,
       error: null,
@@ -351,38 +347,33 @@ describe('EditedImagesView', () => {
 
     const onEditImage = vi.fn();
     renderWithQueryClient(
-      <EditedImagesView 
-        {...defaultProps} 
+      <EditedImagesView
+        {...defaultProps}
         onEditImage={onEditImage}
       />
     );
 
-    // Find the edit button and hover to make it visible
     const editButton = screen.getByTestId('edit-button-edited-1');
-    
-    // Simulate hover by triggering the group-hover state
     const card = editButton.closest('.group');
     if (card) {
       fireEvent.mouseEnter(card);
     }
 
-    // Click the edit button
     fireEvent.click(editButton);
 
-    // Should call onEditImage with the EditedImage directly (not the source asset)
     await waitFor(() => {
-      expect(onEditImage).toHaveBeenCalledWith(editedImageWithSource, 'project-1');
+      expect(onEditImage).toHaveBeenCalledWith(mockEditedImages[0], 'project-1');
     }, { timeout: 1000 });
   });
 
-  it('calls onEditImage even when source_asset_id is missing', async () => {
-    const editedImageWithoutSource: EditedImage = {
+  it('falls back gracefully when lineage_id is missing', async () => {
+    const editedImageWithoutLineage: EditedImage = {
       ...mockEditedImages[0],
-      source_asset_id: undefined,
+      lineage_id: undefined,
     };
 
     mockUseEditedImages.mockReturnValue({
-      data: [editedImageWithoutSource],
+      data: [editedImageWithoutLineage],
       isLoading: false,
       isError: false,
       error: null,
@@ -390,28 +381,22 @@ describe('EditedImagesView', () => {
 
     const onEditImage = vi.fn();
     renderWithQueryClient(
-      <EditedImagesView 
-        {...defaultProps} 
+      <EditedImagesView
+        {...defaultProps}
         onEditImage={onEditImage}
       />
     );
 
-    // Find the edit button
     const editButton = screen.getByTestId('edit-button-edited-1');
-    
-    // Simulate hover
     const card = editButton.closest('.group');
     if (card) {
       fireEvent.mouseEnter(card);
     }
 
-    // Click the edit button
     fireEvent.click(editButton);
 
-    // Should still call onEditImage with the EditedImage
-    // The App.tsx will handle fetching the source asset if needed
     await waitFor(() => {
-      expect(onEditImage).toHaveBeenCalledWith(editedImageWithoutSource, 'project-1');
+      expect(onEditImage).toHaveBeenCalledWith(editedImageWithoutLineage, 'project-1');
     }, { timeout: 1000 });
   });
 });

@@ -27,6 +27,7 @@ export interface EditedImage {
   version: number;
   parent_id: string | null;
   created_at: string;
+  lineage_id: string | null;
 }
 
 export interface GeneratedVideo {

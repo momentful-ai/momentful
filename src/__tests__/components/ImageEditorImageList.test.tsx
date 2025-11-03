@@ -18,7 +18,6 @@ const mockEditedImages: EditedImage[] = [
     height: 1080,
     version: 1,
     parent_id: undefined,
-    source_asset_id: 'source-asset-1',
     created_at: '2025-10-20T15:59:30.165+00:00',
   },
   {
@@ -34,7 +33,6 @@ const mockEditedImages: EditedImage[] = [
     height: 1080,
     version: 1,
     parent_id: undefined,
-    source_asset_id: 'source-asset-1',
     created_at: '2025-10-20T16:00:00.165+00:00',
   },
 ];
