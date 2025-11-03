@@ -6,7 +6,7 @@ import { useUpdateLineage } from '../../hooks/useUpdateLineage';
 import { useToast } from '../../hooks/useToast';
 import { Lineage, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { TimelineNode as TimelineNodeType } from '../../types/timeline';
-import { Pencil, Check, X, GitBranch } from 'lucide-react';
+import { Pencil, Check, X, ChartNoAxesGantt } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 
@@ -96,7 +96,7 @@ export function TimelineView({ projectId, viewMode = 'grid', onEditImage, onDown
     return (
       <Card className="border-2 border-dashed p-12 text-center">
         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-          <GitBranch className="w-10 h-10 text-muted-foreground" />
+          <ChartNoAxesGantt className="w-10 h-10 text-muted-foreground" />
         </div>
         <h3 className="text-2xl font-semibold mb-3">
           No timelines yet
@@ -229,7 +229,7 @@ function TimelineLane({
     return (
       <Card className="border-2 border-dashed p-12 text-center">
         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-          <GitBranch className="w-10 h-10 text-muted-foreground" />
+          <ChartNoAxesGantt className="w-10 h-10 text-muted-foreground" />
         </div>
         <h3 className="text-2xl font-semibold mb-3">
           Timeline is empty

@@ -75,9 +75,8 @@ describe('ProjectCard', () => {
       />
     );
 
-    // Menu button should be present (with more-vertical icon)
-    const menuButton = document.querySelector('svg.lucide-more-vertical')?.closest('button');
-    expect(menuButton).toBeInTheDocument();
+    // Menu button should be present
+    expect(screen.getByTestId('project-menu-button')).toBeInTheDocument();
   });
 
   it('renders pencil button for editing', () => {
@@ -92,9 +91,8 @@ describe('ProjectCard', () => {
       />
     );
 
-    // Pencil button should be present (with pencil icon)
-    const pencilButton = document.querySelector('svg.lucide-pencil')?.closest('button');
-    expect(pencilButton).toBeInTheDocument();
+    // Pencil button should be present
+    expect(screen.getByTestId('project-edit-button')).toBeInTheDocument();
   });
 
   it('applies staggered animation delay based on index', () => {

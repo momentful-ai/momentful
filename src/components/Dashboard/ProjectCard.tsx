@@ -95,6 +95,7 @@ export const ProjectCard = memo(function ProjectCard({
                 variant="secondary"
                 size="icon"
                 className="glass shadow-lg hover:scale-110"
+                data-testid="project-menu-button"
               >
                 <MoreVertical className="w-4 h-4" />
               </Button>
@@ -160,6 +161,7 @@ export const ProjectCard = memo(function ProjectCard({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  data-testid="project-edit-button"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                 </Button>
