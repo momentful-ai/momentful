@@ -54,7 +54,7 @@ export const supportedImageRatios = new Set<RunwayML.TextToImageCreateParams['ra
 ]);
 
 export const defaultImageRatio: RunwayML.TextToImageCreateParams['ratio'] = '1280:720';
-export const defaultVideoModel = RunwayModels.VEO_3_1_FAST;
+export const defaultVideoModel = RunwayModels.GEN4_TURBO;
 export const defaultVideoRatio: RunwayML.ImageToVideoCreateParams['ratio'] = '1280:720';
 export const defaultVideoDuration = 4;
 
@@ -86,7 +86,7 @@ export async function createVideoTask(input: {
   if (input.mode === 'text-to-video') {
     if (!input.promptText) throw new Error('promptText required');
     return await runway.textToVideo.create({
-      model: defaultVideoModel,
+      model: RunwayModels.VEO_3_1_FAST,
       promptText: input.promptText,
       ratio: defaultVideoRatio as RunwayML.TextToVideoCreateParams['ratio'],
       duration: defaultVideoDuration,

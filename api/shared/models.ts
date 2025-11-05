@@ -17,6 +17,10 @@ export const ReplicateModels = {
 export const RunwayModels = {
   // Video generation models
   VEO_3_1_FAST: 'veo3.1_fast',
+  GEN4_TURBO: 'gen4_turbo',
+  GEN4_ALEPH: 'gen4_aleph',
+  UPSCALE_V1: 'upscale_v1',
+  ACT_TWO: 'act_two',
 
   // Image generation models
   GEN_4_IMAGE: 'gen4_image',
