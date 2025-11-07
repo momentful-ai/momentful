@@ -118,7 +118,7 @@ describe('Consolidation Integration Tests', () => {
       
       // The defaultVideoModel is exported from the runway module
       expect(runwayModule.defaultVideoModel).toBeDefined();
-      expect(runwayModule.defaultVideoModel).toBe(modelsModule.RunwayModels.VEO_3_1_FAST);
+      expect(runwayModule.defaultVideoModel).toBe(modelsModule.RunwayModels.GEN4_TURBO);
     });
 
     it('isFluxModel correctly identifies flux models', async () => {

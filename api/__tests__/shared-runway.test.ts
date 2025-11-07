@@ -80,7 +80,7 @@ describe('Shared Runway Module', () => {
       });
 
       expect(mockRunwayClient.textToVideo.create).toHaveBeenCalledWith({
-        model: runwayModule.defaultVideoModel,
+        model: RunwayModels.VEO_3_1_FAST,
         promptText: 'A beautiful landscape',
         ratio: runwayModule.defaultVideoRatio,
         duration: runwayModule.defaultVideoDuration,
@@ -269,7 +269,7 @@ describe('Shared Runway Module', () => {
 
     it('exports default constants', () => {
       expect(runwayModule.defaultImageRatio).toBe('1280:720');
-      expect(runwayModule.defaultVideoModel).toBe(RunwayModels.VEO_3_1_FAST);
+      expect(runwayModule.defaultVideoModel).toBe(RunwayModels.GEN4_TURBO);
       expect(runwayModule.defaultVideoRatio).toBe('1280:720');
       expect(runwayModule.defaultVideoDuration).toBe(4);
     });
