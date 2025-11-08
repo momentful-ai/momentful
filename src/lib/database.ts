@@ -500,7 +500,7 @@ export const database = {
           type: 'generated_video' as const,
           data: {
             ...data,
-            thumbnail_url: data.thumbnail_url || (data.storage_path ? database.storage.getPublicUrl('user-uploads', data.storage_path) : undefined),
+            thumbnail_url: data.thumbnail_url || (data.storage_path ? (data.storage_path.startsWith('http') ? data.storage_path : database.storage.getPublicUrl('user-uploads', data.storage_path)) : undefined),
           },
         } as TimelineNode)),
       ];
