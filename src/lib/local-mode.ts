@@ -21,3 +21,8 @@ export const isLocalMode = () => {
 };
 
 export const LOCAL_DEV_USER_ID = 'local-dev-user';
+
+export const shouldShowAllSkeletons = () => {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem('DEV_SHOW_ALL_SKELETONS') === 'true';
+};

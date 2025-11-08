@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
 import { Film, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { MediaEditorMode, SelectedSource } from './types';
 import { VideoPlayer } from '../VideoPlayer';
+import { ImagePreviewSkeleton, VideoPreviewSkeleton } from './MediaPreviewSkeletons';
+import { shouldShowAllSkeletons } from '../../lib/local-mode';
 
 interface UnifiedPreviewProps {
   mode: MediaEditorMode;
@@ -29,19 +32,56 @@ function ImagePreview({
   editedImageUrl,
   showComparison,
   fileName,
+  isGenerating,
 }: {
   originalImageUrl: string;
   editedImageUrl: string | null;
   showComparison: boolean;
   fileName: string;
+  isGenerating: boolean;
 }) {
-  const shouldShowComparison = showComparison && !!editedImageUrl && editedImageUrl !== originalImageUrl;
+  const [forceShowSkeleton, setForceShowSkeleton] = useState(shouldShowAllSkeletons());
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setForceShowSkeleton(shouldShowAllSkeletons());
+    };
+    window.addEventListener('dev-skeletons-toggle', handleToggle);
+    return () => window.removeEventListener('dev-skeletons-toggle', handleToggle);
+  }, []);
+
+  const shouldShowComparison = showComparison && !!editedImageUrl && editedImageUrl !== originalImageUrl && !forceShowSkeleton;
+  const shouldShowSkeleton = (isGenerating && !editedImageUrl) || forceShowSkeleton;
 
   return (
     <div className="h-full bg-card overflow-hidden">
       <div className="h-full flex items-center justify-center">
         <div className="w-full h-full flex items-center justify-center">
-          {!shouldShowComparison ? (
+          {shouldShowSkeleton ? (
+            <div className="grid grid-cols-2 gap-6 w-full h-full animate-fade-in p-6">
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-2 text-sm font-medium text-muted-foreground">
+                  Original
+                </div>
+                <div className="flex-1 flex items-center justify-center w-full">
+                  <img
+                    src={originalImageUrl}
+                    alt="Original"
+                    className="max-w-full max-h-full rounded-xl"
+                    style={{ objectFit: 'contain' }}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col items-center justify-center">
+                <div className="mb-2 text-sm font-medium text-muted-foreground">
+                  AI Edited
+                </div>
+                <div className="flex-1 flex items-center justify-center w-full">
+                  <ImagePreviewSkeleton className="w-full h-full" />
+                </div>
+              </div>
+            </div>
+          ) : !shouldShowComparison ? (
             <div className="flex items-center justify-center w-full h-full animate-fade-in">
               <img
                 src={originalImageUrl}
@@ -107,6 +147,18 @@ function VideoPreview({
   onDrop: (e: React.DragEvent) => void;
   onRetryVideo: () => void;
 }) {
+  const [forceShowSkeleton, setForceShowSkeleton] = useState(shouldShowAllSkeletons());
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setForceShowSkeleton(shouldShowAllSkeletons());
+    };
+    window.addEventListener('dev-skeletons-toggle', handleToggle);
+    return () => window.removeEventListener('dev-skeletons-toggle', handleToggle);
+  }, []);
+
+  const shouldShowVideoSkeleton = (isGenerating && !generatedVideoUrl) || forceShowSkeleton;
+
   return (
     <div className="h-full p-6 relative" onDragOver={onDragOver} onDrop={onDrop}>
       {/* Stacked Source Images - Vertically centered */}
@@ -164,7 +216,7 @@ function VideoPreview({
           selectedSources.length > 0 ? 'w-[calc(100%-200px)]' : 'w-full'
         }`}>
             <div
-              className={`bg-muted rounded-xl flex items-center justify-center animate-fade-in overflow-hidden ${
+              className={`bg-muted rounded-xl flex items-center justify-center animate-fade-in overflow-hidden relative ${
               aspectRatio === '16:9' ? 'aspect-video w-full max-h-full' :
               aspectRatio === '9:16' ? 'aspect-[9/16] h-full max-w-full' :
               aspectRatio === '1:1' ? 'aspect-square w-full max-h-full' :
@@ -175,7 +227,7 @@ function VideoPreview({
               minHeight: '200px'
             }}
             >
-              {generatedVideoUrl && !videoError ? (
+              {generatedVideoUrl && !videoError && !forceShowSkeleton ? (
                 <VideoPlayer
                   videoUrl={generatedVideoUrl}
                   aspectRatio={aspectRatio === '16:9' ? 16/9 :
@@ -183,6 +235,8 @@ function VideoPreview({
                               aspectRatio === '1:1' ? 1 :
                               4/5}
                 />
+              ) : shouldShowVideoSkeleton ? (
+                <VideoPreviewSkeleton aspectRatio={aspectRatio} />
               ) : (
               <div className="text-center p-8 w-full h-full flex flex-col items-center justify-center">
                   {videoError ? (
@@ -205,7 +259,7 @@ function VideoPreview({
                     <>
                       <Film className="w-24 h-24 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">
-                        {isGenerating ? 'Generating your video...' : 'Video preview will appear here'}
+                        Video preview will appear here
                       </p>
                     </>
                   )}
@@ -249,6 +303,7 @@ export function UnifiedPreview({
             editedImageUrl={editedImageUrl || null}
             showComparison={showComparison || false}
             fileName={fileName}
+            isGenerating={isGenerating || false}
           />
         ) : (
           <div className="h-full flex items-center justify-center">

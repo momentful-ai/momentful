@@ -131,6 +131,14 @@ export default {
             backgroundPosition: '200% 0',
           },
         },
+        'shimmer-sweep': {
+          '0%': {
+            transform: 'translateX(-100%)',
+          },
+          '100%': {
+            transform: 'translateX(200%)',
+          },
+        },
         'pulse-subtle': {
           '0%, 100%': {
             opacity: '1',

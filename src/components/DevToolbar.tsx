@@ -7,14 +7,17 @@ export function DevToolbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<string>('clerk');
   const [supabaseBackend, setSupabaseBackend] = useState<string>('hosted');
+  const [showAllSkeletons, setShowAllSkeletons] = useState<boolean>(false);
 
   // Load initial values from localStorage
   useEffect(() => {
     const authOverride = getLocalOverride('DEV_AUTH_MODE');
     const supabaseOverride = getLocalOverride('DEV_SUPABASE_BACKEND');
+    const skeletonsOverride = getLocalOverride('DEV_SHOW_ALL_SKELETONS');
 
     if (authOverride) setAuthMode(authOverride);
     if (supabaseOverride) setSupabaseBackend(supabaseOverride);
+    if (skeletonsOverride === 'true') setShowAllSkeletons(true);
   }, []);
 
   // Only show in local development
@@ -32,6 +35,13 @@ export function DevToolbar() {
     setSupabaseBackend(backend);
     localStorage.setItem('DEV_SUPABASE_BACKEND', backend);
     window.location.reload();
+  };
+
+  const handleShowAllSkeletonsChange = (enabled: boolean) => {
+    setShowAllSkeletons(enabled);
+    localStorage.setItem('DEV_SHOW_ALL_SKELETONS', enabled ? 'true' : 'false');
+    // Dispatch custom event so components can react without reload
+    window.dispatchEvent(new CustomEvent('dev-skeletons-toggle', { detail: { enabled } }));
   };
 
   if (!isOpen) {
@@ -112,11 +122,37 @@ export function DevToolbar() {
             </Button>
           </div>
         </div>
+
+        <div>
+          <label className="text-xs font-medium text-muted-foreground block mb-2">
+            Show All Loading Skeletons
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleShowAllSkeletonsChange(!showAllSkeletons)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                showAllSkeletons ? 'bg-primary' : 'bg-muted'
+              }`}
+              role="switch"
+              aria-checked={showAllSkeletons}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  showAllSkeletons ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {showAllSkeletons ? 'On' : 'Off'}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4 pt-3 border-t border-border">
         <p className="text-xs text-muted-foreground">
-          Changes require page reload. Only visible in local dev mode.
+          Auth & Backend changes require page reload. Only visible in local dev mode.
         </p>
       </div>
     </div>
