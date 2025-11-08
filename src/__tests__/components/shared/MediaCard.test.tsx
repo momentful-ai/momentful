@@ -15,6 +15,15 @@ vi.mock('../../../lib/supabase', () => ({
   },
 }));
 
+// Mock VideoPlayer to avoid Radix UI issues in tests
+vi.mock('../../../components/VideoPlayer', () => ({
+  VideoPlayer: ({ videoUrl }: { videoUrl: string }) => (
+    <div data-testid="mock-video-player" data-video-url={videoUrl}>
+      <video src={videoUrl} className="w-full h-full object-cover" />
+    </div>
+  ),
+}));
+
 vi.mock('../../../lib/database', () => ({
   database: {
     mediaAssets: {

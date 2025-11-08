@@ -1,9 +1,10 @@
-import { Trash2, Film, Clock, Wand2, Download } from 'lucide-react';
+import { Trash2, Clock, Wand2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName, formatFileSize, formatDuration } from '../../lib/utils';
 import { MediaAsset } from '../../types';
+import { VideoPlayer } from '../VideoPlayer';
 
 interface MediaItemCardProps {
   asset: MediaAsset;
@@ -56,15 +57,9 @@ export function MediaItemCard({
           </div>
         ) : (
           <div className="relative w-full h-full">
-            <video
-              src={getAssetUrl(asset.storage_path)}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <Film className="w-12 h-12 text-white drop-shadow-lg" />
-            </div>
+            <VideoPlayer videoUrl={getAssetUrl(asset.storage_path)} />
             {asset.duration && (
-              <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg">
+              <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg z-10">
                 <Clock className="w-3 h-3" />
                 {formatDuration(asset.duration)}
               </Badge>

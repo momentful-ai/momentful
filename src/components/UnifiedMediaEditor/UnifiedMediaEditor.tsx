@@ -683,7 +683,6 @@ export function UnifiedMediaEditor({
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onRetryVideo={() => setState(prev => ({ ...prev, videoError: false, generatedVideoUrl: null }))}
-              onVideoError={() => setState(prev => ({ ...prev, videoError: true }))}
             />
           </div>
 

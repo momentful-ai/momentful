@@ -3,6 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MediaItemCard } from '../../../components/MediaLibrary/MediaItemCard';
 import { MediaAsset } from '../../../types';
 
+// Mock VideoPlayer to avoid Radix UI issues in tests
+vi.mock('../../../components/VideoPlayer', () => ({
+  VideoPlayer: ({ videoUrl }: { videoUrl: string }) => (
+    <div data-testid="mock-video-player" data-video-url={videoUrl}>
+      <video src={videoUrl} className="w-full h-full object-cover" />
+    </div>
+  ),
+}));
+
 // Mock the utility functions
 vi.mock('../../../lib/utils', () => ({
   mergeName: (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' '),
@@ -66,10 +75,10 @@ describe('MediaItemCard', () => {
       expect(screen.getByText('1920 × 1080')).toBeInTheDocument();
     });
 
-    it('renders video asset with film overlay', () => {
+    it('renders video asset with VideoPlayer', () => {
       render(<MediaItemCard {...defaultProps} asset={mockVideoAsset} />);
 
-      expect(screen.getByTestId('film-icon')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-video-player')).toBeInTheDocument();
       expect(screen.getByText('30s')).toBeInTheDocument();
     });
 

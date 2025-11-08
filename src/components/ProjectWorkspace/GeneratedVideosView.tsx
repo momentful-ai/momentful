@@ -10,6 +10,7 @@ import { useDeleteGeneratedVideo } from '../../hooks/useDeleteGeneratedVideo';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
+import { VideoPlayer } from '../VideoPlayer';
 
 interface GeneratedVideosViewProps {
   projectId: string;
@@ -107,17 +108,7 @@ export function GeneratedVideosView({
               </div>
             ) : video.storage_path ? (
               <div className="w-full h-full relative">
-                <video
-                  src={video.storage_path}
-                  controls
-                  className="w-full h-full object-contain"
-                  preload="metadata"
-                  onError={(e) => {
-                    console.error('Video failed to load:', e);
-                    const video = e.target as HTMLVideoElement;
-                    console.error('Video src:', video.src);
-                  }}
-                />
+                <VideoPlayer videoUrl={video.storage_path} />
                 {video.status === 'processing' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white" />

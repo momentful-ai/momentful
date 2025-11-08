@@ -1,10 +1,11 @@
-import { Trash2, Film, Clock, Wand2, Download } from 'lucide-react';
+import { Trash2, Clock, Wand2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName, formatFileSize, formatDuration, formatDate } from '../../lib/utils';
 import { MediaAsset, EditedImage } from '../../types';
 import { TimelineNode } from '../../types/timeline';
+import { VideoPlayer } from '../VideoPlayer';
 
 export type MediaCardItem = MediaAsset | EditedImage | TimelineNode;
 
@@ -162,15 +163,9 @@ export function MediaCard({
           </div>
         ) : (
           <div className="relative w-full h-full">
-            <video
-              src={thumbnailUrl}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <Film className={mergeName(viewMode === 'timeline' ? 'w-8 h-8' : 'w-12 h-12', 'text-white drop-shadow-lg')} />
-            </div>
+            <VideoPlayer videoUrl={thumbnailUrl} />
             {duration && viewMode !== 'timeline' && (
-              <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg">
+              <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg z-10">
                 <Clock className="w-3 h-3" />
                 {formatDuration(duration)}
               </Badge>

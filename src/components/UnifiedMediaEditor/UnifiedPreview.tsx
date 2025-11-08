@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Film, X } from 'lucide-react';
 import { MediaEditorMode, SelectedSource } from './types';
+import { VideoPlayer } from '../VideoPlayer';
 
 interface UnifiedPreviewProps {
   mode: MediaEditorMode;
@@ -21,7 +22,6 @@ interface UnifiedPreviewProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
   onRetryVideo?: () => void;
-  onVideoError?: () => void;
 }
 
 function ImagePreview({
@@ -96,7 +96,6 @@ function VideoPreview({
   onDragOver,
   onDrop,
   onRetryVideo,
-  onVideoError,
 }: {
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
   generatedVideoUrl: string | null;
@@ -107,7 +106,6 @@ function VideoPreview({
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onRetryVideo: () => void;
-  onVideoError: () => void;
 }) {
   return (
     <div className="h-full p-6" onDragOver={onDragOver} onDrop={onDrop}>
@@ -173,25 +171,7 @@ function VideoPreview({
               }`}
             >
               {generatedVideoUrl && !videoError ? (
-                <video
-                  key={generatedVideoUrl}
-                  src={generatedVideoUrl}
-                  controls
-                  className="w-full h-full object-contain rounded-xl"
-                  preload="metadata"
-                  onLoadedMetadata={(e) => {
-                    const video = e.target as HTMLVideoElement;
-                    console.log(`Video loaded - dimensions: ${video.videoWidth}x${video.videoHeight}`);
-                  }}
-                  onError={(e) => {
-                    console.error('Video failed to load:', e);
-                    const video = e.target as HTMLVideoElement;
-                    console.error('Video src:', video.src);
-                    console.error('Video error code:', video.error?.code);
-                    console.error('Video error message:', video.error?.message);
-                    onVideoError();
-                  }}
-                />
+                <VideoPlayer videoUrl={generatedVideoUrl} />
               ) : (
                 <div className="text-center p-8 w-full">
                   {videoError ? (
@@ -243,7 +223,6 @@ export function UnifiedPreview({
   onDragOver,
   onDrop,
   onRetryVideo,
-  onVideoError,
 }: UnifiedPreviewProps) {
   return (
     <motion.div
@@ -277,7 +256,6 @@ export function UnifiedPreview({
           onDragOver={onDragOver || (() => {})}
           onDrop={onDrop || (() => {})}
           onRetryVideo={onRetryVideo || (() => {})}
-          onVideoError={onVideoError || (() => {})}
         />
       )}
     </motion.div>
