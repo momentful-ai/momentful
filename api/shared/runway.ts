@@ -15,7 +15,7 @@ if (!apiKey) {
 
 export const runway = new RunwayML({ apiKey: apiKey || 'dummy-key' });
 
-export type Mode = 'image-to-video' | 'text-to-video' | 'image-generation';
+export type Mode = 'image-to-video' | 'image-generation';
 
 // Supported image models
 export const supportedImageModels = new Set<RunwayML.TextToImageCreateParams['model']>([
@@ -79,16 +79,6 @@ export async function createVideoTask(input: {
       promptImage: input.promptImage,
       promptText: input.promptText,
       ratio: defaultVideoRatio,
-      duration: defaultVideoDuration,
-    });
-  }
-
-  if (input.mode === 'text-to-video') {
-    if (!input.promptText) throw new Error('promptText required');
-    return await runway.textToVideo.create({
-      model: RunwayModels.VEO_3_1_FAST,
-      promptText: input.promptText,
-      ratio: defaultVideoRatio as RunwayML.TextToVideoCreateParams['ratio'],
       duration: defaultVideoDuration,
     });
   }

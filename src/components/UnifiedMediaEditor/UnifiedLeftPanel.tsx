@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { Upload, RefreshCw } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { MediaAsset, EditedImage } from '../../types';
 import { SelectedSource } from '../VideoGenerator/types';
 import { MediaEditorMode } from './types';
 import { MediaSourceGrid } from '../VideoGenerator/MediaSourceGrid';
-import { Button } from '../ui/button';
 import { useDropzone } from 'react-dropzone';
+import { database } from '../../lib/database';
 
 interface UnifiedLeftPanelProps {
   mode: MediaEditorMode;
@@ -29,13 +29,12 @@ export function UnifiedLeftPanel({
   onDragStart,
   onMouseDown,
   onFileDrop,
-  onRefresh,
+  onRefresh: _onRefresh, // eslint-disable-line @typescript-eslint/no-unused-vars
 }: UnifiedLeftPanelProps) {
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<'edited' | 'library'>('edited');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -62,13 +61,7 @@ export function UnifiedLeftPanel({
     };
   }, [isResizingLeft]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await onRefresh();
-    setTimeout(() => setIsRefreshing(false), 1000);
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { isDragActive } = useDropzone({
     onDrop: onFileDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
@@ -93,32 +86,6 @@ export function UnifiedLeftPanel({
         className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors z-10"
         onMouseDown={() => setIsResizingLeft(true)}
       />
-
-      {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        <h3 className="font-semibold">Image Library</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 w-8"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
-          <div {...getRootProps()}>
-            <input {...getInputProps()} />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-            >
-              <Upload className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
 
       {/* Tabs */}
       <div className="border-b border-border">
@@ -184,7 +151,7 @@ export function UnifiedLeftPanel({
           <MediaSourceGrid
             sources={mediaAssets.map((asset) => ({
               id: asset.id,
-              thumbnail: asset.thumbnail_url || `https://example.com/${asset.storage_path}`,
+              thumbnail: asset.thumbnail_url || database.storage.getPublicUrl('user-uploads', asset.storage_path),
               name: asset.file_name,
             }))}
             selectedSources={selectedSources}

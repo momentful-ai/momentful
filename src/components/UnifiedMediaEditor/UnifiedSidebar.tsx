@@ -35,7 +35,7 @@ export function UnifiedSidebar({
 }: UnifiedSidebarProps) {
   return (
     <motion.div
-      className="w-80 bg-card border-l"
+      className="h-full flex-shrink-0"
       initial={{ x: 320 }}
       animate={{ x: 0 }}
       exit={{ x: 320 }}
@@ -49,6 +49,7 @@ export function UnifiedSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
+            className="h-full"
           >
             <ImageEditorSidebar
               selectedRatio={selectedRatio || '1:1'}
@@ -63,6 +64,7 @@ export function UnifiedSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
+            className="h-full"
           >
             <VideoGeneratorSidebar
               selectedModel={selectedModel || 'gen-3-alpha-turbo'}

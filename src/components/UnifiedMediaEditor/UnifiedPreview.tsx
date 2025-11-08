@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MediaEditorMode } from './types';
 import { ImageEditorPreview } from '../ImageEditor/ImageEditorPreview';
 import { VideoGeneratorPreview } from '../VideoGenerator/VideoGeneratorPreview';
+import { SelectedSource } from '../VideoGenerator/types';
 
 interface UnifiedPreviewProps {
   mode: MediaEditorMode;
@@ -17,6 +18,8 @@ interface UnifiedPreviewProps {
   generatedVideoUrl?: string | null;
   videoError?: boolean;
   isGenerating?: boolean;
+  selectedSources?: SelectedSource[];
+  onRemoveSource?: (id: string) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
   onRetryVideo?: () => void;
@@ -33,13 +36,15 @@ export function UnifiedPreview({
   generatedVideoUrl,
   videoError,
   isGenerating,
+  selectedSources,
+  onRemoveSource,
   onDragOver,
   onDrop,
   onRetryVideo,
   onVideoError,
 }: UnifiedPreviewProps) {
   return (
-    <div className="h-full p-6">
+    <div className="h-full overflow-hidden">
       <AnimatePresence mode="wait">
         {mode === 'image-edit' ? (
           <motion.div
@@ -77,6 +82,8 @@ export function UnifiedPreview({
               generatedVideoUrl={generatedVideoUrl || null}
               videoError={videoError || false}
               isGenerating={isGenerating || false}
+              selectedSources={selectedSources || []}
+              onRemoveSource={onRemoveSource}
               onDragOver={onDragOver || (() => {})}
               onDrop={onDrop || (() => {})}
               onRetryVideo={onRetryVideo || (() => {})}

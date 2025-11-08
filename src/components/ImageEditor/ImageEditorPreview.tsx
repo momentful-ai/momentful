@@ -14,40 +14,43 @@ export function ImageEditorPreview({
   const shouldShowComparison = showComparison && !!editedImageUrl && editedImageUrl !== originalImageUrl;
 
   return (
-    <div className="h-full bg-card overflow-y-auto">
-      <div className="p-6 min-h-full">
-        <div className="max-w-5xl mx-auto">
+    <div className="h-full bg-card overflow-hidden">
+      <div className="h-full flex items-center justify-center">
+        <div className="w-full h-full flex items-center justify-center">
           {!shouldShowComparison ? (
-            <div className="aspect-video bg-muted rounded-xl flex items-center justify-center animate-fade-in">
+            <div className="flex items-center justify-center w-full h-full animate-fade-in">
               <img
                 src={originalImageUrl}
                 alt={fileName}
-                className="w-full h-full object-contain rounded-xl transition-transform hover:scale-105"
+                className="max-w-full max-h-full rounded-xl transition-transform hover:scale-105"
+                style={{ objectFit: 'contain' }}
               />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-6 animate-fade-in">
-              <div>
+            <div className="grid grid-cols-2 gap-6 w-full h-full animate-fade-in">
+              <div className="flex flex-col items-center justify-center">
                 <div className="mb-2 text-sm font-medium text-muted-foreground">
                   Original
                 </div>
-                <div className="aspect-square bg-muted rounded-xl flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center w-full">
                   <img
                     src={originalImageUrl}
                     alt="Original"
-                    className="w-full h-full object-contain rounded-xl"
+                    className="max-w-full max-h-full rounded-xl"
+                    style={{ objectFit: 'contain' }}
                   />
                 </div>
               </div>
-              <div>
+              <div className="flex flex-col items-center justify-center">
                 <div className="mb-2 text-sm font-medium text-muted-foreground">
                   AI Edited
                 </div>
-                <div className="aspect-square bg-muted rounded-xl flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center w-full">
                   <img
                     src={editedImageUrl || originalImageUrl}
                     alt="Edited"
-                    className="w-full h-full object-contain rounded-xl"
+                    className="max-w-full max-h-full rounded-xl"
+                    style={{ objectFit: 'contain' }}
                   />
                 </div>
               </div>

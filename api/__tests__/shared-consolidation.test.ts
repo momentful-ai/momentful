@@ -5,7 +5,6 @@ vi.mock('@runwayml/sdk', () => ({
   default: vi.fn(() => ({
     textToImage: { create: vi.fn() },
     imageToVideo: { create: vi.fn() },
-    textToVideo: { create: vi.fn() },
     tasks: { retrieve: vi.fn() },
   })),
 }));

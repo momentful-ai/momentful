@@ -32,6 +32,7 @@ export interface UnifiedEditorState {
   showComparison: boolean;
   editedImageUrl: string | null;
   versions: VersionHistoryItem[];
+  selectedImageForPreview: { id: string; url: string; fileName: string; type: 'edited_image' | 'media_asset' } | null;
 
   // Video generation state
   prompt: string;

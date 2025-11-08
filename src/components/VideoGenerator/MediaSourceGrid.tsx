@@ -39,16 +39,18 @@ export function MediaSourceGrid({
               onMouseDown(source);
             }}
             onMouseEnter={() => onMouseEnter(source)}
-            className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
+            className={`relative w-full max-h-32 rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
               isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'
             }`}
           >
-            <img
-              src={source.thumbnail}
-              alt={source.name}
-              className="w-full h-full object-cover pointer-events-none"
-              draggable={false}
-            />
+            <div className="w-full h-full flex items-center justify-center">
+              <img
+                src={source.thumbnail}
+                alt={source.name}
+                className="max-w-full max-h-full object-contain pointer-events-none"
+                draggable={false}
+              />
+            </div>
             {isSelected && (
               <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                 <Check className="w-3 h-3 text-primary-foreground" />

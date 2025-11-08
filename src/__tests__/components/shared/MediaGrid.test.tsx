@@ -153,6 +153,7 @@ describe('MediaGrid', () => {
           title="Test"
           items={mockImageItems}
           gridCols={{ default: 2 }}
+          selectedItemId={null}
           onSelectItem={mockOnSelectItem}
         />
       );
@@ -167,6 +168,7 @@ describe('MediaGrid', () => {
           title="Test"
           items={mockImageItems}
           gridCols={{ default: 4 }}
+          selectedItemId={null}
           onSelectItem={mockOnSelectItem}
         />
       );
@@ -181,6 +183,7 @@ describe('MediaGrid', () => {
           title="Test"
           items={mockImageItems}
           gridCols={{ default: 6 }}
+          selectedItemId={null}
           onSelectItem={mockOnSelectItem}
         />
       );
@@ -195,6 +198,7 @@ describe('MediaGrid', () => {
           title="Test"
           items={mockImageItems}
           gridCols={{ default: 2, md: 4 }}
+          selectedItemId={null}
           onSelectItem={mockOnSelectItem}
         />
       );
@@ -219,9 +223,9 @@ describe('MediaGrid', () => {
       expect(images[0]).toHaveAttribute('src', 'https://example.com/edited1.jpg');
       expect(images[1]).toHaveAttribute('src', 'https://example.com/edited2.jpg');
 
-      // Check border styling for image type
+      // Check border styling for image type - first item is selected by default
       const firstItemContainer = images[0].closest('div');
-      expect(firstItemContainer).toHaveClass('border-2', 'border-border');
+      expect(firstItemContainer).toHaveClass('border-2', 'border-primary', 'ring-2', 'ring-primary');
     });
 
     it('renders source items with correct src and styling', () => {

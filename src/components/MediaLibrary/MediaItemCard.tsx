@@ -30,11 +30,11 @@ export function MediaItemCard({
   return (
     <Card
       className={mergeName(
-        'group relative overflow-hidden cursor-pointer hover-lift hover-glow transition-all animate-slide-up',
+        'group relative overflow-hidden cursor-pointer hover-lift hover-glow transition-all animate-slide-up w-full h-full',
         isSelected
           ? 'ring-2 ring-primary shadow-xl'
           : 'hover:ring-2 hover:ring-primary/50',
-        viewMode === 'list' && 'flex flex-row'
+        viewMode === 'list' ? 'flex flex-row' : 'flex flex-col'
       )}
       style={{
         animationDelay: `${Math.random() * 100}ms`,
@@ -43,15 +43,17 @@ export function MediaItemCard({
       onClick={onClick}
     >
       <div className={mergeName(
-        'bg-muted overflow-hidden relative',
-        viewMode === 'grid' ? 'aspect-square' : 'w-32 h-32 flex-shrink-0'
+        'overflow-hidden relative',
+        viewMode === 'grid' ? 'w-full aspect-square' : 'w-32 h-32 flex-shrink-0'
       )}>
         {asset.file_type === 'image' ? (
-          <img
-            src={getAssetUrl(asset.storage_path)}
-            alt={asset.file_name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-          />
+          <div className="w-full h-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform duration-300">
+            <img
+              src={getAssetUrl(asset.storage_path)}
+              alt={asset.file_name}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
         ) : (
           <div className="relative w-full h-full">
             <video

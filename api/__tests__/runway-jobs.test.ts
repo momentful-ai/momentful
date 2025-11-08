@@ -29,16 +29,12 @@ const mockRunwayClient = {
   imageToVideo: {
     create: vi.fn(),
   },
-  textToVideo: {
-    create: vi.fn(),
-  },
   tasks: {
     retrieve: vi.fn(),
   },
 } as {
   textToImage: { create: ReturnType<typeof vi.fn> };
   imageToVideo: { create: ReturnType<typeof vi.fn> };
-  textToVideo: { create: ReturnType<typeof vi.fn> };
   tasks: { retrieve: ReturnType<typeof vi.fn> };
 };
 
@@ -306,24 +302,6 @@ describe('Runway Jobs API - Image Generation', () => {
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 
-    it('still supports text-to-video mode', async () => {
-      const mockTask = {
-        id: 'task-123',
-        status: 'PROCESSING',
-      };
-
-      mockRunwayClient.textToVideo.create.mockResolvedValue(mockTask as RunwayTask);
-
-      mockReq.body = {
-        mode: 'text-to-video',
-        promptText: 'A beautiful landscape',
-      };
-
-      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
-
-      expect(mockRunwayClient.textToVideo.create).toHaveBeenCalled();
-      expect(mockRes.status).toHaveBeenCalledWith(200);
-    });
   });
 
   describe('Validation', () => {

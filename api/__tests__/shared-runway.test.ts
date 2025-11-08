@@ -12,9 +12,6 @@ const mockRunwayClient = {
   imageToVideo: {
     create: vi.fn(),
   },
-  textToVideo: {
-    create: vi.fn(),
-  },
   tasks: {
     retrieve: vi.fn(),
   },
@@ -70,24 +67,6 @@ describe('Shared Runway Module', () => {
       expect(result).toEqual(mockTask);
     });
 
-    it('creates text-to-video task with correct parameters', async () => {
-      const mockTask = { id: 'task-456', status: 'PROCESSING' };
-      mockRunwayClient.textToVideo.create.mockResolvedValue(mockTask);
-
-      const result = await runwayModule.createVideoTask({
-        mode: 'text-to-video',
-        promptText: 'A beautiful landscape',
-      });
-
-      expect(mockRunwayClient.textToVideo.create).toHaveBeenCalledWith({
-        model: RunwayModels.VEO_3_1_FAST,
-        promptText: 'A beautiful landscape',
-        ratio: runwayModule.defaultVideoRatio,
-        duration: runwayModule.defaultVideoDuration,
-      });
-      expect(result).toEqual(mockTask);
-    });
-
     it('requires promptImage for image-to-video mode', async () => {
       await expect(
         runwayModule.createVideoTask({
@@ -96,20 +75,12 @@ describe('Shared Runway Module', () => {
       ).rejects.toThrow('promptImage required');
     });
 
-    it('requires promptText for text-to-video mode', async () => {
-      await expect(
-        runwayModule.createVideoTask({
-          mode: 'text-to-video',
-        })
-      ).rejects.toThrow('promptText required');
-    });
-
     it('throws error for unsupported mode', async () => {
       await expect(
         runwayModule.createVideoTask({
-          mode: 'image-generation' as 'image-to-video' | 'text-to-video',
+          mode: 'text-to-video' as 'image-to-video' | 'image-generation',
         })
-      ).rejects.toThrow('Unsupported mode');
+      ).rejects.toThrow('Unsupported mode: text-to-video');
     });
 
     it('function structure checks for API key', async () => {
@@ -281,10 +252,9 @@ describe('Shared Runway Module', () => {
 
     it('supports all Mode values', () => {
       // Runtime check that all mode values work
-      const modes: runwayModule.Mode[] = ['image-to-video', 'text-to-video', 'image-generation'];
-      expect(modes).toHaveLength(3);
+      const modes: runwayModule.Mode[] = ['image-to-video', 'image-generation'];
+      expect(modes).toHaveLength(2);
       expect(modes).toContain('image-to-video');
-      expect(modes).toContain('text-to-video');
       expect(modes).toContain('image-generation');
     });
   });

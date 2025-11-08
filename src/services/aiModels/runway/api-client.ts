@@ -50,7 +50,7 @@ function parseRunwayError(errorData: unknown): string | null {
 }
 
 export interface CreateJobRequest {
-  mode: 'image-to-video' | 'text-to-video' | 'image-generation';
+  mode: 'image-to-video' | 'image-generation';
   promptText?: string;
   promptImage?: string;
   model?: string;

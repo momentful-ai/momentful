@@ -1,5 +1,4 @@
 import { PromptControls } from '../shared/PromptControls';
-import { MediaGrid } from '../shared';
 import { SelectedSource } from './types';
 
 interface VideoGeneratorControlsProps {
@@ -23,7 +22,7 @@ export function VideoGeneratorControls({
   maxSelectedSources,
   onPromptChange,
   onGenerate,
-  onRemoveSource,
+  onRemoveSource: _onRemoveSource, // eslint-disable-line @typescript-eslint/no-unused-vars
 }: VideoGeneratorControlsProps) {
   const additionalInfo = cameraMovement.replace('-', ' ');
 
@@ -40,19 +39,7 @@ export function VideoGeneratorControls({
       icon="play"
       additionalInfo={additionalInfo}
       errorMessage={!canGenerate ? `Select ${maxSelectedSources} image${maxSelectedSources > 1 ? 's' : ''} to generate a video (${selectedSources.length}/${maxSelectedSources})` : undefined}
-    >
-      {selectedSources.length > 0 && (
-        <MediaGrid
-          title={`Source Media`}
-          items={selectedSources}
-          onRemoveItem={onRemoveSource}
-          showIndex={true}
-          gridCols={{ default: 4, md: 6 }}
-          itemActions="remove"
-          itemType="source"
-        />
-      )}
-    </PromptControls>
+    />
   );
 }
 

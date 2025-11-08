@@ -6,9 +6,10 @@ export function useEditedImages(projectId: string, options?: { enabled?: boolean
   return useQuery<EditedImage[]>({
     queryKey: ['edited-images', projectId],
     queryFn: () => database.editedImages.list(projectId),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
-    enabled: options?.enabled !== false,
+    staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
+    refetchOnWindowFocus: false, // Don't refetch on window focus (staleTime handles freshness)
+    enabled: options?.enabled !== false && !!projectId,
   });
 }
 
@@ -22,8 +23,9 @@ export function useEditedImagesByLineage(lineageId: string | null, options?: { e
       }
       return database.editedImages.listByLineage(lineageId);
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
+    refetchOnWindowFocus: false, // Don't refetch on window focus (staleTime handles freshness)
     enabled: options?.enabled !== false && lineageId !== null && lineageId !== '' && lineageId !== undefined,
   });
 }

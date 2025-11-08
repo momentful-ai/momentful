@@ -96,14 +96,18 @@ describe('ResizableSidebar', () => {
       const handle = document.querySelector('.cursor-ew-resize');
       const sidebar = screen.getByRole('complementary');
 
-      // Start resizing
-      fireEvent.mouseDown(handle!);
+      // Start resizing at initial position (dragging left increases width)
+      // Start at x=880 (which would give width 320), drag left to x=800 (delta = 80px)
+      act(() => {
+        fireEvent.mouseDown(handle!, { clientX: 880 });
+      });
 
-      // Move mouse (simulate moving to x=800, so width = 1200 - 800 = 400)
+      // Move mouse left (decreasing clientX increases width for right-side panel)
       act(() => {
         fireEvent(document, new MouseEvent('mousemove', { clientX: 800 }));
       });
 
+      // Width should increase by 80px: 320 + 80 = 400
       expect(sidebar).toHaveStyle({ width: '400px' });
     });
 
@@ -112,14 +116,18 @@ describe('ResizableSidebar', () => {
       const handle = document.querySelector('.cursor-ew-resize');
       const sidebar = screen.getByRole('complementary');
 
-      // Start resizing
-      fireEvent.mouseDown(handle!);
+      // Start resizing at initial position (dragging right increases width)
+      // Start at x=320 (default width), drag right to x=350 (delta = 30px)
+      act(() => {
+        fireEvent.mouseDown(handle!, { clientX: 320 });
+      });
 
-      // Move mouse (for left side, width = clientX)
+      // Move mouse right (increasing clientX increases width for left-side panel)
       act(() => {
         fireEvent(document, new MouseEvent('mousemove', { clientX: 350 }));
       });
 
+      // Width should increase by 30px: 320 + 30 = 350
       expect(sidebar).toHaveStyle({ width: '350px' });
     });
 

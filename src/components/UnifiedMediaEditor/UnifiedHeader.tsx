@@ -19,10 +19,6 @@ export function UnifiedHeader({ mode, onClose, onModeSwitch }: UnifiedHeaderProp
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold">
-          {mode === 'image-edit' ? 'Edit Image' : 'Generate Video'}
-        </h1>
-
         {/* Mode Switcher */}
         <div className="flex bg-muted rounded-lg p-1">
           <Button
@@ -32,7 +28,6 @@ export function UnifiedHeader({ mode, onClose, onModeSwitch }: UnifiedHeaderProp
             className="gap-2"
           >
             <Edit3 className="w-4 h-4" />
-            Edit Image
           </Button>
           <Button
             variant={mode === 'video-generate' ? 'default' : 'ghost'}
@@ -41,7 +36,6 @@ export function UnifiedHeader({ mode, onClose, onModeSwitch }: UnifiedHeaderProp
             className="gap-2"
           >
             <Video className="w-4 h-4" />
-            Generate Video
           </Button>
         </div>
       </div>

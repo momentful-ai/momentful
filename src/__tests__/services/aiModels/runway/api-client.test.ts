@@ -53,34 +53,6 @@ describe('Runway API Client', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('successfully creates a text-to-video job', async () => {
-      const mockResponse = {
-        taskId: 'task-456',
-        status: 'processing',
-      };
-
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValueOnce(mockResponse),
-      });
-
-      const result = await createRunwayJob({
-        mode: 'text-to-video',
-        promptText: 'A beautiful landscape',
-      });
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/runway/jobs',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
-      expect(result).toEqual(mockResponse);
-    });
-
     it('handles HTTP errors with JSON error response', async () => {
       const errorData = {
         error: '400 {"error":"Invalid image URL","docUrl":"..."}',

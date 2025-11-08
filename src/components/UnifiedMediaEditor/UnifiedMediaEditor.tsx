@@ -49,6 +49,7 @@ export function UnifiedMediaEditor({
       showComparison: false,
       editedImageUrl: null,
       versions: [],
+      selectedImageForPreview: null,
       // Video generation defaults
       prompt: '',
       cameraMovement: 'dynamic',
@@ -79,6 +80,11 @@ export function UnifiedMediaEditor({
   const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
   const { data: editingHistory = [] } = useEditedImagesByLineage(lineageId);
 
+  // Helper function to get asset URL (memoized to prevent unnecessary re-renders)
+  const getAssetUrl = useCallback((storagePath: string) => {
+    return database.storage.getPublicUrl('user-uploads', storagePath);
+  }, []);
+
   // Initialize selected image for video mode
   useEffect(() => {
     if (state.mode === 'video-generate' && initialSelectedImageId && editedImages.length > 0) {
@@ -95,6 +101,47 @@ export function UnifiedMediaEditor({
     }
   }, [initialSelectedImageId, editedImages, state.mode]);
 
+  // Initialize selected image for preview in image-edit mode
+  useEffect(() => {
+    if (state.mode === 'image-edit' && !state.selectedImageForPreview) {
+      if (sourceEditedImage) {
+        const source: SelectedSource = {
+          id: sourceEditedImage.id,
+          type: 'edited_image',
+          thumbnail: sourceEditedImage.edited_url,
+          name: sourceEditedImage.prompt.substring(0, 30),
+        };
+        setState(prev => ({
+          ...prev,
+          selectedImageForPreview: {
+            id: sourceEditedImage.id,
+            url: sourceEditedImage.edited_url,
+            fileName: sourceEditedImage.prompt.substring(0, 30),
+            type: 'edited_image',
+          },
+          selectedSources: [source],
+        }));
+      } else if (asset) {
+        const source: SelectedSource = {
+          id: asset.id,
+          type: 'media_asset',
+          thumbnail: getAssetUrl(asset.storage_path),
+          name: asset.file_name,
+        };
+        setState(prev => ({
+          ...prev,
+          selectedImageForPreview: {
+            id: asset.id,
+            url: getAssetUrl(asset.storage_path),
+            fileName: asset.file_name,
+            type: 'media_asset',
+          },
+          selectedSources: [source],
+        }));
+      }
+    }
+  }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, getAssetUrl]);
+
   // Reset state when switching modes
   useEffect(() => {
     if (state.mode === 'image-edit') {
@@ -103,13 +150,17 @@ export function UnifiedMediaEditor({
         productName: sourceEditedImage?.prompt ?? '',
         showComparison: false,
         editedImageUrl: null,
+        // Reset selected image for preview when switching to image-edit mode
+        selectedImageForPreview: prev.selectedImageForPreview || null,
+      }));
+    } else {
+      // Clear selected image for preview when switching away from image-edit mode
+      setState(prev => ({
+        ...prev,
+        selectedImageForPreview: null,
       }));
     }
   }, [state.mode, sourceEditedImage]);
-
-  const getAssetUrl = (storagePath: string) => {
-    return database.storage.getPublicUrl('user-uploads', storagePath);
-  };
 
   const getImageDimensionsFromUrl = (url: string): Promise<{ width: number; height: number }> => {
     return new Promise((resolve, reject) => {
@@ -211,19 +262,28 @@ export function UnifiedMediaEditor({
         ),
       });
 
-      // Cache updates
+      // Optimistic cache updates - update cache immediately without refetching
       queryClient.setQueryData<EditedImage[]>(['edited-images', projectId], (old = []) => [createdImage, ...old]);
       if (createdImage.lineage_id) {
         queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id], (old = []) => [createdImage, ...old]);
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['timelines', projectId] }),
-      ]);
+      // Invalidate related queries in background (only refetch if actively used)
+      // This ensures cache stays fresh without unnecessary refetches
+      queryClient.invalidateQueries({ 
+        queryKey: ['edited-images', projectId],
+        refetchType: 'active' // Only refetch if query is currently active
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['timelines', projectId],
+        refetchType: 'active'
+      });
 
       if (createdImage.lineage_id) {
-        await queryClient.invalidateQueries({ queryKey: ['timeline', createdImage.lineage_id] });
+        queryClient.invalidateQueries({ 
+          queryKey: ['timeline', createdImage.lineage_id],
+          refetchType: 'active'
+        });
       }
 
       setState(prev => ({
@@ -362,7 +422,11 @@ export function UnifiedMediaEditor({
           });
         }));
 
-        await queryClient.invalidateQueries({ queryKey: ['generated-videos', projectId] });
+        // Invalidate generated videos cache (only refetch if actively used)
+        queryClient.invalidateQueries({ 
+          queryKey: ['generated-videos', projectId],
+          refetchType: 'active'
+        });
 
         showToast('Video is ready to view!', 'success');
         onSave();
@@ -457,7 +521,11 @@ export function UnifiedMediaEditor({
       }
     }
 
-    await queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
+    // Invalidate media assets cache (only refetch if actively used)
+    queryClient.invalidateQueries({ 
+      queryKey: ['media-assets', projectId],
+      refetchType: 'active'
+    });
   };
 
   // Video mode selection handlers
@@ -492,11 +560,49 @@ export function UnifiedMediaEditor({
   };
 
   const handleImageMouseDown = (source: SelectedSource) => {
-    const isSelected = state.selectedSources.find(s => s.id === source.id);
-    if (isSelected) {
-      removeSource(source.id);
+    if (state.mode === 'image-edit') {
+      // In image-edit mode, set the selected image for preview
+      let imageUrl: string | null = null;
+      let fileName: string = '';
+      
+      if (source.type === 'edited_image') {
+        // Check both editedImages and editingHistory arrays
+        const editedImage = editedImages.find(img => img.id === source.id) 
+          || editingHistory.find(img => img.id === source.id);
+        if (editedImage) {
+          imageUrl = editedImage.edited_url;
+          fileName = editedImage.prompt.substring(0, 30);
+        }
+      } else if (source.type === 'media_asset') {
+        const mediaAsset = mediaAssets.find(asset => asset.id === source.id);
+        if (mediaAsset) {
+          imageUrl = getAssetUrl(mediaAsset.storage_path);
+          fileName = mediaAsset.file_name;
+        }
+      }
+      
+      if (imageUrl) {
+        setState(prev => ({
+          ...prev,
+          selectedImageForPreview: {
+            id: source.id,
+            url: imageUrl!,
+            fileName,
+            type: source.type,
+          },
+          selectedSources: [source], // Update selectedSources to show selection in UI
+          editedImageUrl: null, // Clear any edited image when selecting a new source
+          showComparison: false,
+        }));
+      }
     } else {
-      setState(prev => ({ ...prev, selectedSources: [source] }));
+      // In video-generate mode, handle selection as before
+      const isSelected = state.selectedSources.find(s => s.id === source.id);
+      if (isSelected) {
+        removeSource(source.id);
+      } else {
+        setState(prev => ({ ...prev, selectedSources: [source] }));
+      }
     }
   };
 
@@ -541,8 +647,15 @@ export function UnifiedMediaEditor({
           onMouseDown={handleImageMouseDown}
           onFileDrop={handleFileDrop}
           onRefresh={() => {
-            queryClient.invalidateQueries({ queryKey: ['edited-images', projectId] });
-            queryClient.invalidateQueries({ queryKey: ['media-assets', projectId] });
+            // Only refetch active queries to avoid unnecessary network requests
+            queryClient.refetchQueries({ 
+              queryKey: ['edited-images', projectId],
+              type: 'active' // Only refetch if query is currently active
+            });
+            queryClient.refetchQueries({ 
+              queryKey: ['media-assets', projectId],
+              type: 'active'
+            });
           }}
         />
 
@@ -551,15 +664,23 @@ export function UnifiedMediaEditor({
             <UnifiedPreview
               mode={state.mode}
               // Image mode props
-              originalImageUrl={asset ? (sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path)) : undefined}
+              originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview
+                ? state.selectedImageForPreview.url
+                : asset
+                  ? (sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path))
+                  : undefined}
               editedImageUrl={state.editedImageUrl}
               showComparison={state.showComparison}
-              fileName={asset?.file_name}
+              fileName={state.mode === 'image-edit' && state.selectedImageForPreview
+                ? state.selectedImageForPreview.fileName
+                : asset?.file_name}
               // Video mode props
               aspectRatio={state.aspectRatio}
               generatedVideoUrl={state.generatedVideoUrl}
               videoError={state.videoError}
               isGenerating={state.isGenerating}
+              selectedSources={state.selectedSources}
+              onRemoveSource={removeSource}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onRetryVideo={() => setState(prev => ({ ...prev, videoError: false, generatedVideoUrl: null }))}
@@ -571,7 +692,7 @@ export function UnifiedMediaEditor({
             <UnifiedControls
               mode={state.mode}
               // Image mode props
-              prompt={state.productName}
+              prompt={state.mode === 'image-edit' ? state.productName : state.prompt}
               isGenerating={state.isGenerating}
               canGenerate={canGenerate}
               generateLabel={state.mode === 'image-edit' ? "Edit Image With AI" : "Generate Video"}
@@ -579,7 +700,7 @@ export function UnifiedMediaEditor({
               placeholder={state.mode === 'image-edit' ? "Product name (e.g., 'Shoes', 'Candle', 'Mug')" : "Describe the video scene..."}
               onPromptChange={(value) => setState(prev => ({
                 ...prev,
-                [state.mode === 'image-edit' ? 'productName' : 'prompt']: value
+                [prev.mode === 'image-edit' ? 'productName' : 'prompt']: value
               }))}
               onGenerate={state.mode === 'image-edit' ? handleImageGenerate : handleVideoGenerate}
               // Video mode props

@@ -642,13 +642,20 @@ describe('VideoGenerator', () => {
     it('throws error when projectId is empty string', async () => {
       const user = createUserEvent();
       
-      // Mock database to throw error when projectId is empty
-      vi.mocked(database.generatedVideos.create).mockRejectedValue(
-        new Error('project_id is required and cannot be empty')
-      );
+      // Use whitespace projectId that becomes empty after trim() - this allows queries to run
+      // but will fail validation during save
+      const whitespaceProjectId = '   ';
+      
+      // Mock database to throw error when projectId.trim() is empty
+      vi.mocked(database.generatedVideos.create).mockImplementation(async (data) => {
+        if (!data.project_id || !data.project_id.trim()) {
+          throw new Error('project_id is required and cannot be empty');
+        }
+        return mockGeneratedVideo;
+      });
       
       renderWithQueryClient(
-        <VideoGenerator projectId="" onClose={mockOnClose} onSave={mockOnSave} />
+        <VideoGenerator projectId={whitespaceProjectId} onClose={mockOnClose} onSave={mockOnSave} />
       );
 
       // Wait for and select an image source by alt text
