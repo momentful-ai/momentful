@@ -22,7 +22,7 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..');
 
 // Parse command line arguments
-function parseArgs() {
+export function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
     projectId: process.env.SUPABASE_PROJECT_ID,
@@ -53,7 +53,7 @@ function parseArgs() {
   return config;
 }
 
-function printHelp() {
+export function printHelp() {
   console.log(`
 Supabase Link and Push Script
 
@@ -79,7 +79,7 @@ The script will:
 }
 
 // Execute a command and return output
-function execCommand(command, options = {}) {
+export function execCommand(command, options = {}) {
   try {
     const output = execSync(command, {
       encoding: 'utf-8',
@@ -94,7 +94,7 @@ function execCommand(command, options = {}) {
 }
 
 // Get all migration files
-function getMigrationFiles() {
+export function getMigrationFiles() {
   const migrationsDir = join(PROJECT_ROOT, 'supabase', 'migrations');
   const files = readdirSync(migrationsDir)
     .filter(file => file.endsWith('.sql'))
@@ -108,7 +108,7 @@ function getMigrationFiles() {
 }
 
 // Link to a project using Supabase CLI
-function linkToProject(projectId) {
+export function linkToProject(projectId) {
   console.log(`\n🔗 Linking to project ${projectId}...`);
 
   // First, try to unlink any existing project (ignore errors)
@@ -138,7 +138,7 @@ function linkToProject(projectId) {
 }
 
 // Apply all migrations
-function applyMigrations() {
+export function applyMigrations() {
   console.log('\n📦 Pushing migrations to project...');
 
   // Use db push to apply all pending migrations
@@ -192,11 +192,13 @@ async function linkAndPush() {
   console.log(`\n💡 Your project is now linked and up-to-date!`);
 }
 
-// Run the script
-linkAndPush().catch(error => {
-  console.error('\n❌ Unexpected error:', error);
-  process.exit(1);
-});
+// Run the script if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  linkAndPush().catch(error => {
+    console.error('\n❌ Unexpected error:', error);
+    process.exit(1);
+  });
+}
 
 
 

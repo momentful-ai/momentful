@@ -27,7 +27,7 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..');
 
 // Parse command line arguments
-function parseArgs() {
+export function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
     oldProjectId: process.env.OLD_PROJECT_ID,
@@ -70,7 +70,7 @@ function parseArgs() {
   return config;
 }
 
-function printHelp() {
+export function printHelp() {
   console.log(`
 Supabase Project Migration Script
 
@@ -104,7 +104,7 @@ The script will:
 }
 
 // Execute a command and return output
-function execCommand(command, options = {}) {
+export function execCommand(command, options = {}) {
   try {
     const output = execSync(command, {
       encoding: 'utf-8',
@@ -119,7 +119,7 @@ function execCommand(command, options = {}) {
 }
 
 // Get all migration files sorted by timestamp
-function getMigrationFiles() {
+export function getMigrationFiles() {
   const migrationsDir = join(PROJECT_ROOT, 'supabase', 'migrations');
   const files = readdirSync(migrationsDir)
     .filter(file => file.endsWith('.sql'))
@@ -133,7 +133,7 @@ function getMigrationFiles() {
 }
 
 // Verify connection to a project
-function verifyProjectConnection(projectId, anonKey) {
+export function verifyProjectConnection(projectId, anonKey) {
   console.log(`\n🔍 Verifying connection to project ${projectId}...`);
   
   // Try to query a simple endpoint
@@ -145,7 +145,7 @@ function verifyProjectConnection(projectId, anonKey) {
 }
 
 // Link to a new project using Supabase CLI
-function linkToProject(projectId) {
+export function linkToProject(projectId) {
   console.log(`\n🔗 Linking to new project ${projectId}...`);
   
   // First, try to unlink any existing project (ignore errors)
@@ -175,7 +175,7 @@ function linkToProject(projectId) {
 }
 
 // Apply all migrations
-function applyMigrations() {
+export function applyMigrations() {
   console.log('\n📦 Applying migrations to new project...');
   
   // Use db push with --include-all to ensure all migrations are applied
@@ -185,7 +185,7 @@ function applyMigrations() {
 }
 
 // Verify migration by checking if tables exist
-function verifyMigration(anonKey) {
+export function verifyMigration(anonKey) {
   console.log('\n✅ Verifying migration...');
   
   // Check for key tables that should exist after migration
@@ -272,9 +272,11 @@ async function migrateProject() {
   console.log(`   3. Update any CI/CD pipelines with new credentials\n`);
 }
 
-// Run the migration
-migrateProject().catch(error => {
-  console.error('\n❌ Unexpected error:', error);
-  process.exit(1);
-});
+// Run the migration if this script is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  migrateProject().catch(error => {
+    console.error('\n❌ Unexpected error:', error);
+    process.exit(1);
+  });
+}
 

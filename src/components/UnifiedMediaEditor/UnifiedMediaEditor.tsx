@@ -10,7 +10,7 @@ import { useToast } from '../../hooks/useToast';
 import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { EditedImage } from '../../types';
-import { SelectedSource } from '../VideoGenerator/types';
+import { SelectedSource } from './types';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import {
   createReplicateImageJob,

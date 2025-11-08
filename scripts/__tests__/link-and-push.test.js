@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execSync } from 'child_process';
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -18,7 +18,6 @@ vi.mock('fs', async (importOriginal) => {
   return {
     ...actual,
     readdirSync: vi.fn(),
-    readFileSync: vi.fn(),
   };
 });
 
@@ -44,12 +43,12 @@ vi.spyOn(console, 'log').mockImplementation(() => {});
 vi.spyOn(console, 'error').mockImplementation(() => {});
 
 // Import the script module for testing
-import * as scriptModule from '../migrate-supabase-project.js';
+import * as scriptModule from '../link-and-push.js';
 
-describe('migrate-supabase-project.js', () => {
+describe('link-and-push.js', () => {
   const mockExecSync = execSync;
   const mockReaddirSync = readdirSync;
-  
+
   const mockMigrations = [
     '20251018165757_create_initial_schema.sql',
     '20251018165825_create_storage_buckets.sql',
@@ -60,22 +59,16 @@ describe('migrate-supabase-project.js', () => {
     vi.clearAllMocks();
 
     // Mock process.argv
-    process.argv = ['node', 'scripts/migrate-supabase-project.js'];
+    process.argv = ['node', 'scripts/link-and-push.js'];
 
     // Clear environment variables
-    delete process.env.OLD_PROJECT_ID;
-    delete process.env.OLD_ANON_KEY;
-    delete process.env.NEW_PROJECT_ID;
-    delete process.env.NEW_ANON_KEY;
+    delete process.env.SUPABASE_PROJECT_ID;
 
     // Mock file system operations
     mockReaddirSync.mockReturnValue(mockMigrations);
 
     // Mock execSync to succeed by default
     mockExecSync.mockImplementation((command) => {
-      if (command.includes('curl')) {
-        return '200';
-      }
       if (command.includes('unlink')) {
         return '';
       }
@@ -100,68 +93,41 @@ describe('migrate-supabase-project.js', () => {
     it('should parse command line arguments correctly', () => {
       process.argv = [
         'node',
-        'scripts/migrate-supabase-project.js',
-        '--old-project-id',
-        'old-id-123',
-        '--old-anon-key',
-        'old-key-abc',
-        '--new-project-id',
-        'new-id-456',
-        '--new-anon-key',
-        'new-key-def',
+        'scripts/link-and-push.js',
+        '--project-id',
+        'test-project-123',
       ];
 
       const config = scriptModule.parseArgs();
 
-      expect(config.oldProjectId).toBe('old-id-123');
-      expect(config.oldAnonKey).toBe('old-key-abc');
-      expect(config.newProjectId).toBe('new-id-456');
-      expect(config.newAnonKey).toBe('new-key-def');
+      expect(config.projectId).toBe('test-project-123');
     });
 
     it('should parse environment variables when CLI args are missing', () => {
-      process.argv = ['node', 'scripts/migrate-supabase-project.js'];
-      process.env.OLD_PROJECT_ID = 'env-old-id';
-      process.env.OLD_ANON_KEY = 'env-old-key';
-      process.env.NEW_PROJECT_ID = 'env-new-id';
-      process.env.NEW_ANON_KEY = 'env-new-key';
+      process.argv = ['node', 'scripts/link-and-push.js'];
+      process.env.SUPABASE_PROJECT_ID = 'env-project-id';
 
       const config = scriptModule.parseArgs();
 
-      expect(config.oldProjectId).toBe('env-old-id');
-      expect(config.oldAnonKey).toBe('env-old-key');
-      expect(config.newProjectId).toBe('env-new-id');
-      expect(config.newAnonKey).toBe('env-new-key');
+      expect(config.projectId).toBe('env-project-id');
     });
 
     it('should prioritize CLI arguments over environment variables', () => {
-      process.env.OLD_PROJECT_ID = 'env-old-id';
-      process.env.OLD_ANON_KEY = 'env-old-key';
-      process.env.NEW_PROJECT_ID = 'env-new-id';
-      process.env.NEW_ANON_KEY = 'env-new-key';
+      process.env.SUPABASE_PROJECT_ID = 'env-project-id';
 
       process.argv = [
         'node',
-        'scripts/migrate-supabase-project.js',
-        '--old-project-id',
-        'cli-old-id',
-        '--old-anon-key',
-        'cli-old-key',
-        '--new-project-id',
-        'cli-new-id',
-        '--new-anon-key',
-        'cli-new-key',
+        'scripts/link-and-push.js',
+        '--project-id',
+        'cli-project-id',
       ];
 
       const config = scriptModule.parseArgs();
 
-      expect(config.oldProjectId).toBe('cli-old-id');
-      expect(config.oldAnonKey).toBe('cli-old-key');
-      expect(config.newProjectId).toBe('cli-new-id');
-      expect(config.newAnonKey).toBe('cli-new-key');
+      expect(config.projectId).toBe('cli-project-id');
     });
 
-    it.skip('should require all parameters', () => {
+    it.skip('should require project ID parameter', () => {
       // Skipping this test due to mocking complexities with process.exit
       // The function behavior is tested in the help functionality tests
     });
@@ -232,17 +198,7 @@ describe('migrate-supabase-project.js', () => {
       // Skipping due to mocking complexities with execSync
     });
 
-    it.skip('should execute db push with --include-all flag', () => {
-      // Skipping due to mocking complexities with execSync
-    });
-  });
-
-  describe('Project Verification', () => {
-    it.skip('should verify old project connection', () => {
-      // Skipping due to mocking complexities with execSync
-    });
-
-    it.skip('should handle verification failures gracefully', () => {
+    it.skip('should execute db push without --include-all flag', () => {
       // Skipping due to mocking complexities with execSync
     });
   });
@@ -303,7 +259,7 @@ describe('migrate-supabase-project.js', () => {
   });
 
   describe('Success Scenarios', () => {
-    it.skip('should successfully complete full migration flow', () => {
+    it.skip('should successfully complete link and push flow', () => {
       // Skipping due to mocking complexities with execSync
       // The individual function tests cover the core logic
     });
@@ -321,12 +277,11 @@ describe('migrate-supabase-project.js', () => {
     it('should display help when --help flag is used', () => {
       process.argv = [
         'node',
-        'scripts/migrate-supabase-project.js',
+        'scripts/link-and-push.js',
         '--help',
       ];
 
-      // In real implementation, this would call printHelp() and exit
-      const shouldShowHelp = process.argv.includes('--help') || 
+      const shouldShowHelp = process.argv.includes('--help') ||
                              process.argv.includes('-h');
 
       expect(shouldShowHelp).toBe(true);
@@ -335,11 +290,11 @@ describe('migrate-supabase-project.js', () => {
     it('should display help when -h flag is used', () => {
       process.argv = [
         'node',
-        'scripts/migrate-supabase-project.js',
+        'scripts/link-and-push.js',
         '-h',
       ];
 
-      const shouldShowHelp = process.argv.includes('--help') || 
+      const shouldShowHelp = process.argv.includes('--help') ||
                              process.argv.includes('-h');
 
       expect(shouldShowHelp).toBe(true);
@@ -347,10 +302,9 @@ describe('migrate-supabase-project.js', () => {
   });
 
   describe('Integration Scenarios', () => {
-    it.skip('should handle complete migration with real-world scenario', () => {
+    it.skip('should handle complete link and push with real-world scenario', () => {
       // Skipping due to mocking complexities with execSync
       // The individual function tests cover the core logic
     });
   });
 });
-

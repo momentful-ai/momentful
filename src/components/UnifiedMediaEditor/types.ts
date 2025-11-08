@@ -1,7 +1,13 @@
 import { MediaAsset, EditedImage } from '../../types';
-import { SelectedSource } from '../VideoGenerator/types';
 
 export type MediaEditorMode = 'image-edit' | 'video-generate';
+
+export interface SelectedSource {
+  id: string;
+  type: 'edited_image' | 'media_asset';
+  thumbnail?: string;
+  name: string;
+}
 
 export interface UnifiedMediaEditorProps {
   // Mode and navigation
