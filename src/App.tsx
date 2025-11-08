@@ -12,8 +12,7 @@ import { database } from './lib/database';
 type View =
   | { type: 'dashboard' }
   | { type: 'project'; project: Project }
-  | { type: 'editor'; asset: MediaAsset; projectId: string; project: Project; sourceEditedImage?: EditedImage }
-  | { type: 'video-generator'; projectId: string; project: Project; initialSelectedImageId?: string };
+  | { type: 'unified-editor'; initialMode: 'image-edit' | 'video-generate'; projectId: string; project: Project; asset?: MediaAsset; sourceEditedImage?: EditedImage; initialSelectedImageId?: string };
 
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
@@ -37,7 +36,14 @@ function App() {
           if (asset.lineage_id) {
             const lineage = await database.lineages.getById(asset.lineage_id);
             const rootAsset = await database.mediaAssets.getById(lineage.root_media_asset_id);
-            setView({ type: 'editor', asset: rootAsset, projectId, project: view.project, sourceEditedImage: asset });
+            setView({
+              type: 'unified-editor',
+              initialMode: 'image-edit',
+              asset: rootAsset,
+              projectId,
+              project: view.project,
+              sourceEditedImage: asset
+            });
           } else {
             // Fallback: create synthetic asset using the edited image's info
             const syntheticAsset: MediaAsset = {
@@ -55,7 +61,14 @@ function App() {
               created_at: asset.created_at,
               lineage_id: asset.lineage_id,
             };
-            setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
+            setView({
+              type: 'unified-editor',
+              initialMode: 'image-edit',
+              asset: syntheticAsset,
+              projectId,
+              project: view.project,
+              sourceEditedImage: asset
+            });
           }
         } catch (error) {
           console.error('Failed to fetch root asset:', error);
@@ -75,20 +88,54 @@ function App() {
             created_at: asset.created_at,
             lineage_id: asset.lineage_id,
           };
-          setView({ type: 'editor', asset: syntheticAsset, projectId, project: view.project, sourceEditedImage: asset });
+          setView({
+            type: 'unified-editor',
+            initialMode: 'image-edit',
+            asset: syntheticAsset,
+            projectId,
+            project: view.project,
+            sourceEditedImage: asset
+          });
         }
       } else {
         // It's a MediaAsset
-        setView({ type: 'editor', asset, projectId, project: view.project });
+        setView({
+          type: 'unified-editor',
+          initialMode: 'image-edit',
+          asset,
+          projectId,
+          project: view.project
+        });
       }
     }
   }, [view]);
 
   const handleNavigateToVideoGenerator = useCallback((projectId: string, imageId?: string) => {
     if (view.type === 'editor') {
-      setView({ type: 'video-generator', projectId, project: view.project, initialSelectedImageId: imageId });
+      setView({
+        type: 'unified-editor',
+        initialMode: 'video-generate',
+        projectId,
+        project: view.project,
+        asset: view.asset,
+        sourceEditedImage: view.sourceEditedImage,
+        initialSelectedImageId: imageId
+      });
     } else if (view.type === 'project') {
-      setView({ type: 'video-generator', projectId, project: view.project, initialSelectedImageId: imageId });
+      setView({
+        type: 'unified-editor',
+        initialMode: 'video-generate',
+        projectId,
+        project: view.project,
+        initialSelectedImageId: imageId
+      });
+    } else if (view.type === 'unified-editor') {
+      // Switch mode within unified editor
+      setView({
+        ...view,
+        initialMode: 'video-generate',
+        initialSelectedImageId: imageId
+      });
     }
   }, [view]);
 
@@ -115,11 +162,36 @@ function App() {
 
       // Update the editor view to use this edited image as the new source
       setView({
-        type: 'editor',
+        type: 'unified-editor',
+        initialMode: 'image-edit',
         asset: syntheticAsset,
         projectId: view.projectId,
         project: view.project,
         sourceEditedImage: image, // This will be used as the source in the preview
+      });
+    } else if (view.type === 'unified-editor') {
+      // Create a synthetic MediaAsset from the edited image
+      const syntheticAsset: MediaAsset = {
+        id: image.id,
+        project_id: image.project_id,
+        user_id: image.user_id,
+        file_name: `edited-${image.id}.png`,
+        file_type: 'image',
+        file_size: 0,
+        storage_path: image.storage_path,
+        thumbnail_url: image.edited_url,
+        width: image.width,
+        height: image.height,
+        sort_order: 0,
+        created_at: image.created_at,
+      };
+
+      // Update the unified editor view to use this edited image as the new source
+      setView({
+        ...view,
+        initialMode: 'image-edit',
+        asset: syntheticAsset,
+        sourceEditedImage: image,
       });
     }
   }, [view]);
@@ -141,34 +213,23 @@ function App() {
   return (
     <ToastProvider>
       <AnimatePresence mode="wait">
-        {view.type === 'editor' ? (
-          <Suspense key="editor" fallback={<div className="flex items-center justify-center h-screen">Loading editor...</div>}>
-            <ImageEditor
+        {view.type === 'unified-editor' ? (
+          <Suspense key="unified-editor" fallback={<div className="flex items-center justify-center h-screen">Loading editor...</div>}>
+            <UnifiedMediaEditor
+              initialMode={view.initialMode}
+              projectId={view.projectId}
               asset={view.asset}
-              projectId={view.projectId}
               sourceEditedImage={view.sourceEditedImage}
-              onClose={() => {
-                setView({ type: 'project', project: view.project });
-              }}
-              onSave={() => {
-                // Notify that save completed, but don't close the editor
-                // User stays in editor to see the new image in the timeline
-              }}
-              onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
-              onSelectImageToEdit={handleSelectImageToEdit}
-            />
-          </Suspense>
-        ) : view.type === 'video-generator' ? (
-          <Suspense key="video-generator" fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
-            <VideoGenerator
-              projectId={view.projectId}
               initialSelectedImageId={view.initialSelectedImageId}
               onClose={() => {
                 setView({ type: 'project', project: view.project });
               }}
               onSave={() => {
-                // setView({ type: 'project', project: view.project });
+                // Notify that save completed, but don't close the editor
+                // User stays in editor to see the new content in the timeline
               }}
+              onNavigateToVideo={(imageId) => handleNavigateToVideoGenerator(view.projectId, imageId)}
+              onSelectImageToEdit={handleSelectImageToEdit}
             />
           </Suspense>
         ) : (
@@ -181,6 +242,7 @@ function App() {
                   onBack={handleBackToDashboard}
                   onUpdateProject={handleUpdateProject}
                   onEditImage={handleEditImage}
+                  onGenerateVideo={handleNavigateToVideoGenerator}
                   defaultTab={returningFromEditor ? 'edited' : undefined}
                   onMounted={handleProjectWorkspaceMounted}
                 />
