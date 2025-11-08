@@ -37,6 +37,7 @@ interface ProjectWorkspaceProps {
   onBack: () => void;
   onUpdateProject?: (project: Project) => void;
   onEditImage?: (asset: MediaAsset | EditedImage, projectId: string) => void;
+  onOpenUnifiedEditor?: (mode: 'image' | 'video', projectId: string, imageId?: string) => void;
   defaultTab?: 'media' | 'edited' | 'videos';
   onMounted?: () => void;
 }
@@ -45,7 +46,7 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 
-function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
+function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, onOpenUnifiedEditor, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
@@ -142,6 +143,12 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const handleShowVideoGenerator = useCallback(() => {
     setShowVideoGenerator(true);
   }, []);
+
+  const handleShowUnifiedEditor = useCallback((mode: 'image' | 'video' = 'video', imageId?: string) => {
+    if (onOpenUnifiedEditor) {
+      onOpenUnifiedEditor(mode, project.id, imageId);
+    }
+  }, [onOpenUnifiedEditor, project.id]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -565,7 +572,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
-              onClick={handleShowVideoGenerator}
+              onClick={() => handleShowUnifiedEditor('video')}
               variant="gradient"
               size="lg"
               className="flex-1 sm:flex-initial gap-2"
