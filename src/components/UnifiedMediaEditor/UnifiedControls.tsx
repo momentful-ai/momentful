@@ -34,7 +34,7 @@ function VideoGeneratorControls({
       canGenerate={canGenerate}
       generateLabel="Generate Video"
       generatingLabel="Generating Video..."
-      placeholder="Describe your video vision... For example: 'Create a dynamic product showcase with smooth transitions' or 'Show the product in a lifestyle setting with upbeat energy'"
+      placeholder="Describe your product. For example: 'A pair of shoes' or 'A candle' or 'A mug' on a table."
       onPromptChange={onPromptChange}
       onGenerate={onGenerate}
       icon="play"
@@ -99,6 +99,7 @@ export function UnifiedControls({
             onPromptChange={onPromptChange}
             onGenerate={onGenerate}
             icon="wand"
+            errorMessage={!canGenerate ? "Please enter a prompt to generate an image" : undefined}
           />
         </motion.div>
       ) : (

@@ -1,6 +1,7 @@
 import { Wand2, Play } from 'lucide-react';
 import { ReactNode } from 'react';
 import { mergeName } from '../../lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface PromptControlsProps {
   prompt: string;
@@ -66,31 +67,36 @@ export function PromptControls({
               className="flex-1 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           )}
-          <button
-            onClick={onGenerate}
-            disabled={!canGenerate || isGenerating}
-            className={`${
-              onContextChange ? '' : 'flex-1'
-            } flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95 whitespace-nowrap`}
-          >
-            {isGenerating ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
-                <span>{generatingLabel}</span>
-              </>
-            ) : (
-              <>
-                <IconComponent className="w-5 h-5" />
-                <span>{generateLabel}</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        <div className="min-h-8 flex items-center justify-center">
-          {errorMessage && (
-            <p className="text-lg text-destructive text-center">{errorMessage}</p>
-          )}
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onGenerate}
+                  disabled={!canGenerate || isGenerating}
+                  className={`${
+                    onContextChange ? '' : 'flex-1'
+                  } flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed text-primary-foreground px-6 py-3 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg active:scale-95 whitespace-nowrap`}
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
+                      <span>{generatingLabel}</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconComponent className="w-5 h-5" />
+                      <span>{generateLabel}</span>
+                    </>
+                  )}
+                </button>
+              </TooltipTrigger>
+              {errorMessage && (
+                <TooltipContent variant="destructive">
+                  <p>{errorMessage}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>
