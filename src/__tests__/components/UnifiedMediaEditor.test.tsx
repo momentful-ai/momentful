@@ -409,7 +409,7 @@ describe('UnifiedMediaEditor', () => {
       const imageElement = screen.getByAltText('A beautiful landscape');
       await user.click(imageElement);
 
-      const promptInput = screen.getByPlaceholderText(/Describe your video vision/i);
+      const promptInput = screen.getByPlaceholderText(/Describe your product/i);
       await user.clear(promptInput);
       await user.type(promptInput, 'Dynamic product showcase');
 
