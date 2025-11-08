@@ -66,6 +66,70 @@ describe('Replicate API Client', () => {
       })).rejects.toThrow('Network error');
     });
 
+    it('handles malformed JSON responses', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      });
+
+      await expect(createReplicatePrediction({
+        version: 'test-model',
+        input: { prompt: 'test' },
+      })).rejects.toThrow('Server returned status 500. Internal Server Error');
+    });
+
+    it('handles 402 Payment Required errors with detailed information', async () => {
+      const errorResponse = {
+        error: 'Payment Required',
+        title: 'Monthly spend limit reached',
+        detail: 'You\'ve hit your monthly spend limit. You can change or remove your limit at https://replicate.com/account/billing#limits. If you have recently increased your limit, please wait a few minutes before trying again.',
+        status: 402
+      };
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: () => Promise.resolve(errorResponse),
+      });
+
+      const error = await createReplicatePrediction({
+        version: 'test-model',
+        input: { prompt: 'test' },
+      }).catch(e => e);
+
+      expect(error.name).toBe('ReplicatePaymentError');
+      expect(error.message).toBe('You\'ve hit your monthly spend limit. You can change or remove your limit at https://replicate.com/account/billing#limits. If you have recently increased your limit, please wait a few minutes before trying again.');
+      expect(error.status).toBe(402);
+      expect(error.title).toBe('Monthly spend limit reached');
+      expect(error.detail).toBe('You\'ve hit your monthly spend limit. You can change or remove your limit at https://replicate.com/account/billing#limits. If you have recently increased your limit, please wait a few minutes before trying again.');
+    });
+
+    it('handles other HTTP errors with detailed information', async () => {
+      const errorResponse = {
+        error: 'HTTP 429',
+        title: 'Too Many Requests',
+        detail: 'Rate limit exceeded. Please try again later.',
+        status: 429
+      };
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: () => Promise.resolve(errorResponse),
+      });
+
+      const error = await createReplicatePrediction({
+        version: 'test-model',
+        input: { prompt: 'test' },
+      }).catch(e => e);
+
+      expect(error.name).toBe('ReplicateAPIError');
+      expect(error.message).toBe('Rate limit exceeded. Please try again later.');
+      expect(error.status).toBe(429);
+      expect(error.title).toBe('Too Many Requests');
+      expect(error.detail).toBe('Rate limit exceeded. Please try again later.');
+    });
+
     it('uses default error message when error field is missing', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: false,

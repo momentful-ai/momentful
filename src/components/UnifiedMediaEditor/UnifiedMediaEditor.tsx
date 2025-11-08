@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt } from '../../lib/media';
+import { getErrorMessage } from '../../lib/utils';
 import { videoModels } from '../../data/aiModels';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
@@ -299,7 +300,7 @@ export function UnifiedMediaEditor({
       onSave();
     } catch (error) {
       console.error('Error generating image:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate image. Please try again.';
+      const errorMessage = getErrorMessage(error);
       showToast(errorMessage, 'error');
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
@@ -435,10 +436,8 @@ export function UnifiedMediaEditor({
       }
     } catch (error) {
       console.error('Error generating video:', error);
-      showToast(
-        error instanceof Error ? error.message : 'Failed to generate video. Please try again.',
-        'error'
-      );
+      const errorMessage = getErrorMessage(error);
+      showToast(errorMessage, 'error');
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
     }

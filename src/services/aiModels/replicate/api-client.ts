@@ -33,6 +33,13 @@ export interface ReplicateWebhookEvent {
   };
 }
 
+export interface ReplicateAPIError extends Error {
+  name: 'ReplicateAPIError' | 'ReplicatePaymentError';
+  status?: number;
+  title?: string;
+  detail?: string;
+}
+
 /**
  * Create a new prediction (run a model)
  */
@@ -48,7 +55,38 @@ export async function createReplicatePrediction(
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    let error;
+    try {
+      error = await response.json();
+    } catch (_jsonError) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      // If JSON parsing fails, create a fallback error object
+      error = {
+        error: `HTTP ${response.status}`,
+        detail: `Server returned status ${response.status}. ${response.statusText || 'Please try again.'}`,
+      };
+    }
+
+    // Handle specific error types like payment required
+    if (response.status === 402) {
+      const paymentError: ReplicateAPIError = new Error(error.detail || error.title || 'Payment Required') as ReplicateAPIError;
+      paymentError.name = 'ReplicatePaymentError';
+      paymentError.status = 402;
+      paymentError.title = error.title;
+      paymentError.detail = error.detail;
+      throw paymentError;
+    }
+
+    // Handle other HTTP errors
+    if (error.detail || error.title) {
+      const apiError: ReplicateAPIError = new Error(error.detail || error.title || error.error || 'API Error') as ReplicateAPIError;
+      apiError.name = 'ReplicateAPIError';
+      apiError.status = response.status;
+      apiError.title = error.title;
+      apiError.detail = error.detail;
+      throw apiError;
+    }
+
+    // Fallback to generic error
     throw new Error(error.error || 'Failed to create prediction');
   }
 
@@ -64,8 +102,17 @@ export async function getReplicatePredictionStatus(
   const response = await fetch(`/api/replicate/predictions/${predictionId}`);
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to get prediction status');
+    let error;
+    try {
+      error = await response.json();
+    } catch (_jsonError) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      // If JSON parsing fails, create a fallback error object
+      error = {
+        error: `HTTP ${response.status}`,
+        detail: `Server returned status ${response.status}. ${response.statusText || 'Please try again.'}`,
+      };
+    }
+    throw new Error(error.error || error.detail || 'Failed to get prediction status');
   }
 
   return response.json();

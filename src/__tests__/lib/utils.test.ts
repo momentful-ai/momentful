@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { mergeName, formatFileSize, formatDuration, formatDate, formatDateTime } from '../../lib/utils';
+import { mergeName, formatFileSize, formatDuration, formatDate, formatDateTime, getErrorMessage } from '../../lib/utils';
+
+/**
+ * Test interface for mock Replicate errors
+ */
+interface MockReplicateError extends Error {
+  name: string;
+  title?: string;
+  detail?: string;
+}
 
 describe('utils', () => {
   describe('mergeName', () => {
@@ -130,6 +139,95 @@ describe('utils', () => {
       const result = formatDateTime(date);
       expect(result).toBeDefined();
       expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getErrorMessage', () => {
+    it('returns the error message for generic errors', () => {
+      const error = new Error('Something went wrong');
+      expect(getErrorMessage(error)).toBe('Something went wrong');
+    });
+
+    it('returns default message for non-error values', () => {
+      expect(getErrorMessage(null)).toBe('An unexpected error occurred. Please try again.');
+      expect(getErrorMessage(undefined)).toBe('An unexpected error occurred. Please try again.');
+      expect(getErrorMessage('string')).toBe('An unexpected error occurred. Please try again.');
+      expect(getErrorMessage(42)).toBe('An unexpected error occurred. Please try again.');
+      expect(getErrorMessage({})).toBe('An unexpected error occurred. Please try again.');
+    });
+
+    it('handles ReplicatePaymentError with title and detail', () => {
+      const error = new Error('Payment required') as MockReplicateError;
+      error.name = 'ReplicatePaymentError';
+      error.title = 'Monthly spend limit reached';
+      error.detail = 'You\'ve hit your monthly spend limit. You can change or remove your limit at https://replicate.com/account/billing#limits. If you have recently increased your limit, please wait a few minutes before trying again.';
+
+      expect(getErrorMessage(error)).toBe('Monthly spend limit reached: You\'ve hit your monthly spend limit. You can change or remove your limit at https://replicate.com/account/billing#limits. If you have recently increased your limit, please wait a few minutes before trying again.');
+    });
+
+    it('handles ReplicatePaymentError with only detail', () => {
+      const error = new Error('Payment required') as MockReplicateError;
+      error.name = 'ReplicatePaymentError';
+      error.detail = 'You\'ve hit your monthly spend limit.';
+
+      expect(getErrorMessage(error)).toBe('You\'ve hit your monthly spend limit.');
+    });
+
+    it('handles ReplicatePaymentError with only title', () => {
+      const error = new Error('Payment required') as MockReplicateError;
+      error.name = 'ReplicatePaymentError';
+      error.title = 'Monthly spend limit reached';
+
+      expect(getErrorMessage(error)).toBe('Monthly spend limit reached. You can change or remove your limit at https://replicate.com/account/billing#limits.');
+    });
+
+    it('handles ReplicatePaymentError with no title or detail', () => {
+      const error = new Error('Payment required') as MockReplicateError;
+      error.name = 'ReplicatePaymentError';
+
+      expect(getErrorMessage(error)).toBe('Payment required');
+    });
+
+    it('handles ReplicateAPIError with title and detail', () => {
+      const error = new Error('Rate limit exceeded') as MockReplicateError;
+      error.name = 'ReplicateAPIError';
+      error.title = 'Too Many Requests';
+      error.detail = 'Rate limit exceeded. Please try again later.';
+
+      expect(getErrorMessage(error)).toBe('Too Many Requests: Rate limit exceeded. Please try again later.');
+    });
+
+    it('handles ReplicateAPIError with only detail', () => {
+      const error = new Error('Rate limit exceeded') as MockReplicateError;
+      error.name = 'ReplicateAPIError';
+      error.detail = 'Rate limit exceeded. Please try again later.';
+
+      expect(getErrorMessage(error)).toBe('Rate limit exceeded. Please try again later.');
+    });
+
+    it('handles ReplicateAPIError with only title', () => {
+      const error = new Error('Rate limit exceeded') as MockReplicateError;
+      error.name = 'ReplicateAPIError';
+      error.title = 'Too Many Requests';
+
+      expect(getErrorMessage(error)).toBe('Too Many Requests');
+    });
+
+    it('handles ReplicateAPIError with no title or detail', () => {
+      const error = new Error('Rate limit exceeded') as MockReplicateError;
+      error.name = 'ReplicateAPIError';
+
+      expect(getErrorMessage(error)).toBe('Rate limit exceeded');
+    });
+
+    it('handles errors that are not Replicate-specific', () => {
+      const error = new Error('Network connection failed');
+      expect(getErrorMessage(error)).toBe('Network connection failed');
+    });
+
+    it('handles errors with empty message', () => {
+      const error = new Error('');
+      expect(getErrorMessage(error)).toBe('');
     });
   });
 });
