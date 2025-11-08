@@ -1,11 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo, Suspense } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { database } from '../../lib/database';
 import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
-import { VideoGenerator } from '../VideoGenerator';
 import { EditedImagesView } from './EditedImagesView';
 import { GeneratedVideosView } from './GeneratedVideosView';
 import { TimelineView } from './TimelineView';
@@ -37,6 +35,7 @@ interface ProjectWorkspaceProps {
   onBack: () => void;
   onUpdateProject?: (project: Project) => void;
   onEditImage?: (asset: MediaAsset | EditedImage, projectId: string) => void;
+  onGenerateVideo?: (projectId: string, imageId?: string) => void;
   defaultTab?: 'media' | 'edited' | 'videos';
   onMounted?: () => void;
 }
@@ -45,7 +44,7 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 
-function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
+function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, onGenerateVideo, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
@@ -53,7 +52,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos' | 'timeline'>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showVideoGenerator, setShowVideoGenerator] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [timelineItemToDelete, setTimelineItemToDelete] = useState<{ item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType; type: string } | null>(null);
@@ -140,8 +138,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   }, []);
 
   const handleShowVideoGenerator = useCallback(() => {
-    setShowVideoGenerator(true);
-  }, []);
+    onGenerateVideo?.(project.id);
+  }, [onGenerateVideo, project.id]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -744,21 +742,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           onCancel={() => setTimelineItemToDelete(null)}
         />
       )}
-
-      <AnimatePresence>
-        {showVideoGenerator && (
-          <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading video generator...</div>}>
-            <VideoGenerator
-              projectId={project.id}
-              onClose={() => setShowVideoGenerator(false)}
-              onSave={() => {
-                setShowVideoGenerator(false);
-                // Cache invalidation handled by VideoGenerator
-              }}
-            />
-          </Suspense>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

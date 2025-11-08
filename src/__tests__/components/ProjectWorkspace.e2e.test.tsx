@@ -92,6 +92,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
   let mockOnBack: ReturnType<typeof vi.fn>;
   let mockOnUpdateProject: ReturnType<typeof vi.fn>;
   let mockOnEditImage: ReturnType<typeof vi.fn>;
+  let mockOnGenerateVideo: ReturnType<typeof vi.fn>;
 
   const mockProject = {
     id: 'test-project',
@@ -155,6 +156,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     mockOnBack = vi.fn();
     mockOnUpdateProject = vi.fn();
     mockOnEditImage = vi.fn();
+    mockOnGenerateVideo = vi.fn();
 
     // Reset all mocks
     vi.clearAllMocks();
@@ -214,6 +216,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         onBack={mockOnBack}
         onUpdateProject={mockOnUpdateProject}
         onEditImage={mockOnEditImage}
+        onGenerateVideo={mockOnGenerateVideo}
       />
     );
 
@@ -222,114 +225,14 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     expect(screen.getByText('Edited Images')).toBeInTheDocument();
     expect(screen.getByText('Generated Videos')).toBeInTheDocument();
 
-    // Step 2: Click "Generate Video" button to open VideoGenerator
-    // The button should have a Video icon - use role and text together for specificity
+    // Step 2: Click "Generate Video" button
     const generateButton = screen.getByRole('button', { name: /generate video/i });
-    // Ensure this is the main project button (not inside VideoGenerator yet)
     expect(generateButton).toBeInTheDocument();
     expect(generateButton).toHaveTextContent('Generate Video');
     await userEvent.click(generateButton);
 
-    // Step 3: VideoGenerator should open and show edited images
-    // Wait for VideoGenerator to be present by checking for a unique element
-    await waitFor(() => {
-      // The VideoGenerator should be rendered, which means we should have 2 "Generate Video" buttons now
-      const generateButtons = screen.getAllByText('Generate Video');
-      expect(generateButtons.length).toBe(2);
-    });
-
-    // Step 4: Switch to Edited Images tab in the generator
-    // Need to be specific - there are now 2 "Edited Images" tabs (main project and VideoGenerator)
-    const editedImagesTabs = screen.getAllByText('Edited Images');
-    // Click the one inside VideoGenerator (should be the second one)
-    const videoGeneratorTab = editedImagesTabs[1];
-    await userEvent.click(videoGeneratorTab);
-
-    // Step 5: Select the edited image by clicking on it
-    await waitFor(() => {
-      const imageElement = screen.getByAltText('A beautiful landscape');
-      expect(imageElement).toBeInTheDocument();
-    });
-
-    const imageElement = screen.getByAltText('A beautiful landscape');
-    await userEvent.click(imageElement);
-
-    // Step 6: Click "Generate Video" in the generator
-    // Need to be specific - there are now two Generate Video buttons
-    await waitFor(() => {
-      const generateButtons = screen.getAllByText('Generate Video');
-      expect(generateButtons.length).toBeGreaterThanOrEqual(2);
-    });
-
-    const allGenerateButtons = screen.getAllByText('Generate Video');
-    // Click the one inside VideoGenerator - it should be the second one (index 1)
-    // since the first one is the main project button
-    const videoGeneratorButton = allGenerateButtons[1];
-    await userEvent.click(videoGeneratorButton);
-
-    // Step 7: Verify Runway API was called
-    await waitFor(() => {
-      expect(vi.mocked(RunwayAPI.createRunwayJob)).toHaveBeenCalledWith({
-        mode: 'image-to-video',
-        promptImage: mockEditedImage.edited_url,
-        promptText: '. Use dynamic, intelligent camera movements that highlight the product effectively.', // Default camera movement prompt
-      });
-    });
-
-    // Step 8: Verify video was saved to database with correct payload
-    await waitFor(() => {
-      expect(vi.mocked(database.generatedVideos.create)).toHaveBeenCalledWith({
-        project_id: 'test-project',
-        user_id: 'test-user-id',
-        name: 'Untitled Video', // Empty prompt becomes 'Untitled Video'
-        ai_model: 'runway-gen2', // Default selected model
-        aspect_ratio: '9:16', // Default aspect ratio
-        camera_movement: 'dynamic', // Default camera movement
-        runway_task_id: 'runway-task-123',
-        storage_path: 'https://example.com/generated-video-1.mp4',
-        status: 'completed',
-        completed_at: expect.any(String),
-      });
-    });
-
-    // Step 9: The VideoGenerator should close and trigger onSave callback
-    // This should close the generator and refresh the project data
-    await waitFor(() => {
-      expect(screen.queryByText('Video Generator')).not.toBeInTheDocument();
-    });
-
-    // Step 10: Now switch to the Generated Videos tab
-    const videosTab = screen.getByText('Generated Videos');
-    await userEvent.click(videosTab);
-
-    // Step 11: Verify the video appears in the Generated Videos tab
-    await waitFor(() => {
-      expect(screen.getByText('Untitled Video')).toBeInTheDocument();
-      expect(screen.getByText('runway-gen2')).toBeInTheDocument();
-      expect(screen.getByText('16:9')).toBeInTheDocument();
-      expect(screen.getByText('30s')).toBeInTheDocument();
-    });
-
-    // Step 12: Verify the video element is rendered with correct source
-    const videoElement = document.querySelector('video');
-    expect(videoElement).toBeInTheDocument();
-    expect(videoElement).toHaveAttribute('src', mockGeneratedVideo.storage_path);
-
-    // Step 13: Verify download and delete buttons are visible for completed video
-    const downloadButton = screen.getByTitle('Download video');
-    const deleteButton = screen.getByTitle('Delete video');
-    expect(downloadButton).toBeInTheDocument();
-    expect(deleteButton).toBeInTheDocument();
-
-    // Step 14: Verify the complete data flow worked
-    // The database.generatedVideos.list should have been called during the refresh
-    expect(vi.mocked(database.generatedVideos.list)).toHaveBeenCalledWith('test-project');
-
-    // Step 15: Verify the video generation process completed successfully
-    expect(vi.mocked(RunwayAPI.pollJobStatus)).toHaveBeenCalledWith(
-      'runway-task-123',
-      expect.any(Function)
-    );
+    // Step 3: Verify that onGenerateVideo callback was called with correct project ID
+    expect(mockOnGenerateVideo).toHaveBeenCalledWith('test-project');
   });
 
   it('shows processing state and updates when video completes', async () => {
@@ -351,6 +254,7 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
         onBack={mockOnBack}
         onUpdateProject={mockOnUpdateProject}
         onEditImage={mockOnEditImage}
+        onGenerateVideo={mockOnGenerateVideo}
       />
     );
 
@@ -375,60 +279,4 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     expect(deleteButton).toBeInTheDocument();
   });
 
-  it('handles video generation errors gracefully', async () => {
-    // Mock Runway API to fail
-    vi.mocked(RunwayAPI.createRunwayJob).mockRejectedValue(new Error('Runway API error'));
-
-    renderWithQueryClient(
-      <ProjectWorkspace
-        project={mockProject}
-        onBack={mockOnBack}
-        onUpdateProject={mockOnUpdateProject}
-        onEditImage={mockOnEditImage}
-      />
-    );
-
-    // Open VideoGenerator - be specific about which button
-    const generateButtons = screen.getAllByText('Generate Video');
-    const mainGenerateButton = generateButtons.find(button =>
-      button.closest('[class*="mb-8"]') // The main generate button is in the header section
-    );
-    expect(mainGenerateButton).toBeInTheDocument();
-    await userEvent.click(mainGenerateButton!);
-
-    // Select image
-    await waitFor(() => {
-      const imageElement = screen.getByAltText('A beautiful landscape');
-      expect(imageElement).toBeInTheDocument();
-    });
-
-    const imageElement = screen.getByAltText('A beautiful landscape');
-    await userEvent.click(imageElement);
-
-    // Try to generate video - need to be specific about which button (inside VideoGenerator)
-    await waitFor(() => {
-      const buttons = screen.getAllByText('Generate Video');
-      expect(buttons.length).toBeGreaterThanOrEqual(1);
-    });
-
-    const allButtons = screen.getAllByText('Generate Video');
-    // Click the one inside VideoGenerator - it should be the second one (index 1)
-    // since the first one is the main project button
-    const videoGeneratorButton = allButtons[1];
-    await userEvent.click(videoGeneratorButton);
-
-    // Video generation should fail and generator should remain open
-    await waitFor(() => {
-      // The VideoGenerator should still be open, so we should still have 2 "Generate Video" buttons
-      const generateButtons = screen.getAllByText('Generate Video');
-      expect(generateButtons.length).toBe(2);
-    });
-
-    // Should not have called database.create
-    expect(vi.mocked(database.generatedVideos.create)).not.toHaveBeenCalled();
-
-    // Should not have called onSave - VideoGenerator should still be open
-    // Since onSave closes the VideoGenerator, if it's still open, onSave was not called
-    expect(screen.getByText('Video Generator')).toBeInTheDocument();
-  });
 });
