@@ -66,6 +66,7 @@ export async function createVideoTask(input: {
   promptText?: string;
   promptImage?: string;
   model?: string;
+  ratio?: string;
 }) {
   // Check if API key is available
   if (!apiKey) {
@@ -78,7 +79,7 @@ export async function createVideoTask(input: {
       model: defaultVideoModel,
       promptImage: input.promptImage,
       promptText: input.promptText,
-      ratio: defaultVideoRatio,
+      ratio: (input.ratio as RunwayML.ImageToVideoCreateParams['ratio']) || defaultVideoRatio,
       duration: defaultVideoDuration,
     });
   }

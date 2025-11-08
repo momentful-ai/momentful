@@ -421,6 +421,7 @@ describe('UnifiedMediaEditor', () => {
           mode: 'image-to-video',
           promptImage: mockEditedImages[0].edited_url,
           promptText: 'Dynamic product showcase. Use dynamic, intelligent camera movements that highlight the product effectively.',
+          ratio: '720:1280', // 9:16 aspect ratio mapped to Runway format
         });
         expect(vi.mocked(RunwayAPI.pollJobStatus)).toHaveBeenCalled();
         expect(vi.mocked(database.generatedVideos.create)).toHaveBeenCalled();

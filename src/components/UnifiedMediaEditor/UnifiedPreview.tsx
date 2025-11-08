@@ -171,7 +171,13 @@ function VideoPreview({
               }`}
             >
               {generatedVideoUrl && !videoError ? (
-                <VideoPlayer videoUrl={generatedVideoUrl} />
+                <VideoPlayer
+                  videoUrl={generatedVideoUrl}
+                  aspectRatio={aspectRatio === '16:9' ? 16/9 :
+                              aspectRatio === '9:16' ? 9/16 :
+                              aspectRatio === '1:1' ? 1 :
+                              4/5}
+                />
               ) : (
                 <div className="text-center p-8 w-full">
                   {videoError ? (

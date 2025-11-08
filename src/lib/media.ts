@@ -24,6 +24,21 @@ export const VIDEO_ASPECT_RATIOS = [
   { id: '4:5', label: '4:5', description: 'Portrait (Instagram)' },
 ] as const;
 
+/**
+ * Map user-friendly aspect ratio IDs to Runway-compatible pixel ratios
+ * Runway expects ratios like '1280:720', not '16:9'
+ */
+export function mapAspectRatioToRunway(ratioId: string): string {
+  const ratioMap: Record<string, string> = {
+    '9:16': '720:1280',   // Portrait (TikTok, Stories)
+    '16:9': '1280:720',   // Landscape (YouTube, Web)
+    '1:1': '960:960',     // Square (Instagram Feed)
+    '4:5': '832:1104',    // Closest to 4:5 (Portrait Instagram)
+  };
+
+  return ratioMap[ratioId] || '1280:720'; // Default to 16:9 if unknown
+}
+
 // Scene types for video generation
 export const VIDEO_SCENE_TYPES = [
   { id: 'product-showcase', label: 'Product Showcase', description: 'Highlight features and details' },

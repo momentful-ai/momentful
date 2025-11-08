@@ -11,12 +11,11 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, AlertCircl
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 interface VideoPlayerProps {
-
   videoUrl: string
-
+  aspectRatio?: number
 }
 
-export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
+export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: VideoPlayerProps) {
 
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -42,7 +41,10 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
 
   const [videoError, setVideoError] = useState<string | null>(null)
 
-  const [aspectRatio, setAspectRatio] = useState<number>(16 / 9)
+  const [internalAspectRatio, setInternalAspectRatio] = useState<number>(9 / 16)
+
+  // Use external aspect ratio if provided, otherwise use internal calculation
+  const displayAspectRatio = externalAspectRatio ?? internalAspectRatio
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -68,6 +70,17 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
 
   }, [videoUrl])
 
+  // Reset internal aspect ratio when external aspect ratio changes
+  useEffect(() => {
+
+    if (externalAspectRatio !== undefined) {
+
+      setInternalAspectRatio(externalAspectRatio)
+
+    }
+
+  }, [externalAspectRatio])
+
   useEffect(() => {
 
     const video = videoRef.current
@@ -90,9 +103,12 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
 
         const calculatedRatio = videoWidth / videoHeight
 
-        setAspectRatio(calculatedRatio)
+        // Only update internal aspect ratio if no external aspect ratio is provided
+        if (externalAspectRatio === undefined) {
+          setInternalAspectRatio(calculatedRatio)
+        }
 
-        console.log("[v0] Video dimensions:", videoWidth, "x", videoHeight, "Aspect ratio:", calculatedRatio)
+        console.log("[v0] Video dimensions:", videoWidth, "x", videoHeight, "Aspect ratio:", calculatedRatio, externalAspectRatio ? "(external ratio used)" : "(internal ratio calculated)")
 
       }
 
@@ -192,7 +208,7 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
 
     }
 
-  }, [videoUrl])
+  }, [videoUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = () => {
 
@@ -342,9 +358,9 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
 
       ref={containerRef}
 
-      className="group relative overflow-hidden rounded-2xl bg-black shadow-2xl mx-auto"
+      className="group relative overflow-hidden rounded-2xl bg-black shadow-2xl mx-auto w-full h-full"
 
-      style={{ maxWidth: "100%", aspectRatio: aspectRatio.toString() }}
+      style={externalAspectRatio ? { aspectRatio: displayAspectRatio.toString() } : undefined}
 
       onMouseMove={handleMouseMove}
 

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
-import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt } from '../../lib/media';
+import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt, mapAspectRatioToRunway } from '../../lib/media';
 import { getErrorMessage } from '../../lib/utils';
 import { videoModels } from '../../data/aiModels';
 import { useUserId } from '../../hooks/useUserId';
@@ -344,10 +344,12 @@ export function UnifiedMediaEditor({
       }
 
       const enhancedPrompt = buildEnhancedVideoPrompt(state.prompt, state.cameraMovement);
+      const runwayRatio = mapAspectRatioToRunway(state.aspectRatio);
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
         promptImage: imageUrl,
         promptText: enhancedPrompt || undefined,
+        ratio: runwayRatio,
       };
 
       showToast('Starting video generation...', 'info');

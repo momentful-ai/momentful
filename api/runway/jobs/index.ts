@@ -38,7 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ratio: parsed.data.ratio as RunwayML.TextToImageCreateParams['ratio'],
       });
     } else {
-      task = await createVideoTask(parsed.data);
+      task = await createVideoTask({
+        mode: parsed.data.mode,
+        promptText: parsed.data.promptText,
+        promptImage: parsed.data.promptImage,
+        model: parsed.data.model,
+        ratio: parsed.data.ratio,
+      });
     }
     
     return res.status(200).json({ taskId: task.id, status: 'processing' });

@@ -54,6 +54,7 @@ export interface CreateJobRequest {
   promptText?: string;
   promptImage?: string;
   model?: string;
+  ratio?: string;
 }
 
 export interface CreateImageJobRequest {
