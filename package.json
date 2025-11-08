@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.api.json",
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
-    "test": "npm run typecheck && vitest",
+    "test": "npm run typecheck && vitest && eslint .",
     "test:no-typecheck": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "npm run typecheck && vitest --coverage --run",
