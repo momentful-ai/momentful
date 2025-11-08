@@ -52,7 +52,7 @@ export function PromptControls({
             value={prompt}
             onChange={(e) => onPromptChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full h-16 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            className="w-full h-20 px-4 py-3 bg-background text-foreground placeholder-muted-foreground border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-base"
           />
         </div>
 
@@ -87,9 +87,11 @@ export function PromptControls({
           </button>
         </div>
 
-        {errorMessage && (
-          <p className="text-xs text-destructive text-center">{errorMessage}</p>
-        )}
+        <div className="min-h-8 flex items-center justify-center">
+          {errorMessage && (
+            <p className="text-lg text-destructive text-center">{errorMessage}</p>
+          )}
+        </div>
       </div>
     </div>
   );
