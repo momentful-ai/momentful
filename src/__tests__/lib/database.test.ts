@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { database } from '../../lib/database';
 
 // Mock Supabase client - basic mock that allows test-specific overrides
@@ -61,6 +61,10 @@ describe('database', () => {
     vi.clearAllMocks();
     // Reset the mock to return undefined by default - tests must set up their own mocks
     mockSupabaseClient.from.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('projects', () => {
@@ -361,61 +365,116 @@ describe('database', () => {
     });
 
     describe('create', () => {
-      it('successfully creates a media asset', async () => {
-        const mockAssetInput = {
-          project_id: 'project-1',
-          user_id: 'user-1',
-          file_name: 'new-image.jpg',
-          file_type: 'image' as const,
-          file_size: 1024000,
-          storage_path: 'path/to/new-image.jpg',
-          width: 1920,
-          height: 1080,
-        };
+      const mockAssetInput = {
+        project_id: 'project-1',
+        user_id: 'user-1',
+        file_name: 'new-image.jpg',
+        file_type: 'image' as const,
+        file_size: 1024000,
+        storage_path: 'path/to/new-image.jpg',
+        width: 1920,
+        height: 1080,
+      };
 
-        const mockAssetWithLineage = {
+      it('successfully creates a media asset with a generated lineage', async () => {
+        const lineageCreateSpy = vi.spyOn(database.lineages, 'create');
+        const insertedAsset = {
           ...mockAssetInput,
           id: 'asset-new',
-          lineage_id: 'generated-lineage-id',
+          lineage_id: null,
         };
 
-        // Mock all database calls with successful responses
-        mockSupabaseClient.from.mockImplementation(() => ({
-          insert: vi.fn(() => ({
-            select: vi.fn(() => ({
-              single: vi.fn(() => Promise.resolve({ data: mockAssetWithLineage, error: null })),
-            })),
-          })),
-          update: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                single: vi.fn(() => Promise.resolve({ data: mockAssetWithLineage, error: null })),
-              })),
-            })),
-          })),
-        }));
+        const updatedAsset = {
+          ...insertedAsset,
+          lineage_id: 'lineage-new',
+        };
+
+        const mockLineage = {
+          id: 'lineage-new',
+          project_id: mockAssetInput.project_id,
+          user_id: mockAssetInput.user_id,
+          root_media_asset_id: insertedAsset.id,
+          name: mockAssetInput.file_name,
+          metadata: {},
+          created_at: '2025-01-01T00:00:00Z',
+        };
+
+        lineageCreateSpy.mockResolvedValue(mockLineage);
+
+        const insertBuilder = createQueryBuilder({ data: insertedAsset, error: null });
+        const updateBuilder = createQueryBuilder({ data: updatedAsset, error: null });
+
+        mockSupabaseClient.from
+          .mockReturnValueOnce(insertBuilder)
+          .mockReturnValueOnce(updateBuilder);
 
         const result = await database.mediaAssets.create(mockAssetInput);
 
-        expect(result).toEqual(mockAssetWithLineage);
-        expect(result.lineage_id).toBeDefined();
+        expect(lineageCreateSpy).toHaveBeenCalledWith({
+          project_id: mockAssetInput.project_id,
+          user_id: mockAssetInput.user_id,
+          root_media_asset_id: insertedAsset.id,
+          name: mockAssetInput.file_name,
+        });
+        expect(result).toEqual(updatedAsset);
       });
 
-      it('handles database errors on create', async () => {
+      it('cleans up the media asset if lineage creation fails', async () => {
+        const lineageCreateSpy = vi.spyOn(database.lineages, 'create');
+        const insertedAsset = {
+          ...mockAssetInput,
+          id: 'asset-new',
+          lineage_id: null,
+        };
+
+        lineageCreateSpy.mockRejectedValue(new Error('Lineage insert failed'));
+
+        const insertBuilder = createQueryBuilder({ data: insertedAsset, error: null });
+        const deleteBuilder = createQueryBuilder({ data: null, error: null });
+
+        mockSupabaseClient.from
+          .mockReturnValueOnce(insertBuilder)
+          .mockReturnValueOnce(deleteBuilder);
+
+        await expect(database.mediaAssets.create(mockAssetInput)).rejects.toThrow('Failed to create lineage for media asset');
+
+        expect(deleteBuilder.delete).toHaveBeenCalled();
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', insertedAsset.id);
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('user_id', mockAssetInput.user_id);
+      });
+
+      it('propagates database errors when media asset insert fails', async () => {
         const dbError = { message: 'Insert failed', code: '23505' };
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(
-          database.mediaAssets.create({
-            project_id: 'project-1',
-            user_id: 'user-1',
-            file_name: 'test.jpg',
-            file_type: 'image',
-            file_size: 1024,
-            storage_path: 'path/to/test.jpg',
-          })
-        ).rejects.toThrow('Failed to create lineage for media asset');
+        await expect(database.mediaAssets.create(mockAssetInput)).rejects.toEqual(dbError);
+      });
+
+      it('skips lineage creation when lineage_id is provided', async () => {
+        const lineageCreateSpy = vi.spyOn(database.lineages, 'create');
+        const assetWithLineage = {
+          ...mockAssetInput,
+          lineage_id: 'existing-lineage',
+        };
+
+        const insertBuilder = createQueryBuilder({
+          data: {
+            ...assetWithLineage,
+            id: 'asset-existing',
+          },
+          error: null,
+        });
+
+        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder);
+
+        const result = await database.mediaAssets.create(assetWithLineage);
+
+        expect(lineageCreateSpy).not.toHaveBeenCalled();
+        expect(result).toEqual({
+          ...assetWithLineage,
+          id: 'asset-existing',
+        });
       });
     });
 

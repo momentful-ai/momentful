@@ -168,72 +168,69 @@ export const database = {
 
       const lineageId = asset.lineage_id;
 
-      // If no lineage_id provided, generate one and create the lineage first
-      if (!lineageId) {
-        const generatedLineageId = crypto.randomUUID();
-        const tempRootAssetId = crypto.randomUUID(); // Temporary placeholder UUID
+      // Always create the media asset first so we have a stable root ID
+      const { data: insertedAsset, error: mediaAssetInsertError } = await supabase
+        .from('media_assets')
+        .insert({
+          ...asset,
+          lineage_id: lineageId ?? null,
+        })
+        .select()
+        .single();
 
-        // Create the lineage first (deferrable FK allows forward reference)
-        try {
-          await database.lineages.create({
-            id: generatedLineageId,
-            project_id: asset.project_id,
-            user_id: asset.user_id,
-            root_media_asset_id: tempRootAssetId, // Temporary placeholder, will be updated
-            name: asset.file_name,
-          });
-        } catch (lineageError) {
-          console.error('Failed to create lineage:', lineageError);
-          throw new Error('Failed to create lineage for media asset');
-        }
-
-        // Now create the media asset with the lineage_id
-        const { data: mediaAssetData, error: mediaAssetError } = await supabase
-          .from('media_assets')
-          .insert({
-            ...asset,
-            lineage_id: generatedLineageId,
-          })
-          .select()
-          .single();
-
-        if (mediaAssetError) {
-          // If media asset creation fails, clean up the lineage
-          console.error('Failed to create media asset, cleaning up lineage:', mediaAssetError);
-          try {
-            await supabase
-              .from('lineages')
-              .delete()
-              .eq('id', generatedLineageId)
-              .eq('user_id', asset.user_id);
-          } catch (cleanupError) {
-            console.error('Failed to cleanup lineage:', cleanupError);
-          }
-          throw mediaAssetError;
-        }
-
-        // Update the lineage with the correct root_media_asset_id
-        try {
-          await database.lineages.update(generatedLineageId, asset.user_id, {
-            root_media_asset_id: mediaAssetData.id,
-          });
-        } catch (updateError) {
-          console.error('Failed to update lineage with correct root_media_asset_id:', updateError);
-          // Don't throw here as the media asset is created successfully
-        }
-
-        return mediaAssetData;
-      } else {
-        // lineage_id was provided, just create the media asset
-        const { data, error } = await supabase
-          .from('media_assets')
-          .insert(asset)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
+      if (mediaAssetInsertError) {
+        throw mediaAssetInsertError;
       }
+
+      // If a lineage_id was provided, we're done
+      if (lineageId) {
+        return insertedAsset;
+      }
+
+      // Create the lineage pointing to this newly created media asset
+      let createdLineage:
+        | Awaited<ReturnType<typeof database.lineages.create>>
+        | null = null;
+      try {
+        createdLineage = await database.lineages.create({
+          project_id: asset.project_id,
+          user_id: asset.user_id,
+          root_media_asset_id: insertedAsset.id,
+          name: asset.file_name,
+        });
+      } catch (lineageError) {
+        console.error('Failed to create lineage:', lineageError);
+        // Clean up the previously created media asset to avoid orphans
+        try {
+          await supabase
+            .from('media_assets')
+            .delete()
+            .eq('id', insertedAsset.id)
+            .eq('user_id', asset.user_id);
+        } catch (cleanupError) {
+          console.error('Failed to cleanup media asset after lineage failure:', cleanupError);
+        }
+        throw new Error('Failed to create lineage for media asset');
+      }
+
+      // Update the media asset with the lineage_id
+      const { data: updatedAsset, error: mediaAssetUpdateError } = await supabase
+        .from('media_assets')
+        .update({ lineage_id: createdLineage.id })
+        .eq('id', insertedAsset.id)
+        .select()
+        .single();
+
+      if (mediaAssetUpdateError || !updatedAsset) {
+        console.error('Failed to update media asset with lineage_id:', mediaAssetUpdateError);
+        // Return the asset with the lineage_id applied locally as a fallback
+        return {
+          ...insertedAsset,
+          lineage_id: createdLineage.id,
+        };
+      }
+
+      return updatedAsset;
     },
 
     async delete(assetId: string, userId: string) {
