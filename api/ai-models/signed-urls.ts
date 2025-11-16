@@ -13,7 +13,7 @@ import { supabase } from '../shared/supabase.js';
 import { validateStoragePath, handleStorageError } from '../shared/storage.js';
 
 // Configuration for signed URLs
-const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
+const SIGNED_URL_EXPIRY = 86400; // 1 day in seconds
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Early return for OPTIONS (CORS preflight) - no processing needed
@@ -58,10 +58,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: `Invalid bucket. Must be one of: ${allowedBuckets.join(', ')}` });
     }
 
-    // Validate expiry time (max 24 hours)
+    // Validate expiry time (max 1 day)
     const maxExpiry = 24 * 60 * 60; // 24 hours in seconds
     if (typeof expiresIn !== 'number' || expiresIn <= 0 || expiresIn > maxExpiry) {
-      return res.status(400).json({ error: `expiresIn must be a positive number not exceeding ${maxExpiry} seconds (24 hours)` });
+      return res.status(400).json({ error: `expiresIn must be a positive number not exceeding ${maxExpiry} seconds (1 day)` });
     }
 
     // Early validation - check auth header before any processing
