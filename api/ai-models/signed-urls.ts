@@ -16,21 +16,32 @@ import { validateStoragePath, handleStorageError } from '../shared/storage.js';
 const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
+  // Early return for OPTIONS (CORS preflight) - no processing needed
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     return res.status(200).end();
   }
 
+  // Early validation - fail fast for non-POST requests
   if (req.method !== 'POST') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(405).json({ error: 'Method not allowed. Use POST to generate signed URLs.' });
   }
 
+  // Set CORS headers for POST responses
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   try {
-    const { bucket, path, expiresIn = SIGNED_URL_EXPIRY } = req.body || {};
+    // Early validation - fail fast if body is missing
+    if (!req.body) {
+      return res.status(400).json({ error: 'Request body is required' });
+    }
+
+    const { bucket, path, expiresIn = SIGNED_URL_EXPIRY } = req.body;
 
     // Validate required parameters
     if (!bucket || typeof bucket !== 'string') {
@@ -53,8 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: `expiresIn must be a positive number not exceeding ${maxExpiry} seconds (24 hours)` });
     }
 
-    // Extract user ID from the authenticated session
-    // Get the authorization token from the request headers
+    // Early validation - check auth header before any processing
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Authentication required. Missing or invalid Authorization header.' });
@@ -62,20 +72,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create a client with the user's token to validate and get user info
-    const { createClient } = await import('@supabase/supabase-js');
+    // Early validation - check environment variables before processing
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabasePublishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
     
     if (!supabaseUrl || !supabasePublishableKey) {
-      console.error('Missing Supabase configuration:', { 
-        hasUrl: !!supabaseUrl, 
-        hasKey: !!supabasePublishableKey 
-      });
+      console.error('[ai-models/signed-urls] Missing Supabase configuration');
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
     // Create a user client with the token to validate the user
+    const { createClient } = await import('@supabase/supabase-js');
     const userClient = createClient(supabaseUrl, supabasePublishableKey, {
       global: {
         headers: {
@@ -89,22 +96,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Validate the token and get user info
-    // Note: getUser() without parameters uses the token from the Authorization header
     const { data: { user }, error: authError } = await userClient.auth.getUser();
 
-    if (authError) {
-      console.error('Auth error:', authError);
+    if (authError || !user) {
+      console.error('[ai-models/signed-urls] Auth error:', authError?.message || 'No user');
       return res.status(401).json({ error: 'Authentication required' });
     }
-
-    if (!user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const userId = user.id;
 
     // Validate the storage path to ensure user can only access their own files
-    const pathValidation = validateStoragePath(userId, path);
+    const pathValidation = validateStoragePath(user.id, path);
     if (!pathValidation.valid) {
       return res.status(403).json({ error: pathValidation.error });
     }
@@ -115,12 +115,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .createSignedUrl(path, expiresIn);
 
     if (error) {
-      console.error('Error generating signed URL:', error);
+      console.error('[ai-models/signed-urls] Storage error:', error.message);
       const errorResult = handleStorageError(error, 'signed URL generation');
       return res.status(errorResult.success ? 200 : 500).json(errorResult);
     }
 
     if (!data?.signedUrl) {
+      console.warn('[ai-models/signed-urls] No signed URL returned for:', { bucket, path });
       return res.status(404).json({ error: 'File not found or access denied' });
     }
 
@@ -131,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error) {
-    console.error('Unexpected error in signed URL generation:', error);
+    console.error('[ai-models/signed-urls] Unexpected error:', error instanceof Error ? error.message : error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
