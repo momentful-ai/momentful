@@ -159,35 +159,13 @@ const MAX_RETRIES = 3;
 const RETRY_COOLDOWN = 60000; // 1 minute cooldown after max retries
 
 /**
- * Global token provider function that can be set by the app
- * This allows the storage utils to access Clerk tokens without React hooks
+ * Note: Token provider is no longer needed here since we use Supabase client directly
+ * The Supabase client handles authentication via the token provider set in AuthGuard
  */
-let tokenProvider: (() => Promise<string | null>) | null = null;
 
 /**
- * Set the token provider function
- */
-export function setTokenProvider(provider: (() => Promise<string | null>) | null) {
-  tokenProvider = provider;
-}
-
-/**
- * Get Clerk token for API requests
- * This function attempts to get the token from the token provider
- */
-async function getClerkToken(): Promise<string | null> {
-  if (tokenProvider) {
-    try {
-      return await tokenProvider();
-    } catch (error) {
-      console.warn('Failed to get token from provider:', error);
-    }
-  }
-  return null;
-}
-
-/**
- * Fetch a signed URL from the API
+ * Fetch a signed URL using Supabase client directly
+ * This uses the authenticated Supabase client instead of calling an API endpoint
  */
 export async function fetchSignedUrl(bucket: string, path: string, expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
   const cacheKey = getSignedUrlCacheKey(bucket, path);
@@ -211,30 +189,16 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
     }
   }
 
-  // Get Clerk token for authentication
-  const token = await getClerkToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   try {
-    const response = await fetch('/api/signed-urls', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        bucket,
-        path,
-        expiresIn,
-      }),
-    });
+    // Import Supabase client dynamically to avoid circular dependencies
+    const { supabase } = await import('./supabase');
+    
+    // Use Supabase client directly - it already has authentication via Clerk token provider
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresIn);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      
+    if (error) {
       // Track failed requests
       const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
       failedRequests.set(cacheKey, {
@@ -244,13 +208,11 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
       
       return {
         success: false,
-        error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+        error: error.message || 'Failed to generate signed URL',
       };
     }
 
-    const data = await response.json();
-
-    if (!data.signedUrl) {
+    if (!data?.signedUrl) {
       // Track failed requests
       const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
       failedRequests.set(cacheKey, {
@@ -260,7 +222,7 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
       
       return {
         success: false,
-        error: 'No signed URL returned from server',
+        error: 'No signed URL returned',
       };
     }
 
@@ -268,7 +230,7 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
     failedRequests.delete(cacheKey);
 
     // Cache the signed URL
-    const expiresAt = new Date(data.expiresAt).getTime();
+    const expiresAt = Date.now() + (expiresIn * 1000);
     signedUrlCache.set(cacheKey, {
       url: data.signedUrl,
       expiresAt,

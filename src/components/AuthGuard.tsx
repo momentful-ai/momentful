@@ -3,7 +3,6 @@ import { SignIn, useUser, useSession } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { Moon, Sun } from 'lucide-react';
 import { setClerkTokenProvider } from '../lib/supabase';
-import { setTokenProvider } from '../lib/storage-utils';
 import { useBypassContext } from '../hooks/useBypassContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from './ui/button';
@@ -52,13 +51,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (isBypassEnabled) {
       // In bypass mode, clear the token provider to use fallback
       setClerkTokenProvider(null);
-      setTokenProvider(null);
       return;
     }
 
     if (!isSignedIn || !session) {
       setClerkTokenProvider(null);
-      setTokenProvider(null);
       return;
     }
 
@@ -71,9 +68,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
       return token;
     };
 
-    // Set up the token provider for both Supabase client and storage utils
+    // Set up the token provider for Supabase client
+    // Storage utils now use Supabase client directly, so no separate provider needed
     setClerkTokenProvider(tokenProviderFn);
-    setTokenProvider(tokenProviderFn);
   }, [isBypassEnabled, isSignedIn, session]);
 
   // In bypass mode, skip all auth checks

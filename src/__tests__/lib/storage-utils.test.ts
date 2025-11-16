@@ -1,14 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getSignedUrl, fetchSignedUrl, clearSignedUrlCache, SIGNED_URL_CONFIG } from '../../lib/storage-utils';
 
-// Mock fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock Supabase client
+const mockCreateSignedUrl = vi.fn();
+const mockSupabaseStorage = {
+  from: vi.fn(() => ({
+    createSignedUrl: mockCreateSignedUrl,
+  })),
+};
+
+const mockSupabase = {
+  storage: mockSupabaseStorage,
+};
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: mockSupabase,
+}));
 
 describe('storage-utils signed URLs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearSignedUrlCache();
+    mockCreateSignedUrl.mockResolvedValue({
+      data: { signedUrl: 'https://signed-url.example.com/file.jpg' },
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -17,29 +33,10 @@ describe('storage-utils signed URLs', () => {
 
   describe('fetchSignedUrl', () => {
     it('should fetch signed URL successfully', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          signedUrl: 'https://signed-url.example.com/file.jpg',
-          expiresAt: '2025-11-16T12:00:00Z',
-          expiresIn: 3600,
-        }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
       const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/signed-urls', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bucket: 'user-uploads',
-          path: 'user123/file.jpg',
-          expiresIn: 3600,
-        }),
-      });
+      expect(mockSupabaseStorage.from).toHaveBeenCalledWith('user-uploads');
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 3600);
 
       expect(result).toEqual({
         success: true,
@@ -48,37 +45,16 @@ describe('storage-utils signed URLs', () => {
     });
 
     it('should use custom expiresIn', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          signedUrl: 'https://signed-url.example.com/file.jpg',
-        }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
       await fetchSignedUrl('user-uploads', 'user123/file.jpg', 7200);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/signed-urls', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bucket: 'user-uploads',
-          path: 'user123/file.jpg',
-          expiresIn: 7200,
-        }),
-      });
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 7200);
     });
 
-    it('should handle API errors', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 403,
-        statusText: 'Forbidden',
-        json: vi.fn().mockResolvedValue({ error: 'Access denied' }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should handle Supabase errors', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: 'Access denied' },
+      });
 
       const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
 
@@ -89,7 +65,7 @@ describe('storage-utils signed URLs', () => {
     });
 
     it('should handle network errors', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
+      mockCreateSignedUrl.mockRejectedValue(new Error('Network error'));
 
       const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
 
@@ -99,18 +75,17 @@ describe('storage-utils signed URLs', () => {
       });
     });
 
-    it('should handle malformed response', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({}),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+    it('should handle missing signed URL', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: { signedUrl: null },
+        error: null,
+      });
 
       const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
 
       expect(result).toEqual({
         success: false,
-        error: 'No signed URL returned from server',
+        error: 'No signed URL returned',
       });
     });
   });
@@ -149,22 +124,16 @@ describe('storage-utils signed URLs', () => {
     });
 
     it('should use cached signed URL', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          signedUrl: 'https://signed-url.example.com/file.jpg',
-          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-        }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
       // First call
       await getSignedUrl('user-uploads', 'user123/file.jpg');
+
+      // Reset mock to track second call
+      mockCreateSignedUrl.mockClear();
 
       // Second call should use cache
       const result = await getSignedUrl('user-uploads', 'user123/file.jpg');
 
-      expect(mockFetch).toHaveBeenCalledTimes(1); // Only one API call
+      expect(mockCreateSignedUrl).not.toHaveBeenCalled(); // Should use cache
       expect(result).toEqual({
         success: true,
         signedUrl: 'https://signed-url.example.com/file.jpg',
@@ -172,45 +141,38 @@ describe('storage-utils signed URLs', () => {
     });
 
     it('should fetch new URL when cache is expired', async () => {
-      const expiredTime = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 minutes ago
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          signedUrl: 'https://signed-url.example.com/file.jpg',
-          expiresAt: expiredTime,
-        }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      // First call with valid expiry
+      await getSignedUrl('user-uploads', 'user123/file.jpg');
 
-      // This should trigger a new fetch since the cached URL is expired
+      // Clear cache to simulate expiry
+      clearSignedUrlCache();
+
+      // Reset mock to track new call
+      mockCreateSignedUrl.mockClear();
+
+      // This should trigger a new fetch since the cached URL is cleared
       const result = await getSignedUrl('user-uploads', 'user123/file.jpg');
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockCreateSignedUrl).toHaveBeenCalled();
       expect(result.success).toBe(true);
     });
   });
 
   describe('clearSignedUrlCache', () => {
     it('should clear the cache', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          signedUrl: 'https://signed-url.example.com/file.jpg',
-          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-        }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
       // Load URL into cache
       await getSignedUrl('user-uploads', 'user123/file.jpg');
 
       // Clear cache
       clearSignedUrlCache();
 
+      // Reset mock to track new call
+      mockCreateSignedUrl.mockClear();
+
       // Next call should fetch again
       await getSignedUrl('user-uploads', 'user123/file.jpg');
 
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(1);
     });
   });
 

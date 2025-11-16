@@ -1,6 +1,16 @@
+/**
+ * Signed URLs API endpoint for AI model operations
+ * 
+ * This endpoint is specifically for AI model workflows (Replicate, Runway, etc.)
+ * where server-side signed URLs are needed for external provider access.
+ * 
+ * For client-side media display, use Supabase client directly:
+ * supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './shared/supabase.js';
-import { validateStoragePath, handleStorageError } from './shared/storage.js';
+import { supabase } from '../shared/supabase.js';
+import { validateStoragePath, handleStorageError } from '../shared/storage.js';
 
 // Configuration for signed URLs
 const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
@@ -99,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: pathValidation.error });
     }
 
-    // Generate signed URL
+    // Generate signed URL using service role client
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(path, expiresIn);
@@ -125,3 +135,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
