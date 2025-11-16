@@ -669,13 +669,8 @@ export function UnifiedMediaEditor({
         }));
       }
     } else {
-      // In video-generate mode, handle selection as before
-      const isSelected = state.selectedSources.find(s => s.id === source.id);
-      if (isSelected) {
-        removeSource(source.id);
-      } else {
-        setState(prev => ({ ...prev, selectedSources: [source] }));
-      }
+      // In video-generate mode, handle selection as single selection (no toggle)
+      setState(prev => ({ ...prev, selectedSources: [source] }));
     }
   };
 
