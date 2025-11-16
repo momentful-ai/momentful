@@ -44,10 +44,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Extract user ID from the authenticated session
-    // This will be validated by RLS policies when accessing the file
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the authorization token from the request headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required. Missing or invalid Authorization header.' });
+    }
 
-    if (authError || !user) {
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create a client with the user's token to validate and get user info
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabasePublishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+    
+    if (!supabaseUrl || !supabasePublishableKey) {
+      console.error('Missing Supabase configuration:', { 
+        hasUrl: !!supabaseUrl, 
+        hasKey: !!supabasePublishableKey 
+      });
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    // Create a user client with the token to validate the user
+    const userClient = createClient(supabaseUrl, supabasePublishableKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // Validate the token and get user info
+    // Note: getUser() without parameters uses the token from the Authorization header
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+
+    if (authError) {
+      console.error('Auth error:', authError);
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
