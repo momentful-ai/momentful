@@ -125,7 +125,7 @@ export function isRetryableError(error: unknown): boolean {
 export const SIGNED_URL_CONFIG = {
   defaultExpiry: 86400, // 1 day
   maxExpiry: 24 * 60 * 60, // 24 hours
-  cacheExpiry: 50 * 60 * 1000, // 50 minutes (to ensure URLs don't expire during use)
+  cacheExpiry: 12 * 60 * 60 * 1000, // 12 hours (half of default expiry to ensure URLs don't expire during use)
 };
 
 /**
@@ -296,4 +296,5 @@ export async function getSignedUrl(bucket: string, path: string, expiresIn: numb
  */
 export function clearSignedUrlCache(): void {
   signedUrlCache.clear();
+  failedRequests.clear();
 }

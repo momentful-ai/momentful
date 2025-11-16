@@ -96,7 +96,7 @@ export function useSignedUrls() {
       try {
         const url = await getSignedUrl(bucket, path, expiresIn);
         results[path] = url;
-      } catch (error) {
+      } catch {
         // Silently fail - already logged in getSignedUrl
         // Don't add to failedPaths here - getSignedUrl handles it
       }

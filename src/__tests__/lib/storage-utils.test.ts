@@ -119,7 +119,7 @@ describe('storage-utils signed URLs', () => {
       const result = await getSignedUrl('user-uploads', 'user123/file.jpg', 0);
       expect(result).toEqual({
         success: false,
-        error: 'expiresIn must be a positive number not exceeding 86400 seconds (24 hours)',
+        error: 'expiresIn must be a positive number not exceeding 86400 seconds (1 day)',
       });
     });
 
@@ -181,7 +181,7 @@ describe('storage-utils signed URLs', () => {
       expect(SIGNED_URL_CONFIG).toEqual({
         defaultExpiry: 86400, // 1 day
         maxExpiry: 24 * 60 * 60, // 24 hours
-        cacheExpiry: 50 * 60 * 1000, // 50 minutes
+        cacheExpiry: 12 * 60 * 60 * 1000, // 12 hours
       });
     });
   });
