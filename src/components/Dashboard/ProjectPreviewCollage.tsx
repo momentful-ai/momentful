@@ -9,13 +9,27 @@ export function ProjectPreviewCollage({ project }: { project: Project }) {
     const imageCount = previewImages.length;
     const { preloadSignedUrls } = useSignedUrls();
     const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+    const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
-    // Preload signed URLs for all preview images
+    // Preload signed URLs for all preview images (only once per previewImages change)
     useEffect(() => {
-      if (previewImages.length > 0) {
-        preloadSignedUrls('user-uploads', previewImages).then(setImageUrls);
+      // Only attempt to load if we haven't tried before and have images
+      if (previewImages.length > 0 && !hasAttemptedLoad) {
+        setHasAttemptedLoad(true);
+        preloadSignedUrls('user-uploads', previewImages)
+          .then(setImageUrls)
+          .catch((error) => {
+            console.error('Failed to preload preview images:', error);
+            // Don't retry - set empty results to stop the loop
+            setImageUrls({});
+          });
       }
-    }, [previewImages, preloadSignedUrls]);
+      // Reset hasAttemptedLoad when previewImages change
+      if (previewImages.length === 0) {
+        setHasAttemptedLoad(false);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [previewImages]); // Only depend on previewImages, not preloadSignedUrls
 
     const getImageUrl = (storagePath: string) => {
       const signedUrl = imageUrls[storagePath];
