@@ -166,17 +166,47 @@ export const database = {
         throw new Error('user_id is required and cannot be empty');
       }
 
-      // Insert the media asset
-      // Note: lineage_id will be set by database trigger if it exists
-      // If the trigger doesn't work, lineage_id will be null (schema allows this for now)
-      const { data, error } = await supabase
+      const lineageId = asset.lineage_id;
+
+      // Insert the media asset first
+      const { data: mediaAssetData, error: mediaAssetError } = await supabase
         .from('media_assets')
-        .insert(asset)
+        .insert({
+          ...asset,
+          lineage_id: lineageId || crypto.randomUUID(), // Use provided lineage_id or generate one
+        })
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (mediaAssetError) throw mediaAssetError;
+
+      // If no lineage_id was provided, create the lineage now
+      if (!lineageId) {
+        try {
+          await database.lineages.create({
+            id: mediaAssetData.lineage_id, // Use the lineage_id from the media asset
+            project_id: asset.project_id,
+            user_id: asset.user_id,
+            root_media_asset_id: mediaAssetData.id,
+            name: asset.file_name,
+          });
+        } catch (lineageError) {
+          // If lineage creation fails, clean up the media asset
+          console.error('Failed to create lineage, cleaning up media asset:', lineageError);
+          try {
+            await supabase
+              .from('media_assets')
+              .delete()
+              .eq('id', mediaAssetData.id)
+              .eq('user_id', asset.user_id);
+          } catch (cleanupError) {
+            console.error('Failed to cleanup media asset:', cleanupError);
+          }
+          throw new Error('Failed to create lineage for media asset');
+        }
+      }
+
+      return mediaAssetData;
     },
 
     async delete(assetId: string, userId: string) {
@@ -442,16 +472,30 @@ export const database = {
       root_media_asset_id: string;
       name?: string;
       metadata?: Record<string, unknown>;
+      id?: string; // Optional custom ID
     }) {
+      const insertData: {
+        project_id: string;
+        user_id: string;
+        root_media_asset_id: string;
+        name?: string;
+        metadata: Record<string, unknown>;
+        id?: string;
+      } = {
+        project_id: lineage.project_id,
+        user_id: lineage.user_id,
+        root_media_asset_id: lineage.root_media_asset_id,
+        name: lineage.name,
+        metadata: lineage.metadata || {},
+      };
+
+      if (lineage.id) {
+        insertData.id = lineage.id;
+      }
+
       const { data, error } = await supabase
         .from('lineages')
-        .insert({
-          project_id: lineage.project_id,
-          user_id: lineage.user_id,
-          root_media_asset_id: lineage.root_media_asset_id,
-          name: lineage.name,
-          metadata: lineage.metadata || {},
-        })
+        .insert(insertData)
         .select()
         .single();
 

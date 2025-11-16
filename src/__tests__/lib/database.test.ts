@@ -376,16 +376,43 @@ describe('database', () => {
         const mockAssetWithLineage = {
           ...mockAssetInput,
           id: 'asset-new',
-          lineage_id: 'lineage-1', // Set by trigger
+          lineage_id: expect.any(String), // Generated lineage_id
         };
 
-        // Mock the insert (media_asset with lineage_id set by trigger)
-        const insertBuilder = createQueryBuilder({ data: mockAssetWithLineage, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(insertBuilder);
+        const mockLineage = {
+          id: mockAssetWithLineage.lineage_id,
+          project_id: 'project-1',
+          user_id: 'user-1',
+          root_media_asset_id: 'asset-new',
+          name: 'new-image.jpg',
+          metadata: {},
+          created_at: expect.any(String),
+        };
+
+        // Mock the media_assets insert
+        const mediaAssetInsertBuilder = createQueryBuilder({ data: mockAssetWithLineage, error: null });
+        // Mock the lineages insert
+        const lineageInsertBuilder = createQueryBuilder({ data: mockLineage, error: null });
+
+        // Mock from() calls - first for media_assets, second for lineages
+        mockSupabaseClient.from
+          .mockReturnValueOnce(mediaAssetInsertBuilder)
+          .mockReturnValueOnce(lineageInsertBuilder);
 
         const result = await database.mediaAssets.create(mockAssetInput);
 
-        expect(insertBuilder.insert).toHaveBeenCalledWith(mockAssetInput);
+        expect(mediaAssetInsertBuilder.insert).toHaveBeenCalledWith({
+          ...mockAssetInput,
+          lineage_id: expect.any(String),
+        });
+        expect(lineageInsertBuilder.insert).toHaveBeenCalledWith({
+          id: result.lineage_id,
+          project_id: 'project-1',
+          user_id: 'user-1',
+          root_media_asset_id: 'asset-new',
+          name: 'new-image.jpg',
+          metadata: {},
+        });
         expect(result).toEqual(mockAssetWithLineage);
       });
 
