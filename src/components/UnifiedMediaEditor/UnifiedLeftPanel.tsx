@@ -5,9 +5,72 @@ import { MediaAsset, EditedImage } from '../../types';
 import { SelectedSource, MediaEditorMode } from './types';
 import { useDropzone } from 'react-dropzone';
 
+interface ThumbnailImageProps {
+  src?: string;
+  storagePath?: string;
+  alt: string;
+  className?: string;
+  getAssetUrl: (storagePath: string) => Promise<string>;
+}
+
+function ThumbnailImage({ src, storagePath, alt, className, getAssetUrl }: ThumbnailImageProps) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>(src || '');
+  const [isUrlLoading, setIsUrlLoading] = useState(false);
+
+  useEffect(() => {
+    // Handle pre-computed URLs first
+    if (src) {
+      setThumbnailUrl(src);
+      setIsUrlLoading(false);
+      return;
+    }
+
+    // If we have a storagePath, load signed URL
+    if (storagePath) {
+      setIsUrlLoading(true);
+      getAssetUrl(storagePath)
+        .then(setThumbnailUrl)
+        .catch((error) => {
+          console.error('Failed to load thumbnail URL:', error);
+          setThumbnailUrl('');
+        })
+        .finally(() => setIsUrlLoading(false));
+    } else {
+      setThumbnailUrl('');
+      setIsUrlLoading(false);
+    }
+  }, [src, storagePath, getAssetUrl]);
+
+  if (isUrlLoading) {
+    return (
+      <div className="flex items-center justify-center w-full h-full">
+        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (thumbnailUrl) {
+    return (
+      <img
+        src={thumbnailUrl}
+        alt={alt}
+        className={className}
+        draggable={false}
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center w-full h-full text-muted-foreground text-xs">
+      No image
+    </div>
+  );
+}
+
 interface MediaSourceItem {
   id: string;
   thumbnail?: string;
+  storagePath?: string;
   name: string;
 }
 
@@ -21,6 +84,7 @@ interface MediaSourceGridProps {
   getSource: (item: MediaSourceItem) => SelectedSource;
   emptyMessage: string;
   emptyHint: string;
+  getAssetUrl: (storagePath: string) => Promise<string>;
 }
 
 function MediaSourceGrid({
@@ -33,6 +97,7 @@ function MediaSourceGrid({
   getSource,
   emptyMessage,
   emptyHint,
+  getAssetUrl,
 }: MediaSourceGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -54,11 +119,12 @@ function MediaSourceGrid({
             }`}
           >
             <div className="w-full h-full flex items-center justify-center">
-              <img
-                src={source.thumbnail}
+              <ThumbnailImage
+                src={item.thumbnail}
+                storagePath={item.storagePath}
                 alt={source.name}
                 className="max-w-full max-h-full object-contain pointer-events-none"
-                draggable={false}
+                getAssetUrl={getAssetUrl}
               />
             </div>
             {isSelected && (
@@ -89,6 +155,7 @@ interface UnifiedLeftPanelProps {
   onMouseDown: (source: SelectedSource) => void;
   onFileDrop: (files: File[]) => Promise<void>;
   onRefresh: () => void;
+  getAssetUrl: (storagePath: string) => Promise<string>;
 }
 
 export function UnifiedLeftPanel({
@@ -101,6 +168,7 @@ export function UnifiedLeftPanel({
   onMouseDown,
   onFileDrop,
   onRefresh: _onRefresh, // eslint-disable-line @typescript-eslint/no-unused-vars
+  getAssetUrl,
 }: UnifiedLeftPanelProps) {
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
@@ -202,6 +270,7 @@ export function UnifiedLeftPanel({
             sources={displayEditedImages.map((img) => ({
               id: img.id,
               thumbnail: img.edited_url,
+              storagePath: img.edited_url ? undefined : img.storage_path,
               name: img.prompt.substring(0, 30),
             }))}
             selectedSources={selectedSources}
@@ -217,12 +286,14 @@ export function UnifiedLeftPanel({
             })}
             emptyMessage={mode === 'image-edit' ? "No versions yet" : "No edited images yet"}
             emptyHint={mode === 'image-edit' ? "Generate your first edit above" : "Upload images to get started"}
+            getAssetUrl={getAssetUrl}
           />
         ) : (
           <MediaSourceGrid
             sources={mediaAssets.map((asset) => ({
               id: asset.id,
-              thumbnail: asset.thumbnail_url || '', // Will be loaded via signed URLs in MediaCard
+              thumbnail: asset.thumbnail_url,
+              storagePath: asset.thumbnail_url ? undefined : asset.storage_path,
               name: asset.file_name,
             }))}
             selectedSources={selectedSources}
@@ -238,6 +309,7 @@ export function UnifiedLeftPanel({
             })}
             emptyMessage="No images in library"
             emptyHint="Upload images to get started"
+            getAssetUrl={getAssetUrl}
           />
         )}
 

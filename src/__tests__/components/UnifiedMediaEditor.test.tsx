@@ -438,9 +438,11 @@ describe('UnifiedMediaEditor', () => {
       const editedImagesTab = screen.getByText('Edited Images');
       await user.click(editedImagesTab);
 
+      // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {
         const imageElement = screen.getByAltText('A beautiful landscape');
         expect(imageElement).toBeInTheDocument();
+        expect(imageElement).toHaveAttribute('src', 'https://example.com/edited-images/edited-image-1.jpg');
       });
 
       const imageElement = screen.getByAltText('A beautiful landscape');
@@ -477,9 +479,11 @@ describe('UnifiedMediaEditor', () => {
       const editedImagesTab = screen.getByText('Edited Images');
       await user.click(editedImagesTab);
 
+      // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {
         const imageElement = screen.getByAltText('A beautiful landscape');
         expect(imageElement).toBeInTheDocument();
+        expect(imageElement).toHaveAttribute('src', 'https://example.com/edited-images/edited-image-1.jpg');
       });
 
       const imageElement = screen.getByAltText('A beautiful landscape');
@@ -602,7 +606,12 @@ describe('UnifiedMediaEditor', () => {
       const editedImagesTab = screen.getByText('Edited Images');
       await user.click(editedImagesTab);
 
-      await waitFor(() => screen.getByAltText('A beautiful landscape'));
+      // Wait for the thumbnail to load (edited images use pre-computed URLs)
+      await waitFor(() => {
+        const imageElement = screen.getByAltText('A beautiful landscape');
+        expect(imageElement).toBeInTheDocument();
+        expect(imageElement).toHaveAttribute('src', 'https://example.com/edited-images/edited-image-1.jpg');
+      });
       await user.click(screen.getByAltText('A beautiful landscape'));
 
       const generateButton = screen.getByText('Generate Video');
@@ -687,7 +696,12 @@ describe('UnifiedMediaEditor', () => {
       const editedImagesTab = screen.getByText('Edited Images');
       await user.click(editedImagesTab);
 
-      await waitFor(() => screen.getByAltText('A beautiful landscape'));
+      // Wait for the thumbnail to load (edited images use pre-computed URLs)
+      await waitFor(() => {
+        const imageElement = screen.getByAltText('A beautiful landscape');
+        expect(imageElement).toBeInTheDocument();
+        expect(imageElement).toHaveAttribute('src', 'https://example.com/edited-images/edited-image-1.jpg');
+      });
       await user.click(screen.getByAltText('A beautiful landscape'));
 
       // Should show selection indicator

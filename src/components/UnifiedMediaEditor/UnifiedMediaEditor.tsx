@@ -721,15 +721,16 @@ export function UnifiedMediaEditor({
           onFileDrop={handleFileDrop}
           onRefresh={() => {
             // Only refetch active queries to avoid unnecessary network requests
-            queryClient.refetchQueries({ 
+            queryClient.refetchQueries({
               queryKey: ['edited-images', projectId],
               type: 'active' // Only refetch if query is currently active
             });
-            queryClient.refetchQueries({ 
+            queryClient.refetchQueries({
               queryKey: ['media-assets', projectId],
               type: 'active'
             });
           }}
+          getAssetUrl={getAssetUrl}
         />
 
         <div className="flex-1 flex flex-col bg-card overflow-hidden">
