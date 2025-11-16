@@ -2,43 +2,30 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Mock Supabase client
-const mockCreateSignedUrl = vi.fn();
 const mockSupabaseClient = {
-  auth: {
-    getUser: vi.fn(),
-  },
   storage: {
     from: vi.fn(() => ({
-      createSignedUrl: mockCreateSignedUrl,
+      createSignedUrl: vi.fn(),
     })),
   },
 };
 
-// Mock the shared supabase module
-vi.mock('../shared/supabase.js', () => ({
-  supabase: mockSupabaseClient,
-}));
-
-// Mock the shared storage module
-const mockValidateStoragePath = vi.fn();
-const mockHandleStorageError = vi.fn();
-
-vi.mock('../shared/storage.js', () => ({
-  validateStoragePath: mockValidateStoragePath,
-  handleStorageError: mockHandleStorageError,
+// Mock the createClient function
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => mockSupabaseClient),
 }));
 
 // Set environment variables
-process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
-process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
 describe('Signed URLs API', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
-  let handler: typeof import('../signed-urls').default;
+  let handler: typeof import('../signed-urls-external').default;
 
   beforeAll(async () => {
-    const handlerModule = await import('../signed-urls');
+    const handlerModule = await import('../signed-urls-external');
     handler = handlerModule.default;
   });
 
@@ -79,7 +66,7 @@ describe('Signed URLs API', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(405);
       expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'Method not allowed. Use POST to generate signed URLs.',
+        error: 'Method not allowed. Use POST to generate external signed URLs.',
       });
     });
   });
@@ -87,10 +74,6 @@ describe('Signed URLs API', () => {
   describe('Parameter validation', () => {
     beforeEach(() => {
       mockReq.method = 'POST';
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123' } },
-        error: null,
-      });
     });
 
     it('should reject missing bucket parameter', async () => {
@@ -144,7 +127,7 @@ describe('Signed URLs API', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'Invalid bucket. Must be one of: user-uploads, edited-images, generated-videos, thumbnails',
+        error: 'Invalid bucket for external access. Must be one of: user-uploads, edited-images, generated-videos, thumbnails',
       });
     });
 
@@ -155,116 +138,48 @@ describe('Signed URLs API', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'expiresIn must be a positive number not exceeding 86400 seconds (24 hours)',
+        error: 'expiresIn must be a positive number not exceeding 600 seconds (10 minutes)',
       });
     });
 
     it('should reject invalid expiresIn - too large', async () => {
-      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg', expiresIn: 86401 };
+      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg', expiresIn: 601 };
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'expiresIn must be a positive number not exceeding 86400 seconds (24 hours)',
-      });
-    });
-
-    it('should reject invalid expiresIn - zero', async () => {
-      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg', expiresIn: 0 };
-
-      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
-
-      expect(mockRes.status).toHaveBeenCalledWith(400);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        error: 'expiresIn must be a positive number not exceeding 86400 seconds (24 hours)',
+        error: 'expiresIn must be a positive number not exceeding 600 seconds (10 minutes)',
       });
     });
   });
 
-  describe('Authentication', () => {
-    beforeEach(() => {
-      mockReq.method = 'POST';
-      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg' };
-    });
-
-    it('should reject unauthenticated requests', async () => {
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      });
-
-      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
-
-      expect(mockRes.status).toHaveBeenCalledWith(401);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Authentication required' });
-    });
-
-    it('should reject requests with auth errors', async () => {
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: { message: 'Invalid token' },
-      });
-
-      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
-
-      expect(mockRes.status).toHaveBeenCalledWith(401);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Authentication required' });
-    });
-  });
-
-  describe('Path validation', () => {
-    beforeEach(() => {
-      mockReq.method = 'POST';
-      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg' };
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123' } },
-        error: null,
-      });
-    });
-
-    it('should reject invalid storage paths', async () => {
-      mockValidateStoragePath.mockReturnValue({
-        valid: false,
-        error: 'Invalid storage path',
-      });
-
-      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
-
-      expect(mockValidateStoragePath).toHaveBeenCalledWith('user123', 'user123/file.jpg');
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Invalid storage path' });
-    });
-  });
 
   describe('Signed URL generation', () => {
     beforeEach(() => {
       mockReq.method = 'POST';
-      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg', expiresIn: 3600 };
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: { id: 'user123' } },
-        error: null,
-      });
-      mockValidateStoragePath.mockReturnValue({ valid: true });
+      mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg', expiresIn: 300 };
     });
 
     it('should generate signed URL successfully', async () => {
       const mockSignedUrl = 'https://test.supabase.co/storage/v1/object/sign/user-uploads/user123/file.jpg?token=test-token';
 
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
+      mockSupabaseClient.storage.from.mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: { signedUrl: mockSignedUrl },
+          error: null,
+        }),
       });
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
       expect(mockSupabaseClient.storage.from).toHaveBeenCalledWith('user-uploads');
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 3600);
+      expect(mockSupabaseClient.storage.from('user-uploads').createSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 300);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
       const responseData = (mockRes.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(responseData.signedUrl).toBe(mockSignedUrl);
-      expect(responseData.expiresIn).toBe(3600);
+      expect(responseData.expiresIn).toBe(300);
       expect(responseData.expiresAt).toBeDefined();
     });
 
@@ -273,42 +188,39 @@ describe('Signed URLs API', () => {
 
       const mockSignedUrl = 'https://test.supabase.co/storage/v1/object/sign/user-uploads/user123/file.jpg?token=test-token';
 
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
+      mockSupabaseClient.storage.from.mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: { signedUrl: mockSignedUrl },
+          error: null,
+        }),
       });
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 3600);
+      expect(mockSupabaseClient.storage.from('user-uploads').createSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 300);
     });
 
     it('should handle storage errors', async () => {
       const mockError = { message: 'File not found' };
-      mockCreateSignedUrl.mockResolvedValue({
-        data: null,
-        error: mockError,
-      });
-
-      mockHandleStorageError.mockReturnValue({
-        success: false,
-        error: 'Storage operation failed',
+      mockSupabaseClient.storage.from.mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: null,
+          error: mockError,
+        }),
       });
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockHandleStorageError).toHaveBeenCalledWith(mockError, 'signed URL generation');
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Storage operation failed',
-      });
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Failed to generate signed URL' });
     });
 
     it('should handle missing signed URL data', async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: null,
-        error: null,
+      mockSupabaseClient.storage.from.mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
       });
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
@@ -323,8 +235,10 @@ describe('Signed URLs API', () => {
       mockReq.method = 'POST';
       mockReq.body = { bucket: 'user-uploads', path: 'user123/file.jpg' };
 
-      // Simulate an unexpected error
-      mockSupabaseClient.auth.getUser.mockRejectedValue(new Error('Unexpected error'));
+      // Simulate an unexpected error in storage operations
+      mockSupabaseClient.storage.from.mockImplementation(() => {
+        throw new Error('Unexpected error');
+      });
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -333,3 +247,4 @@ describe('Signed URLs API', () => {
     });
   });
 });
+

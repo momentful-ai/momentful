@@ -466,6 +466,42 @@ describe('UnifiedMediaEditor', () => {
         expect(onSave).toHaveBeenCalledTimes(1);
       });
     });
+
+    it('invalidates timelines cache when video generation completes successfully', async () => {
+      const user = createUserEvent();
+      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const { onSave } = renderComponent({ initialMode: 'video-generate' });
+      await waitForComponent();
+
+      // Switch to Edited Images tab
+      const editedImagesTab = screen.getByText('Edited Images');
+      await user.click(editedImagesTab);
+
+      await waitFor(() => {
+        const imageElement = screen.getByAltText('A beautiful landscape');
+        expect(imageElement).toBeInTheDocument();
+      });
+
+      const imageElement = screen.getByAltText('A beautiful landscape');
+      await user.click(imageElement);
+
+      const promptInput = screen.getByPlaceholderText(/Describe your product/i);
+      await user.clear(promptInput);
+      await user.type(promptInput, 'Dynamic product showcase');
+
+      const generateButton = screen.getByText('Generate Video');
+      await user.click(generateButton);
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledTimes(1);
+      });
+
+      // Verify that timelines cache was invalidated
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ['timelines', TEST_PROJECT_ID, TEST_USER_ID],
+        refetchType: 'active'
+      });
+    });
   });
 
   describe('File Drop Functionality', () => {

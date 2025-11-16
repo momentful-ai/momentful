@@ -252,6 +252,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         }
         // Invalidate media assets query after video uploads
         await queryClient.invalidateQueries({ queryKey: ['media-assets', project.id, userId] });
+        // Invalidate timeline cache to refresh timeline with new video
+        await queryClient.invalidateQueries({ queryKey: ['timelines', project.id, userId] });
       }
 
       showToast(`Successfully uploaded ${validFiles.length} file(s)`, 'success');

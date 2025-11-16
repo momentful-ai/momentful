@@ -45,6 +45,7 @@ vi.mock('../../lib/database', () => ({
     },
     mediaAssets: {
       list: vi.fn(),
+      create: vi.fn(),
     },
     generatedVideos: {
       list: vi.fn(),
@@ -164,6 +165,22 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     // Setup default mock implementations
     vi.mocked(database.editedImages.list).mockResolvedValue([mockEditedImage]);
     vi.mocked(database.mediaAssets.list).mockResolvedValue(mockMediaAssets);
+    vi.mocked(database.mediaAssets.create).mockResolvedValue({
+      id: 'new-video-asset-1',
+      project_id: mockProject.id,
+      user_id: 'test-user-id',
+      file_name: 'test-video.mp4',
+      file_type: 'video',
+      file_size: 1024,
+      storage_path: 'user-uploads/test-user-id/project-1/test-video.mp4',
+      width: 1920,
+      height: 1080,
+      duration: 10.5,
+      created_at: '2025-10-20T15:59:30.165+00:00',
+      sort_order: 0,
+      lineage_id: null,
+      thumbnail_url: null,
+    });
     vi.mocked(database.generatedVideos.list).mockResolvedValue([]); // Start with no videos
     vi.mocked(database.generatedVideos.create).mockResolvedValue(mockGeneratedVideo);
     vi.mocked(database.videoSources.create).mockResolvedValue({
@@ -172,6 +189,11 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
       source_type: 'edited_image' as const,
       source_id: 'edited-image-1',
       sort_order: 0,
+    });
+    vi.mocked(database.storage.upload).mockResolvedValue({
+      id: 'upload-id-1',
+      path: 'user-uploads/test-user-id/project-1/test-video.mp4',
+      fullPath: 'user-uploads/test-user-id/project-1/test-video.mp4',
     });
 
     // Mock the videos list to return the new video after creation
@@ -278,5 +300,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     // These buttons exist but download may be disabled for processing videos
     expect(deleteButton).toBeInTheDocument();
   });
+
 
 });

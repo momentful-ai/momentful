@@ -483,6 +483,12 @@ export function UnifiedMediaEditor({
           refetchType: 'active'
         });
 
+        // Invalidate timeline cache to refresh timeline with new video
+        queryClient.invalidateQueries({
+          queryKey: ['timelines', projectId, userId],
+          refetchType: 'active'
+        });
+
         showToast('Video is ready to view!', 'success');
         onSave();
       } else {
