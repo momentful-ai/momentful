@@ -28,3 +28,4 @@ test-results/*
 coverage/*
 playwright-report/*
 playwright-report/index.html
+scripts/*
