@@ -247,7 +247,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           });
         }
         // Invalidate media assets query after video uploads
-        await queryClient.invalidateQueries({ queryKey: ['media-assets', project.id] });
+        await queryClient.invalidateQueries({ queryKey: ['media-assets', project.id, userId] });
       }
 
       showToast(`Successfully uploaded ${validFiles.length} file(s)`, 'success');

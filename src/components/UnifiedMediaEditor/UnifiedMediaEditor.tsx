@@ -276,25 +276,25 @@ export function UnifiedMediaEditor({
       });
 
       // Optimistic cache updates - update cache immediately without refetching
-      queryClient.setQueryData<EditedImage[]>(['edited-images', projectId], (old = []) => [createdImage, ...old]);
+      queryClient.setQueryData<EditedImage[]>(['edited-images', projectId, userId], (old = []) => [createdImage, ...old]);
       if (createdImage.lineage_id) {
-        queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id], (old = []) => [createdImage, ...old]);
+        queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id, userId], (old = []) => [createdImage, ...old]);
       }
 
       // Invalidate related queries in background (only refetch if actively used)
       // This ensures cache stays fresh without unnecessary refetches
-      queryClient.invalidateQueries({ 
-        queryKey: ['edited-images', projectId],
+      queryClient.invalidateQueries({
+        queryKey: ['edited-images', projectId, userId],
         refetchType: 'active' // Only refetch if query is currently active
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['timelines', projectId],
+      queryClient.invalidateQueries({
+        queryKey: ['timelines', projectId, userId],
         refetchType: 'active'
       });
 
       if (createdImage.lineage_id) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['timeline', createdImage.lineage_id],
+        queryClient.invalidateQueries({
+          queryKey: ['timeline', createdImage.lineage_id, userId],
           refetchType: 'active'
         });
       }
@@ -546,8 +546,8 @@ export function UnifiedMediaEditor({
     }
 
     // Invalidate media assets cache (only refetch if actively used)
-    queryClient.invalidateQueries({ 
-      queryKey: ['media-assets', projectId],
+    queryClient.invalidateQueries({
+      queryKey: ['media-assets', projectId, userId],
       refetchType: 'active'
     });
   };

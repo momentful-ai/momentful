@@ -38,7 +38,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     try {
       const data = await database.projects.create(userId, 'Untitled Project', '');
       // Invalidate and refetch the projects query
-      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['projects', userId] });
       onSelectProject(data);
     } catch (error) {
       console.error('Error creating project:', error);
@@ -51,7 +51,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     try {
       await database.projects.delete(project.id, userId);
       // Invalidate and refetch the projects query
-      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['projects', userId] });
       showToast('Project deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -80,7 +80,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     try {
       await database.projects.update(projectId, userId, { name });
       // Invalidate and refetch the projects query
-      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['projects', userId] });
       showToast('Project name updated', 'success');
     } catch (error) {
       console.error('Error updating project name:', error);

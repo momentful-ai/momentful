@@ -236,7 +236,7 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockCreateProject).toHaveBeenCalledWith('test-user-id', 'Untitled Project', '');
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects', 'test-user-id'] });
       expect(mockOnSelectProject).toHaveBeenCalledWith(newProject);
     });
   });
@@ -311,7 +311,7 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockUpdateProject).toHaveBeenCalledWith('project-1', 'test-user-id', { name: 'Updated Name' });
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects', 'test-user-id'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project name updated', 'success');
     });
   });
@@ -344,7 +344,7 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(mockDeleteProject).toHaveBeenCalledWith('project-1', 'test-user-id');
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects', 'test-user-id'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project deleted successfully', 'success');
     });
   });
