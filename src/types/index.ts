@@ -116,7 +116,6 @@ export interface Lineage {
   id: string;
   project_id: string;
   user_id: string;
-  root_media_asset_id: string;
   name?: string;
   metadata: Record<string, unknown>;
   created_at: string;

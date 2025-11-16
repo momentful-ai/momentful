@@ -195,7 +195,6 @@ export const database = {
         createdLineage = await database.lineages.create({
           project_id: asset.project_id,
           user_id: asset.user_id,
-          root_media_asset_id: insertedAsset.id,
           name: asset.file_name,
         });
       } catch (lineageError) {
@@ -241,6 +240,18 @@ export const database = {
         .eq('user_id', userId);
 
       if (error) throw error;
+    },
+
+    async getByLineage(lineageId: string, userId: string) {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('lineage_id', lineageId)
+        .eq('user_id', userId)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
     },
   },
 
@@ -493,7 +504,6 @@ export const database = {
     async create(lineage: {
       project_id: string;
       user_id: string;
-      root_media_asset_id: string;
       name?: string;
       metadata?: Record<string, unknown>;
       id?: string; // Optional custom ID
@@ -501,14 +511,12 @@ export const database = {
       const insertData: {
         project_id: string;
         user_id: string;
-        root_media_asset_id: string;
         name?: string;
         metadata: Record<string, unknown>;
         id?: string;
       } = {
         project_id: lineage.project_id,
         user_id: lineage.user_id,
-        root_media_asset_id: lineage.root_media_asset_id,
         name: lineage.name,
         metadata: lineage.metadata || {},
       };
@@ -528,7 +536,6 @@ export const database = {
     },
 
     async update(lineageId: string, userId: string, updates: {
-      root_media_asset_id?: string;
       name?: string;
       metadata?: Record<string, unknown>;
     }) {
@@ -568,28 +575,8 @@ export const database = {
       return data;
     },
 
-    async getByRootAsset(rootAssetId: string, userId: string) {
-      const { data, error } = await supabase
-        .from('lineages')
-        .select('*')
-        .eq('root_media_asset_id', rootAssetId)
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
 
     async getTimelineData(lineageId: string, userId: string) {
-      // Fetch the lineage to get the root media asset ID
-      const { data: lineageData, error: lineageError } = await supabase
-        .from('lineages')
-        .select('root_media_asset_id')
-        .eq('id', lineageId)
-        .eq('user_id', userId)
-        .single();
-
-      if (lineageError) throw lineageError;
 
       // Fetch all media_assets with this lineage_id
       const { data: mediaAssetsData, error: maError } = await supabase
@@ -646,15 +633,13 @@ export const database = {
       // Build edges
       const edges: TimelineEdge[] = [];
 
-      // Edges from edited_images to their parents or root media asset
+      // Edges from edited_images to their parents
       for (const ei of editedImagesData) {
         if (ei.parent_id) {
           // Connect to parent edited image
           edges.push({ from: ei.parent_id, to: ei.id });
-        } else {
-          // Connect to root media asset (no parent means this is a root edit)
-          edges.push({ from: lineageData.root_media_asset_id, to: ei.id });
         }
+        // Root-level edited images (no parent) don't connect to anything
       }
 
       // Edges from video_sources to generated_videos

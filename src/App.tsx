@@ -33,10 +33,10 @@ function App() {
       if ('prompt' in asset && 'edited_url' in asset) {
         // It's an EditedImage - we need to find the root media asset for the editor
         try {
-          // Try to find the root media asset using lineage information
+          // Try to find the media asset in the same lineage (first by sort_order)
           if (asset.lineage_id && userId) {
-            const lineage = await database.lineages.getById(asset.lineage_id, userId);
-            const rootAsset = await database.mediaAssets.getById(lineage.root_media_asset_id, userId);
+            const mediaAssets = await database.mediaAssets.getByLineage(asset.lineage_id, userId);
+            const rootAsset = mediaAssets.sort((a, b) => a.sort_order - b.sort_order)[0];
             setView({
               type: 'unified-editor',
               initialMode: 'image-edit',

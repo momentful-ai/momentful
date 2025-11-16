@@ -393,7 +393,6 @@ describe('database', () => {
           id: 'lineage-new',
           project_id: mockAssetInput.project_id,
           user_id: mockAssetInput.user_id,
-          root_media_asset_id: insertedAsset.id,
           name: mockAssetInput.file_name,
           metadata: {},
           created_at: '2025-01-01T00:00:00Z',
@@ -413,7 +412,6 @@ describe('database', () => {
         expect(lineageCreateSpy).toHaveBeenCalledWith({
           project_id: mockAssetInput.project_id,
           user_id: mockAssetInput.user_id,
-          root_media_asset_id: insertedAsset.id,
           name: mockAssetInput.file_name,
         });
         expect(result).toEqual(updatedAsset);
@@ -1171,7 +1169,6 @@ describe('lineages', () => {
         id: 'lineage-1',
         project_id: 'project-1',
         user_id: 'user-1',
-        root_media_asset_id: 'asset-1',
         name: 'Test Lineage',
         metadata: {},
         created_at: '2025-01-01T00:00:00Z',
@@ -1183,14 +1180,12 @@ describe('lineages', () => {
       const result = await database.lineages.create({
         project_id: 'project-1',
         user_id: 'user-1',
-        root_media_asset_id: 'asset-1',
         name: 'Test Lineage',
       });
 
       expect(queryBuilder.insert).toHaveBeenCalledWith({
         project_id: 'project-1',
         user_id: 'user-1',
-        root_media_asset_id: 'asset-1',
         name: 'Test Lineage',
         metadata: {},
       });
@@ -1207,7 +1202,6 @@ describe('lineages', () => {
           id: 'lineage-1',
           project_id: 'project-1',
           user_id: 'user-1',
-          root_media_asset_id: 'asset-1',
           name: 'Lineage 1',
           metadata: {},
           created_at: '2025-01-01T00:00:00Z',
@@ -1216,7 +1210,6 @@ describe('lineages', () => {
           id: 'lineage-2',
           project_id: 'project-1',
           user_id: 'user-1',
-          root_media_asset_id: 'asset-2',
           name: 'Lineage 2',
           metadata: {},
           created_at: '2025-01-02T00:00:00Z',
@@ -1250,7 +1243,6 @@ describe('lineages', () => {
         id: 'lineage-1',
         project_id: 'project-1',
         user_id: 'user-1',
-        root_media_asset_id: 'asset-1',
         name: 'Test Lineage',
         metadata: {},
         created_at: '2025-01-01T00:00:00Z',
@@ -1268,29 +1260,6 @@ describe('lineages', () => {
     });
   });
 
-  describe('getByRootAsset', () => {
-    it('successfully retrieves a lineage by root asset ID', async () => {
-      const mockLineage = {
-        id: 'lineage-1',
-        project_id: 'project-1',
-        user_id: 'user-1',
-        root_media_asset_id: 'asset-1',
-        name: 'Test Lineage',
-        metadata: {},
-        created_at: '2025-01-01T00:00:00Z',
-      };
-
-      const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
-      mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
-
-      const result = await database.lineages.getByRootAsset('asset-1', 'user-1');
-
-      expect(queryBuilder.select).toHaveBeenCalledWith('*');
-      expect(queryBuilder.eq).toHaveBeenCalledWith('root_media_asset_id', 'asset-1');
-      expect(queryBuilder.single).toHaveBeenCalled();
-      expect(result).toEqual(mockLineage);
-    });
-  });
 
   describe('getTimelineData', () => {
     it('fetches and builds timeline data correctly', async () => {
@@ -1322,13 +1291,6 @@ describe('lineages', () => {
       const mockVideoSources = [{ video_id: 'video-1', source_id: 'edit-1', source_type: 'edited_image' }];
 
       // Mock queries - each needs a query builder that chains select -> eq -> single
-      const lineageBuilder = {
-        select: vi.fn(() => lineageBuilder),
-        eq: vi.fn(() => lineageBuilder),
-        single: vi.fn(() => ({ data: { root_media_asset_id: 'asset-1' }, error: null })),
-      };
-      mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
-
       // For queries with 2 eq calls (lineage_id and user_id), return result after 2nd eq
       let maEqCount = 0;
       const mediaAssetsBuilder = {
@@ -1388,7 +1350,6 @@ describe('lineages', () => {
 
       expect(result.nodes).toHaveLength(3);
       expect(result.edges).toEqual([
-        { from: 'asset-1', to: 'edit-1' },
         { from: 'edit-1', to: 'video-1' },
       ]);
     });
@@ -1416,13 +1377,6 @@ describe('lineages', () => {
       const mockGeneratedVideos: any[] = [];
 
       // Mock queries
-      const lineageBuilder = {
-        select: vi.fn(() => lineageBuilder),
-        eq: vi.fn(() => lineageBuilder),
-        single: vi.fn(() => ({ data: { root_media_asset_id: 'asset-1' }, error: null })),
-      };
-      mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
-
       // For queries with 2 eq calls (lineage_id and user_id), return result after 2nd eq
       let maEqCount2 = 0;
       const mediaAssetsBuilder = {

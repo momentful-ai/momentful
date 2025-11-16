@@ -101,21 +101,19 @@ vi.mock('../../../lib/media', () => ({
 
 
 const mockLineages: Lineage[] = [
-  { 
-    id: 'lineage-1', 
+  {
+    id: 'lineage-1',
     name: 'Test Lineage 1',
     project_id: 'test-project',
     user_id: 'test-user',
-    root_media_asset_id: 'root-1',
     metadata: {},
     created_at: '2025-01-01T00:00:00Z',
   },
-  { 
-    id: 'lineage-2', 
+  {
+    id: 'lineage-2',
     name: 'Test Lineage 2',
     project_id: 'test-project',
     user_id: 'test-user',
-    root_media_asset_id: 'root-2',
     metadata: {},
     created_at: '2025-01-01T00:00:00Z',
   },

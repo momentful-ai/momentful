@@ -32,7 +32,6 @@ const mockLineages: Lineage[] = [
     id: 'lineage-1',
     project_id: 'project-1',
     user_id: 'user-1',
-    root_media_asset_id: 'asset-1',
     name: 'Test Lineage',
     metadata: {},
     created_at: '2025-01-01T00:00:00Z',
