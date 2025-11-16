@@ -1,7 +1,7 @@
 import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { MediaCard } from '../shared/MediaCard';
-import { getAssetUrl } from '../../lib/media';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 
 interface TimelineNodeProps {
   node: TimelineNodeType;
@@ -14,6 +14,17 @@ interface TimelineNodeProps {
 }
 
 export function TimelineNodeComponent({ node, viewMode, onEditImage, onDownload, onDelete }: TimelineNodeProps) {
+  const { getSignedUrl } = useSignedUrls();
+
+  const getAssetUrl = async (storagePath: string): Promise<string> => {
+    try {
+      return await getSignedUrl('user-uploads', storagePath);
+    } catch (error) {
+      console.error('Failed to get signed URL for timeline node:', storagePath, error);
+      throw error; // Don't fallback to public URLs - surface the error
+    }
+  };
+
   return (
     <div
       id={`node-${node.data.id}`}

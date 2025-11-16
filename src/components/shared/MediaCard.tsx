@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Trash2, Clock, Wand2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -17,7 +18,7 @@ interface MediaCardProps {
   onEditImage?: (item: MediaAsset | EditedImage) => void;
   onDownload?: (item: MediaCardItem) => void;
   onDelete?: (item: MediaCardItem) => void;
-  getAssetUrl: (storagePath: string) => string;
+  getAssetUrl: (storagePath: string) => Promise<string>;
   showTypeLabel?: boolean;
 }
 
@@ -41,8 +42,10 @@ export function MediaCard({
   getAssetUrl,
   showTypeLabel = false,
 }: MediaCardProps) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
+  const [isUrlLoading, setIsUrlLoading] = useState(false);
+
   // Extract data based on item type
-  let thumbnailUrl: string;
   let altText: string;
   let isImage = false;
   let duration: number | undefined;
@@ -55,12 +58,13 @@ export function MediaCard({
   let createdAt: string;
   let typeLabel: string | undefined;
   let editTarget: MediaAsset | EditedImage | undefined;
+  let storagePath: string | undefined;
 
   if (isTimelineNode(item)) {
     const { type, data } = item;
-    
+
     if (type === 'media_asset') {
-      thumbnailUrl = data.thumbnail_url || getAssetUrl(data.storage_path);
+      storagePath = data.thumbnail_url ? undefined : data.storage_path;
       altText = data.file_name;
       isImage = data.file_type === 'image';
       duration = data.duration;
@@ -72,7 +76,12 @@ export function MediaCard({
       typeLabel = showTypeLabel ? 'Original' : undefined;
       editTarget = data;
     } else if (type === 'edited_image') {
-      thumbnailUrl = data.edited_url;
+      // Use pre-computed edited_url if available, otherwise set storagePath for signed URL loading
+      if (data.edited_url) {
+        // thumbnailUrl will be set in useEffect
+      } else {
+        storagePath = data.storage_path;
+      }
       altText = data.prompt;
       isImage = true;
       fileName = undefined;
@@ -86,7 +95,7 @@ export function MediaCard({
       editTarget = data;
     } else {
       // generated_video
-      thumbnailUrl = data.thumbnail_url || (data.storage_path ? getAssetUrl(data.storage_path) : '');
+      storagePath = data.thumbnail_url ? undefined : data.storage_path;
       altText = data.name || 'Video';
       isImage = false;
       duration = data.duration;
@@ -95,7 +104,7 @@ export function MediaCard({
       typeLabel = showTypeLabel ? 'Video' : undefined;
     }
   } else if (isMediaAsset(item)) {
-    thumbnailUrl = item.thumbnail_url || getAssetUrl(item.storage_path);
+    storagePath = item.thumbnail_url ? undefined : item.storage_path;
     altText = item.file_name;
     isImage = item.file_type === 'image';
     duration = item.duration;
@@ -107,7 +116,11 @@ export function MediaCard({
     editTarget = item;
   } else {
     // EditedImage
-    thumbnailUrl = item.edited_url;
+    if (item.edited_url) {
+      // thumbnailUrl will be set in useEffect
+    } else {
+      storagePath = item.storage_path;
+    }
     altText = item.prompt;
     isImage = true;
     fileName = undefined;
@@ -119,6 +132,50 @@ export function MediaCard({
     createdAt = item.created_at;
     editTarget = item;
   }
+
+  // Load signed URL if needed
+  useEffect(() => {
+    // Handle pre-computed URLs first
+    if (isTimelineNode(item)) {
+      const { type, data } = item;
+      if (type === 'media_asset' && data.thumbnail_url) {
+        setThumbnailUrl(data.thumbnail_url);
+        setIsUrlLoading(false);
+        return;
+      } else if (type === 'edited_image' && data.edited_url) {
+        setThumbnailUrl(data.edited_url);
+        setIsUrlLoading(false);
+        return;
+      } else if (type === 'generated_video' && data.thumbnail_url) {
+        setThumbnailUrl(data.thumbnail_url);
+        setIsUrlLoading(false);
+        return;
+      }
+    } else if (isMediaAsset(item) && item.thumbnail_url) {
+      setThumbnailUrl(item.thumbnail_url);
+      setIsUrlLoading(false);
+      return;
+    } else if (!isMediaAsset(item) && item.edited_url) {
+      setThumbnailUrl(item.edited_url);
+      setIsUrlLoading(false);
+      return;
+    }
+
+    // If we have a storagePath, load signed URL
+    if (storagePath) {
+      setIsUrlLoading(true);
+      getAssetUrl(storagePath)
+        .then(setThumbnailUrl)
+        .catch((error) => {
+          console.error('Failed to load asset URL:', error);
+          setThumbnailUrl('');
+        })
+        .finally(() => setIsUrlLoading(false));
+    } else {
+      setThumbnailUrl('');
+      setIsUrlLoading(false);
+    }
+  }, [item, storagePath, getAssetUrl]);
 
   const canEdit = Boolean(isImage && onEditImage && editTarget);
   const shouldShowEditOverlay = canEdit;
@@ -155,16 +212,36 @@ export function MediaCard({
           <div className={`w-full h-full flex items-center justify-center ${
             viewMode !== 'timeline' ? 'cursor-pointer hover:scale-110 transition-transform duration-300' : ''
           }`}>
-            <img
-              src={thumbnailUrl}
-              alt={altText}
-              className="max-w-full max-h-full object-contain"
-            />
+            {isUrlLoading ? (
+              <div className="flex items-center justify-center w-full h-full">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : thumbnailUrl ? (
+              <img
+                src={thumbnailUrl}
+                alt={altText}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                Failed to load image
+              </div>
+            )}
           </div>
         ) : (
           <div className="relative w-full h-full">
-            <VideoPlayer videoUrl={thumbnailUrl} />
-            {duration && viewMode !== 'timeline' && (
+            {isUrlLoading ? (
+              <div className="flex items-center justify-center w-full h-full">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : thumbnailUrl ? (
+              <VideoPlayer videoUrl={thumbnailUrl} />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                Failed to load video
+              </div>
+            )}
+            {duration && viewMode !== 'timeline' && !isUrlLoading && (
               <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg z-10">
                 <Clock className="w-3 h-3" />
                 {formatDuration(duration)}

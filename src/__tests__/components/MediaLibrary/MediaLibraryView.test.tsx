@@ -82,7 +82,7 @@ describe('MediaLibraryView', () => {
     projectId: 'project1',
     onDrop: vi.fn(),
     onRequestDelete: vi.fn(),
-    getAssetUrl: (path: string) => `https://example.com/${path}`,
+    getAssetUrl: async (path: string) => `https://example.com/${path}`,
   };
 
   it('renders empty state when no assets', () => {

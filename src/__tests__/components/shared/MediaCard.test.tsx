@@ -35,7 +35,10 @@ vi.mock('../../../lib/database', () => ({
   },
 }));
 
-const mockGetAssetUrl = vi.fn((path: string) => `https://example.com/${path}`);
+// Mock that returns promise resolved on next tick
+const mockGetAssetUrl = vi.fn((path: string): Promise<string> => new Promise(resolve => {
+  setTimeout(() => resolve(`https://example.com/${path}`), 0);
+}));
 
 const mockMediaAsset: MediaAsset = {
   id: 'asset-1',

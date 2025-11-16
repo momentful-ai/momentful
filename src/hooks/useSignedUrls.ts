@@ -44,8 +44,7 @@ export function useSignedUrls() {
       return signedUrl;
     } catch (error) {
       console.error('Failed to get signed URL:', { bucket, path }, error);
-      // Fallback to public URL for backward compatibility
-      return database.storage.getPublicUrl(bucket, path);
+      throw error; // Don't fallback to public URLs - surface the error
     } finally {
       setLoading(prev => ({ ...prev, [cacheKey]: false }));
     }

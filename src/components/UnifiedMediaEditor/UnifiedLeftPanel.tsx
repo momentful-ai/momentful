@@ -4,7 +4,6 @@ import { Upload, Check } from 'lucide-react';
 import { MediaAsset, EditedImage } from '../../types';
 import { SelectedSource, MediaEditorMode } from './types';
 import { useDropzone } from 'react-dropzone';
-import { database } from '../../lib/database';
 
 interface MediaSourceItem {
   id: string;
@@ -223,7 +222,7 @@ export function UnifiedLeftPanel({
           <MediaSourceGrid
             sources={mediaAssets.map((asset) => ({
               id: asset.id,
-              thumbnail: asset.thumbnail_url || database.storage.getPublicUrl('user-uploads', asset.storage_path),
+              thumbnail: asset.thumbnail_url || '', // Will be loaded via signed URLs in MediaCard
               name: asset.file_name,
             }))}
             selectedSources={selectedSources}

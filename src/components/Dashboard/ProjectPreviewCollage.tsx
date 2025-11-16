@@ -1,5 +1,4 @@
 import { Project } from '../../types';
-import { database } from '../../lib/database';
 import { FolderOpen } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
@@ -19,16 +18,32 @@ export function ProjectPreviewCollage({ project }: { project: Project }) {
     }, [previewImages, preloadSignedUrls]);
 
     const getImageUrl = (storagePath: string) => {
-      return imageUrls[storagePath] || database.storage.getPublicUrl('user-uploads', storagePath);
+      const signedUrl = imageUrls[storagePath];
+      if (!signedUrl) {
+        // If signed URL is not available, return empty string to hide the image
+        console.warn('Signed URL not available for preview image:', storagePath);
+        return '';
+      }
+      return signedUrl;
     };
   
-    const renderImage = (path: string, alt: string, className = '') => (
-      <img
-        src={getImageUrl(path)}
-        alt={alt}
-        className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${className}`}
-      />
-    );
+    const renderImage = (path: string, alt: string, className = '') => {
+      const imageUrl = getImageUrl(path);
+      if (!imageUrl) {
+        return (
+          <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
+            <span className="text-xs text-muted-foreground">Image unavailable</span>
+          </div>
+        );
+      }
+      return (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${className}`}
+        />
+      );
+    };
   
     if (imageCount === 0) {
       return (

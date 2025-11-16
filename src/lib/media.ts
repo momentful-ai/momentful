@@ -59,8 +59,8 @@ export const VIDEO_CAMERA_MOVEMENTS = [
   { id: 'rotate-right', label: 'Rotate Right', description: 'Counter-clockwise rotation around subject' },
 ] as const;
 
-export function getAssetUrl(storagePath: string): string {
-  return database.storage.getPublicUrl('user-uploads', storagePath);
+export async function getAssetUrl(storagePath: string): Promise<string> {
+  return await database.storage.getSignedUrl('user-uploads', storagePath);
 }
 
 /**

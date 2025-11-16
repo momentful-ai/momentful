@@ -8,6 +8,7 @@ import { getErrorMessage } from '../../lib/utils';
 import { videoModels } from '../../data/aiModels';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
@@ -40,6 +41,8 @@ export function UnifiedMediaEditor({
   const { showToast } = useToast();
 
   // Initialize state based on mode
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | undefined>();
+
   const [state, setState] = useState<UnifiedEditorState>(() => {
     const baseState: UnifiedEditorState = {
       mode: initialMode,
@@ -71,6 +74,7 @@ export function UnifiedMediaEditor({
   // Load data for both modes
   const { data: editedImages = [] } = useEditedImages(projectId);
   const { data: mediaAssetsData = [] } = useMediaAssets(projectId);
+  const { getSignedUrl } = useSignedUrls();
 
   // Filter media assets to only include images
   const mediaAssets = useMemo(() =>
@@ -82,10 +86,16 @@ export function UnifiedMediaEditor({
   const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
   const { data: editingHistory = [] } = useEditedImagesByLineage(lineageId);
 
-  // Helper function to get asset URL (memoized to prevent unnecessary re-renders)
-  const getAssetUrl = useCallback((storagePath: string) => {
-    return database.storage.getPublicUrl('user-uploads', storagePath);
-  }, []);
+  // Helper function to get signed asset URL
+  const getAssetUrl = useCallback(async (storagePath: string): Promise<string> => {
+    try {
+      return await getSignedUrl('user-uploads', storagePath);
+    } catch (error) {
+      console.error('Failed to get signed URL for asset:', storagePath, error);
+      // Fallback to public URL
+      return database.storage.getPublicUrl('user-uploads', storagePath);
+    }
+  }, [getSignedUrl]);
 
   // Initialize selected image for video mode
   useEffect(() => {
@@ -103,45 +113,75 @@ export function UnifiedMediaEditor({
     }
   }, [initialSelectedImageId, editedImages, state.mode]);
 
+  // Load original image URL for fallback display
+  useEffect(() => {
+    const loadOriginalImageUrl = async () => {
+      if (asset && !sourceEditedImage) {
+        try {
+          const url = await getAssetUrl(asset.storage_path);
+          setOriginalImageUrl(url);
+        } catch (error) {
+          console.error('Failed to load original image URL:', error);
+          setOriginalImageUrl(undefined);
+        }
+      } else if (sourceEditedImage) {
+        setOriginalImageUrl(sourceEditedImage.edited_url);
+      } else {
+        setOriginalImageUrl(undefined);
+      }
+    };
+
+    loadOriginalImageUrl();
+  }, [asset, sourceEditedImage, getAssetUrl]);
+
   // Initialize selected image for preview in image-edit mode
   useEffect(() => {
-    if (state.mode === 'image-edit' && !state.selectedImageForPreview) {
-      if (sourceEditedImage) {
-        const source: SelectedSource = {
-          id: sourceEditedImage.id,
-          type: 'edited_image',
-          thumbnail: sourceEditedImage.edited_url,
-          name: sourceEditedImage.prompt.substring(0, 30),
-        };
-        setState(prev => ({
-          ...prev,
-          selectedImageForPreview: {
+    const initializeSelectedImage = async () => {
+      if (state.mode === 'image-edit' && !state.selectedImageForPreview) {
+        if (sourceEditedImage) {
+          const source: SelectedSource = {
             id: sourceEditedImage.id,
-            url: sourceEditedImage.edited_url,
-            fileName: sourceEditedImage.prompt.substring(0, 30),
             type: 'edited_image',
-          },
-          selectedSources: [source],
-        }));
-      } else if (asset) {
-        const source: SelectedSource = {
-          id: asset.id,
-          type: 'media_asset',
-          thumbnail: getAssetUrl(asset.storage_path),
-          name: asset.file_name,
-        };
-        setState(prev => ({
-          ...prev,
-          selectedImageForPreview: {
-            id: asset.id,
-            url: getAssetUrl(asset.storage_path),
-            fileName: asset.file_name,
-            type: 'media_asset',
-          },
-          selectedSources: [source],
-        }));
+            thumbnail: sourceEditedImage.edited_url,
+            name: sourceEditedImage.prompt.substring(0, 30),
+          };
+          setState(prev => ({
+            ...prev,
+            selectedImageForPreview: {
+              id: sourceEditedImage.id,
+              url: sourceEditedImage.edited_url || '',
+              fileName: sourceEditedImage.prompt.substring(0, 30),
+              type: 'edited_image',
+            },
+            selectedSources: [source],
+          }));
+        } else if (asset) {
+          try {
+            const assetUrl = await getAssetUrl(asset.storage_path);
+            const source: SelectedSource = {
+              id: asset.id,
+              type: 'media_asset',
+              thumbnail: assetUrl,
+              name: asset.file_name,
+            };
+            setState(prev => ({
+              ...prev,
+              selectedImageForPreview: {
+                id: asset.id,
+                url: assetUrl,
+                fileName: asset.file_name,
+                type: 'media_asset',
+              },
+              selectedSources: [source],
+            }));
+          } catch (error) {
+            console.error('Failed to initialize selected image:', error);
+          }
+        }
       }
-    }
+    };
+
+    initializeSelectedImage();
   }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, getAssetUrl]);
 
   // Reset state when switching modes
@@ -223,7 +263,7 @@ export function UnifiedMediaEditor({
         return;
       }
 
-      const imageUrl = sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path);
+      const imageUrl = sourceEditedImage?.edited_url || (await getAssetUrl(asset.storage_path));
       const enhancedPrompt = buildEnhancedImagePrompt(state.productName);
 
       showToast('Starting image generation...', 'info');
@@ -255,7 +295,7 @@ export function UnifiedMediaEditor({
       showToast('Image generated! Uploading...', 'info');
 
       const { storagePath, width, height } = await downloadAndUploadImage(generatedImageUrl, projectId);
-      const uploadedImageUrl = getAssetUrl(storagePath);
+      const uploadedImageUrl = await getAssetUrl(storagePath);
       setState(prev => ({ ...prev, editedImageUrl: uploadedImageUrl, showComparison: true }));
 
       // Save to database
@@ -347,7 +387,7 @@ export function UnifiedMediaEditor({
         imageUrl = editedImage?.edited_url || null;
       } else if (imageSource.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === imageSource.id);
-        imageUrl = mediaAsset ? getAssetUrl(mediaAsset.storage_path) : null;
+        imageUrl = mediaAsset ? await getAssetUrl(mediaAsset.storage_path) : null;
       }
 
       if (!imageUrl) {
@@ -477,7 +517,6 @@ export function UnifiedMediaEditor({
           newSelectedSources = [{
             id: asset.id,
             type: 'media_asset',
-            thumbnail: getAssetUrl(asset.storage_path),
             name: asset.file_name,
           }];
         }
@@ -496,7 +535,7 @@ export function UnifiedMediaEditor({
         isSelecting: false,
       };
     });
-  }, [asset, editingHistory, getAssetUrl]);
+  }, [asset, editingHistory]);
 
   const handleFileDrop = async (files: File[]) => {
     if (!userId || !projectId) {
@@ -583,28 +622,32 @@ export function UnifiedMediaEditor({
     }
   };
 
-  const handleImageMouseDown = (source: SelectedSource) => {
+  const handleImageMouseDown = async (source: SelectedSource) => {
     if (state.mode === 'image-edit') {
       // In image-edit mode, set the selected image for preview
       let imageUrl: string | null = null;
       let fileName: string = '';
-      
+
       if (source.type === 'edited_image') {
         // Check both editedImages and editingHistory arrays
-        const editedImage = editedImages.find(img => img.id === source.id) 
+        const editedImage = editedImages.find(img => img.id === source.id)
           || editingHistory.find(img => img.id === source.id);
         if (editedImage) {
-          imageUrl = editedImage.edited_url;
+          imageUrl = editedImage.edited_url || null;
           fileName = editedImage.prompt.substring(0, 30);
         }
       } else if (source.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === source.id);
         if (mediaAsset) {
-          imageUrl = getAssetUrl(mediaAsset.storage_path);
-          fileName = mediaAsset.file_name;
+          try {
+            imageUrl = await getAssetUrl(mediaAsset.storage_path);
+            fileName = mediaAsset.file_name;
+          } catch (error) {
+            console.error('Failed to load asset URL:', error);
+          }
         }
       }
-      
+
       if (imageUrl) {
         setState(prev => ({
           ...prev,
@@ -690,9 +733,7 @@ export function UnifiedMediaEditor({
               // Image mode props
               originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview
                 ? state.selectedImageForPreview.url
-                : asset
-                  ? (sourceEditedImage?.edited_url || getAssetUrl(asset.storage_path))
-                  : undefined}
+                : originalImageUrl}
               editedImageUrl={state.editedImageUrl}
               showComparison={state.showComparison}
               fileName={state.mode === 'image-edit' && state.selectedImageForPreview

@@ -265,10 +265,7 @@ export const database = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []).map((row) => ({
-        ...row,
-        edited_url: database.storage.getPublicUrl('user-uploads', row.storage_path),
-      }));
+      return data || [];
     },
 
 
@@ -281,10 +278,7 @@ export const database = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []).map((row) => ({
-        ...row,
-        edited_url: database.storage.getPublicUrl('user-uploads', row.storage_path),
-      }));
+      return data || [];
     },
 
     async create(image: {
@@ -317,10 +311,7 @@ export const database = {
         .single();
 
       if (error) throw error;
-      return {
-        ...data,
-        edited_url: database.storage.getPublicUrl('user-uploads', data.storage_path),
-      };
+      return data;
     },
 
     async delete(imageId: string, userId: string) {
@@ -609,24 +600,15 @@ export const database = {
       const nodes: TimelineNode[] = [
         ...mediaAssetsData.map(data => ({
           type: 'media_asset' as const,
-          data: {
-            ...data,
-            thumbnail_url: data.thumbnail_url || database.storage.getPublicUrl('user-uploads', data.storage_path),
-          },
+          data,
         } as TimelineNode)),
         ...editedImagesData.map(data => ({
           type: 'edited_image' as const,
-          data: {
-            ...data,
-            edited_url: database.storage.getPublicUrl('user-uploads', data.storage_path),
-          },
+          data,
         } as TimelineNode)),
         ...generatedVideosData.map(data => ({
           type: 'generated_video' as const,
-          data: {
-            ...data,
-            thumbnail_url: data.thumbnail_url || (data.storage_path ? (data.storage_path.startsWith('http') ? data.storage_path : database.storage.getPublicUrl('user-uploads', data.storage_path)) : undefined),
-          },
+          data,
         } as TimelineNode)),
       ];
 

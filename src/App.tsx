@@ -103,7 +103,7 @@ function App() {
         setView({
           type: 'unified-editor',
           initialMode: 'image-edit',
-          asset,
+          asset: asset as MediaAsset,
           projectId,
           project: view.project
         });

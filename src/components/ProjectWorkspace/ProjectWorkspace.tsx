@@ -12,9 +12,10 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { mergeName } from '../../lib/utils';
-import { downloadBulkAsZip, downloadFile } from '../../lib/download';
-import { getAssetUrl, ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../../lib/media';
+import { downloadBulkAsZip, downloadFileByStoragePath } from '../../lib/download';
+import { ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../../lib/media';
 import { useToast } from '../../hooks/useToast';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
@@ -57,6 +58,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [isUploading, setIsUploading] = useState(false);
   const [timelineItemToDelete, setTimelineItemToDelete] = useState<{ item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType; type: string } | null>(null);
   const { showToast } = useToast();
+  const { getSignedUrl } = useSignedUrls();
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
   const queryClient = useQueryClient();
@@ -266,7 +268,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const handleExportImage = useCallback(async (image: EditedImage) => {
     try {
       const filename = `edited-image-${image.id}.png`;
-      await downloadFile(image.edited_url, filename);
+      await downloadFileByStoragePath(image.storage_path, filename, 'user-uploads');
       showToast(`Downloaded ${filename}`, 'success');
     } catch (error) {
       console.error('Error downloading image:', error);
@@ -281,7 +283,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     }
     try {
       const filename = `${video.name || `video-${video.id}`}.mp4`;
-      await downloadFile(video.storage_path, filename);
+      await downloadFileByStoragePath(video.storage_path, filename, 'generated-videos');
       showToast(`Downloaded ${filename}`, 'success');
     } catch (error) {
       console.error('Error downloading video:', error);
@@ -302,18 +304,17 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
 
       if ('file_type' in actualItem) {
         // MediaAsset
-        const url = getAssetUrl(actualItem.storage_path);
-        await downloadFile(url, actualItem.file_name);
+        await downloadFileByStoragePath(actualItem.storage_path, actualItem.file_name, 'user-uploads');
         showToast(`Downloaded ${actualItem.file_name}`, 'success');
       } else if ('edited_url' in actualItem) {
         // EditedImage
         const filename = `edited-image-${actualItem.id}.png`;
-        await downloadFile(actualItem.edited_url, filename);
+        await downloadFileByStoragePath(actualItem.storage_path, filename, 'user-uploads');
         showToast(`Downloaded ${filename}`, 'success');
       } else if ('storage_path' in actualItem && actualItem.storage_path) {
         // GeneratedVideo
-        const filename = `${actualItem.name || `video-${actualItem.id}`}.mp4`;
-        await downloadFile(actualItem.storage_path, filename);
+        const filename = `${(actualItem as GeneratedVideo).name || `video-${actualItem.id}`}.mp4`;
+        await downloadFileByStoragePath(actualItem.storage_path, filename, 'generated-videos');
         showToast(`Downloaded ${filename}`, 'success');
       } else {
         showToast('Item is not available for download', 'error');
@@ -405,10 +406,10 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
 
     setIsDownloadingAll(true);
     try {
-      const items = mediaAssets.map((asset) => ({
-        url: getAssetUrl(asset.storage_path),
+      const items = await Promise.all(mediaAssets.map(async (asset) => ({
+        url: await getSignedUrl('user-uploads', asset.storage_path),
         filename: asset.file_name,
-      }));
+      })));
 
       await downloadBulkAsZip(items, `${currentProject.name}-media-library`, (current, total) => {
         showToast(`Downloading ${current}/${total} files...`, 'info');
@@ -421,17 +422,17 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     } finally {
       setIsDownloadingAll(false);
     }
-  }, [mediaAssets, currentProject.name, showToast]);
+  }, [mediaAssets, getSignedUrl, currentProject.name, showToast]);
 
   const handleDownloadAllEdited = useCallback(async () => {
     if (editedImages.length === 0) return;
 
     setIsDownloadingAll(true);
     try {
-      const items = editedImages.map((image) => ({
-        url: image.edited_url,
+      const items = await Promise.all(editedImages.map(async (image) => ({
+        url: await database.storage.getSignedUrl('user-uploads', image.storage_path),
         filename: `edited-${image.id}.png`,
-      }));
+      })));
 
       await downloadBulkAsZip(items, `${currentProject.name}-edited-images`, (current, total) => {
         showToast(`Downloading ${current}/${total}...`, 'info');
@@ -455,9 +456,18 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
 
     setIsDownloadingAll(true);
     try {
-      const items = completedVideos.map((video) => ({
-        url: video.storage_path!,
-        filename: `${video.name || `video-${video.id}`}.mp4`,
+      const items = await Promise.all(completedVideos.map(async (video) => {
+        // Check if it's already a full URL (external) or needs signed URL
+        let url: string;
+        if (video.storage_path!.startsWith('http')) {
+          url = video.storage_path!;
+        } else {
+          url = await database.storage.getSignedUrl('generated-videos', video.storage_path!);
+        }
+        return {
+          url,
+          filename: `${video.name || `video-${video.id}`}.mp4`,
+        };
       }));
 
       await downloadBulkAsZip(items, `${currentProject.name}-videos`, (current, total) => {

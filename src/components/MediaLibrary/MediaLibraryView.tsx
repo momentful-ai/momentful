@@ -16,7 +16,7 @@ interface MediaLibraryViewProps {
   onEditImage?: (asset: MediaAsset, projectId: string) => void;
   onRequestDelete: (assetId: string, storagePath: string) => void;
   onDownload?: (asset: MediaAsset) => void;
-  getAssetUrl: (storagePath: string) => string;
+  getAssetUrl: (storagePath: string) => Promise<string>;
 }
 
 export function MediaLibraryView({

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { database } from './database';
 
 /**
  * Downloads a single file from a URL
@@ -30,6 +31,33 @@ export async function downloadFile(url: string, filename: string): Promise<void>
 interface BulkDownloadItem {
   url: string;
   filename: string;
+}
+
+/**
+ * Downloads a file by storage path, resolving signed URLs as needed
+ * @param storagePath - The storage path of the file to download
+ * @param filename - The filename to use for the downloaded file
+ * @param bucket - The storage bucket (defaults to 'user-uploads')
+ */
+export async function downloadFileByStoragePath(
+  storagePath: string,
+  filename: string,
+  bucket: string = 'user-uploads'
+): Promise<void> {
+  try {
+    // Check if it's already a full URL (e.g., external video URLs)
+    if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+      await downloadFile(storagePath, filename);
+      return;
+    }
+
+    // For storage paths, get a signed URL first
+    const signedUrl = await database.storage.getSignedUrl(bucket, storagePath);
+    await downloadFile(signedUrl, filename);
+  } catch (error) {
+    console.error('Error downloading file by storage path:', error);
+    throw error;
+  }
 }
 
 /**

@@ -500,29 +500,31 @@ describe('database', () => {
 
   describe('editedImages', () => {
     describe('list', () => {
-      it('successfully lists edited images with public URLs', async () => {
+      it('successfully lists edited images', async () => {
         const mockImages = [
           {
             id: 'image-1',
             project_id: 'project-1',
+            user_id: 'user-1',
+            prompt: 'A beautiful image',
+            context: {},
+            ai_model: 'flux-pro',
             storage_path: 'path/to/image1.jpg',
+            width: 1024,
+            height: 768,
+            version: 1,
+            created_at: '2024-01-01T00:00:00Z',
           },
         ];
 
         const queryBuilder = createQueryBuilder({ data: mockImages, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        // Mock storage.getPublicUrl
-        const mockStorageBucket = {
-          getPublicUrl: vi.fn(() => ({
-            data: { publicUrl: 'https://example.com/user-uploads/path/to/image1.jpg' },
-          })),
-        };
-        mockSupabaseClient.storage.from.mockReturnValueOnce(mockStorageBucket);
-
         const result = await database.editedImages.list('project-1', 'user-1');
 
-        expect(result[0].edited_url).toBe('https://example.com/user-uploads/path/to/image1.jpg');
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('image-1');
+        expect(result[0].storage_path).toBe('path/to/image1.jpg');
       });
 
       it('handles database errors', async () => {
@@ -538,7 +540,7 @@ describe('database', () => {
     describe('create', () => {
       it('successfully creates an edited image with context', async () => {
         const mockImage = {
-          id: 'image-new',
+          id: 'image-1',
           project_id: 'project-1',
           user_id: 'user-1',
           storage_path: 'path/to/edited.jpg',
@@ -551,13 +553,6 @@ describe('database', () => {
 
         const queryBuilder = createQueryBuilder({ data: mockImage, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
-
-        const mockStorageBucket = {
-          getPublicUrl: vi.fn(() => ({
-            data: { publicUrl: 'https://example.com/user-uploads/path/to/edited.jpg' },
-          })),
-        };
-        mockSupabaseClient.storage.from.mockReturnValueOnce(mockStorageBucket);
 
         const result = await database.editedImages.create({
           project_id: 'project-1',
@@ -580,7 +575,8 @@ describe('database', () => {
           width: 1920,
           height: 1080,
         });
-        expect(result.edited_url).toBe('https://example.com/user-uploads/path/to/edited.jpg');
+        expect(result.id).toBe('image-1');
+        expect(result.storage_path).toBe('path/to/edited.jpg');
       });
 
       it('uses empty object for context when not provided', async () => {

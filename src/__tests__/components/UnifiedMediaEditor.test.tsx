@@ -8,9 +8,9 @@ import * as ReplicateAPI from '../../services/aiModels/replicate/api-client';
 import { EditedImage, MediaAsset } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
-import { useEditedImages } from '../../hooks/useEditedImages';
+import { useEditedImages, useEditedImagesByLineage } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
-import { useEditedImagesByLineage } from '../../hooks/useEditedImages';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 import {
   mockSupabase,
   createTestQueryClient,
@@ -28,6 +28,14 @@ vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImagesByLineage: vi.fn(),
 }));
 vi.mock('../../hooks/useMediaAssets', () => ({ useMediaAssets: vi.fn() }));
+vi.mock('../../hooks/useSignedUrls', () => ({
+  useSignedUrls: vi.fn(() => ({
+    getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
+    preloadSignedUrls: vi.fn(),
+    clearCache: vi.fn(),
+    isLoading: vi.fn(() => false),
+  })),
+}));
 
 // Mock environment
 Object.defineProperty(window, 'ResizeObserver', {
@@ -94,6 +102,7 @@ const mockUseToast = vi.mocked(useToast);
 const mockUseEditedImages = vi.mocked(useEditedImages);
 const mockUseEditedImagesByLineage = vi.mocked(useEditedImagesByLineage);
 const mockUseMediaAssets = vi.mocked(useMediaAssets);
+const mockUseSignedUrls = vi.mocked(useSignedUrls);
 
 // Test constants
 const TEST_PROJECT_ID = 'test-project';
@@ -190,6 +199,12 @@ const setupMocks = () => {
   // Setup hook mocks
   mockUseUserId.mockReturnValue(TEST_USER_ID);
   mockUseToast.mockReturnValue({ showToast: mockShowToast });
+  mockUseSignedUrls.mockReturnValue({
+    getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
+    preloadSignedUrls: vi.fn(),
+    clearCache: vi.fn(),
+    isLoading: vi.fn(() => false),
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseEditedImages.mockReturnValue(createMockQueryResult(mockEditedImages) as any);
@@ -258,6 +273,19 @@ const setupMocks = () => {
   return { mockEditedImages, mockMediaAssets, mockShowToast };
 };
 
+
+const waitForComponent = async (expectedText = 'Edited Images') => {
+  await waitFor(() => expect(screen.getByText(expectedText)).toBeInTheDocument());
+  expect(document.querySelector('div.h-screen')).toBeInTheDocument();
+};
+
+// Test-level variables
+let queryClient: QueryClient;
+let renderWithQueryClient: ReturnType<typeof createTestRenderer>;
+let mockEditedImages: EditedImage[];
+let mockMediaAssets: MediaAsset[];
+let mockShowToast: ReturnType<typeof vi.fn>;
+
 const renderComponent = (props: Partial<React.ComponentProps<typeof UnifiedMediaEditor>> = {}) => {
   const defaultProps = {
     projectId: TEST_PROJECT_ID,
@@ -271,18 +299,6 @@ const renderComponent = (props: Partial<React.ComponentProps<typeof UnifiedMedia
 
   return finalProps;
 };
-
-const waitForComponent = async (expectedText = 'Edited Images') => {
-  await waitFor(() => expect(screen.getByText(expectedText)).toBeInTheDocument());
-  expect(document.querySelector('div.h-screen')).toBeInTheDocument();
-};
-
-// Test-level variables
-let queryClient: QueryClient;
-let renderWithQueryClient: ReturnType<typeof createTestRenderer>;
-let mockEditedImages: EditedImage[];
-let mockMediaAssets: MediaAsset[];
-let mockShowToast: ReturnType<typeof vi.fn>;
 
 describe('UnifiedMediaEditor', () => {
   beforeEach(() => {
@@ -323,6 +339,27 @@ describe('UnifiedMediaEditor', () => {
       });
 
       await waitForComponent();
+    });
+
+    it('uses signed URLs for asset loading', async () => {
+      const mockGetSignedUrl = vi.fn((bucket: string, path: string) =>
+        Promise.resolve(`https://signed.example.com/${bucket}/${path}`)
+      );
+
+      mockUseSignedUrls.mockReturnValue({
+        getSignedUrl: mockGetSignedUrl,
+        preloadSignedUrls: vi.fn(),
+        clearCache: vi.fn(),
+        isLoading: vi.fn(() => false),
+      });
+
+      renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
+      await waitForComponent();
+
+      // The component should attempt to get signed URLs for assets
+      await waitFor(() => {
+        expect(mockGetSignedUrl).toHaveBeenCalledWith('user-uploads', mockMediaAssets[0].storage_path);
+      });
     });
   });
 
@@ -553,6 +590,29 @@ describe('UnifiedMediaEditor', () => {
       await user.click(generateButton);
 
       expect(vi.mocked(ReplicateAPI.createReplicateImageJob)).not.toHaveBeenCalled();
+    });
+
+    it('falls back to public URLs when signed URL generation fails', async () => {
+      const mockGetSignedUrl = vi.fn().mockRejectedValue(new Error('Signed URL failed'));
+
+      mockUseSignedUrls.mockReturnValue({
+        getSignedUrl: mockGetSignedUrl,
+        preloadSignedUrls: vi.fn(),
+        clearCache: vi.fn(),
+        isLoading: vi.fn(() => false),
+      });
+
+      renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
+      await waitForComponent();
+
+      // The component should attempt signed URL first
+      expect(mockGetSignedUrl).toHaveBeenCalledWith('user-uploads', mockMediaAssets[0].storage_path);
+
+      // And should fall back to public URL (this is tested implicitly by the component not crashing)
+      // The database.storage.getPublicUrl should be called as fallback
+      await waitFor(() => {
+        expect(vi.mocked(database.storage.getPublicUrl)).toHaveBeenCalledWith('user-uploads', mockMediaAssets[0].storage_path);
+      });
     });
 
     it.skip('requires selected image for video generation', async () => {

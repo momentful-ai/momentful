@@ -4,8 +4,8 @@ import { useToast } from '../../hooks/useToast';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useUploadMedia } from '../../hooks/useUploadMedia';
 import { useDeleteMediaAsset } from '../../hooks/useDeleteMediaAsset';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
-import { getAssetUrl } from '../../lib/media';
 import { MediaLibraryView } from './MediaLibraryView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -26,6 +26,17 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
   const { data: assets = [], isLoading, error } = useMediaAssets(projectId);
   const uploadMutation = useUploadMedia();
   const deleteMutation = useDeleteMediaAsset();
+  const { getSignedUrl } = useSignedUrls();
+
+  // Async function to get signed URL for assets
+  const getAssetUrl = async (storagePath: string): Promise<string> => {
+    try {
+      return await getSignedUrl('user-uploads', storagePath);
+    } catch (error) {
+      console.error('Failed to get signed URL for asset:', storagePath, error);
+      throw error; // Don't fallback to public URLs - surface the error
+    }
+  };
 
   const handleFileUpload = (files: File[]) => {
     uploadMutation.mutate(
@@ -61,7 +72,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
 
   const handleDownload = async (asset: MediaAsset) => {
     try {
-      const url = getAssetUrl(asset.storage_path);
+      const url = await getAssetUrl(asset.storage_path);
       await downloadFile(url, asset.file_name);
       showToast(`Downloaded ${asset.file_name}`, 'success');
     } catch (error) {

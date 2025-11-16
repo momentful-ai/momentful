@@ -33,7 +33,6 @@ export interface EditedImage {
   prompt: string;
   context: Record<string, unknown>;
   ai_model: string;
-  edited_url: string;
   storage_path: string;
   thumbnail_url?: string;
   width: number;
@@ -42,6 +41,7 @@ export interface EditedImage {
   parent_id?: string;
   created_at: string;
   lineage_id?: string;
+  edited_url?: string; // Optional - generated on demand for signed URLs
 }
 
 export interface GeneratedVideo {
