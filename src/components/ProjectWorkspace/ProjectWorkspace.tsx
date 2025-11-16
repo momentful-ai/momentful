@@ -109,13 +109,15 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         const updatedProject = { ...currentProject, name: editedName.trim() };
         setCurrentProject(updatedProject);
         onUpdateProject?.(updatedProject);
+        // Invalidate the projects query cache to ensure all components show the updated name
+        await queryClient.invalidateQueries({ queryKey: ['projects', userId] });
       } catch (error) {
         console.error('Error updating project name:', error);
         setEditedName(currentProject.name);
       }
     }
     setIsEditingName(false);
-  }, [editedName, currentProject, onUpdateProject, userId]);
+  }, [editedName, currentProject, onUpdateProject, userId, queryClient]);
 
   const handleCancelEdit = useCallback(() => {
     setEditedName(currentProject.name);
