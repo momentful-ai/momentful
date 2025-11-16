@@ -1,27 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { database } from '../../lib/database';
 
-// Mock Supabase client - must be created inside factory function
+// Mock Supabase client - basic mock that allows test-specific overrides
 vi.mock('../../lib/supabase', () => {
-  // Create a query builder mock that chains methods
-  const createQueryBuilder = () => ({
-    select: vi.fn(() => createQueryBuilder()),
-    insert: vi.fn(() => createQueryBuilder()),
-    update: vi.fn(() => createQueryBuilder()),
-    delete: vi.fn(() => createQueryBuilder()),
-    eq: vi.fn(() => createQueryBuilder()),
-    order: vi.fn(() => createQueryBuilder()),
-    limit: vi.fn(() => createQueryBuilder()),
-    single: vi.fn(),
-  });
-
   const mockSupabaseClient = {
-    from: vi.fn(() => createQueryBuilder()),
+    from: vi.fn(),
     storage: {
       from: vi.fn(() => ({
         upload: vi.fn(),
         remove: vi.fn(),
-        getPublicUrl: vi.fn(),
+        getPublicUrl: vi.fn(() => ({
+          data: { publicUrl: 'https://example.com/mock-url' },
+        })),
       })),
     },
   };
@@ -39,13 +29,27 @@ const mockSupabaseClient = supabase as any; // Type assertion needed for test mo
 describe('database', () => {
   // Helper to create a query builder mock
   const createQueryBuilder = (finalResult: { data: unknown; error: unknown | null }) => {
+    let eqCallCount = 0;
+    let hasDelete = false;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const builder: any = {
       select: vi.fn(() => builder),
       insert: vi.fn(() => builder),
       update: vi.fn(() => builder),
-      delete: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
+      delete: vi.fn(() => {
+        hasDelete = true;
+        return builder;
+      }),
+      eq: vi.fn(() => {
+        eqCallCount++;
+        // For delete operations with 2 eq calls, return result after second eq (no more methods)
+        if (hasDelete && eqCallCount >= 2) {
+          return finalResult;
+        }
+        // For select operations, continue chaining until final method (single, order, limit) or end
+        return builder;
+      }),
       order: vi.fn(() => finalResult), // Queries ending with order() return result
       limit: vi.fn(() => finalResult), // Queries ending with limit() return result
       single: vi.fn(() => finalResult), // Queries ending with single() return result
@@ -55,6 +59,8 @@ describe('database', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the mock to return undefined by default - tests must set up their own mocks
+    mockSupabaseClient.from.mockReset();
   });
 
   describe('projects', () => {
@@ -86,32 +92,35 @@ describe('database', () => {
           { storage_path: 'path2.jpg' },
         ];
 
-        // Create query builder mocks
-        const queryBuilder1 = {
-          select: vi.fn(() => queryBuilder1),
+        // Mock the chain of calls for projects query
+        const projectsBuilder = {
+          select: vi.fn(() => projectsBuilder),
+          eq: vi.fn(() => projectsBuilder),
           order: vi.fn(() => ({ data: mockProjects, error: null })),
         };
-        const queryBuilder2 = {
-          select: vi.fn(() => queryBuilder2),
-          eq: vi.fn(() => queryBuilder2),
-          order: vi.fn(() => queryBuilder2),
+
+        // Mock the chain of calls for media assets queries
+        const mediaAssetsBuilder1 = {
+          select: vi.fn(() => mediaAssetsBuilder1),
+          eq: vi.fn(() => mediaAssetsBuilder1),
+          order: vi.fn(() => mediaAssetsBuilder1),
           limit: vi.fn(() => ({ data: mockMediaAssets, error: null })),
         };
-        const queryBuilder3 = {
-          select: vi.fn(() => queryBuilder3),
-          eq: vi.fn(() => queryBuilder3),
-          order: vi.fn(() => queryBuilder3),
+
+        const mediaAssetsBuilder2 = {
+          select: vi.fn(() => mediaAssetsBuilder2),
+          eq: vi.fn(() => mediaAssetsBuilder2),
+          order: vi.fn(() => mediaAssetsBuilder2),
           limit: vi.fn(() => ({ data: [], error: null })),
         };
 
-        // Mock projects query
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder1);
+        // Mock from calls in sequence
+        mockSupabaseClient.from
+          .mockReturnValueOnce(projectsBuilder)  // projects query
+          .mockReturnValueOnce(mediaAssetsBuilder1)  // media assets for project 1
+          .mockReturnValueOnce(mediaAssetsBuilder2); // media assets for project 2
 
-        // Mock media assets queries for each project
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder2);
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder3);
-
-        const result = await database.projects.list();
+        const result = await database.projects.list('user-1');
 
         expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
         expect(result).toHaveLength(2);
@@ -126,13 +135,10 @@ describe('database', () => {
       });
 
       it('returns empty array when no projects exist', async () => {
-        const queryBuilder = {
-          select: vi.fn(() => queryBuilder),
-          order: vi.fn(() => ({ data: [], error: null })),
-        };
+        const queryBuilder = createQueryBuilder({ data: [], error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.projects.list();
+        const result = await database.projects.list('user-1');
 
         expect(result).toEqual([]);
       });
@@ -142,7 +148,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.projects.list()).rejects.toEqual(dbError);
+        await expect(database.projects.list('user-1')).rejects.toEqual(dbError);
       });
     });
 
@@ -221,7 +227,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: mockUpdatedProject, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.projects.update('project-1', {
+        const result = await database.projects.update('project-1', 'user-1', {
           name: 'Updated Project',
           description: 'Updated Description',
         });
@@ -240,39 +246,29 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.projects.update('project-1', { name: 'Updated' })).rejects.toEqual(dbError);
+        await expect(database.projects.update('project-1', 'user-1', { name: 'Updated' })).rejects.toEqual(dbError);
       });
     });
 
     describe('delete', () => {
       it('successfully deletes a project', async () => {
-        // For delete operations, delete() returns a builder, and eq() returns the result
-        const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: null })),
-        };
-        const queryBuilder = {
-          delete: vi.fn(() => deleteBuilder),
-        };
+        const queryBuilder = createQueryBuilder({ data: null, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await database.projects.delete('project-1');
+        await database.projects.delete('project-1', 'user-1');
 
         expect(mockSupabaseClient.from).toHaveBeenCalledWith('projects');
         expect(queryBuilder.delete).toHaveBeenCalled();
-        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'project-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'project-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
       });
 
       it('handles database errors on delete', async () => {
         const dbError = { message: 'Delete failed', code: '23503' };
-        const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: dbError })),
-        };
-        const queryBuilder = {
-          delete: vi.fn(() => deleteBuilder),
-        };
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.projects.delete('project-1')).rejects.toEqual(dbError);
+        await expect(database.projects.delete('project-1', 'user-1')).rejects.toEqual(dbError);
       });
     });
   });
@@ -293,7 +289,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: mockAssets, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.mediaAssets.list('project-1');
+        const result = await database.mediaAssets.list('project-1', 'user-1');
 
         expect(mockSupabaseClient.from).toHaveBeenCalledWith('media_assets');
         expect(queryBuilder.eq).toHaveBeenCalledWith('project_id', 'project-1');
@@ -304,7 +300,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: [], error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.mediaAssets.list('project-1');
+        const result = await database.mediaAssets.list('project-1', 'user-1');
 
         expect(result).toEqual([]);
       });
@@ -314,7 +310,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.mediaAssets.list('project-1')).rejects.toEqual(dbError);
+        await expect(database.mediaAssets.list('project-1', 'user-1')).rejects.toEqual(dbError);
       });
     });
 
@@ -338,7 +334,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: mockAsset, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.mediaAssets.getById('asset-1');
+        const result = await database.mediaAssets.getById('asset-1', 'user-1');
 
         expect(mockSupabaseClient.from).toHaveBeenCalledWith('media_assets');
         expect(queryBuilder.select).toHaveBeenCalledWith('*');
@@ -352,7 +348,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.mediaAssets.getById('non-existent-asset')).rejects.toEqual(dbError);
+        await expect(database.mediaAssets.getById('non-existent-asset', 'user-1')).rejects.toEqual(dbError);
       });
 
       it('handles other database errors', async () => {
@@ -360,7 +356,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.mediaAssets.getById('asset-1')).rejects.toEqual(dbError);
+        await expect(database.mediaAssets.getById('asset-1', 'user-1')).rejects.toEqual(dbError);
       });
     });
 
@@ -413,32 +409,22 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a media asset', async () => {
-        // For delete operations, delete() returns a builder, and eq() returns the result
-        const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: null })),
-        };
-        const queryBuilder = {
-          delete: vi.fn(() => deleteBuilder),
-        };
+        const queryBuilder = createQueryBuilder({ data: null, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await database.mediaAssets.delete('asset-1');
+        await database.mediaAssets.delete('asset-1', 'user-1');
 
         expect(queryBuilder.delete).toHaveBeenCalled();
-        expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'asset-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'asset-1');
+        expect(queryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
       });
 
       it('handles database errors on delete', async () => {
         const dbError = { message: 'Delete failed', code: '23503' };
-        const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: dbError })),
-        };
-        const queryBuilder = {
-          delete: vi.fn(() => deleteBuilder),
-        };
+        const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.mediaAssets.delete('asset-1')).rejects.toEqual(dbError);
+        await expect(database.mediaAssets.delete('asset-1', 'user-1')).rejects.toEqual(dbError);
       });
     });
   });
@@ -465,7 +451,7 @@ describe('database', () => {
         };
         mockSupabaseClient.storage.from.mockReturnValueOnce(mockStorageBucket);
 
-        const result = await database.editedImages.list('project-1');
+        const result = await database.editedImages.list('project-1', 'user-1');
 
         expect(result[0].edited_url).toBe('https://example.com/user-uploads/path/to/image1.jpg');
       });
@@ -475,7 +461,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: null, error: dbError });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await expect(database.editedImages.list('project-1')).rejects.toEqual(dbError);
+        await expect(database.editedImages.list('project-1', 'user-1')).rejects.toEqual(dbError);
       });
     });
 
@@ -667,19 +653,27 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes an edited image', async () => {
-        // For delete operations, delete() returns a builder, and eq() returns the result
+        // For delete operations, delete() returns a builder, and eq() returns the result after 2 calls
+        let eqCallCount = 0;
         const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: null })),
+          eq: vi.fn(() => {
+            eqCallCount++;
+            if (eqCallCount >= 2) {
+              return { data: null, error: null };
+            }
+            return deleteBuilder;
+          }),
         };
         const queryBuilder = {
           delete: vi.fn(() => deleteBuilder),
         };
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await database.editedImages.delete('image-1');
+        await database.editedImages.delete('image-1', 'user-1');
 
         expect(queryBuilder.delete).toHaveBeenCalled();
         expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'image-1');
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
       });
     });
   });
@@ -704,7 +698,7 @@ describe('database', () => {
         };
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.generatedVideos.list('project-1');
+        const result = await database.generatedVideos.list('project-1', 'user-1');
 
         expect(result).toEqual(mockVideos);
       });
@@ -718,7 +712,7 @@ describe('database', () => {
         };
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.generatedVideos.list('project-1');
+        const result = await database.generatedVideos.list('project-1', 'user-1');
 
         expect(result).toEqual([]);
       });
@@ -841,7 +835,7 @@ describe('database', () => {
         const queryBuilder = createQueryBuilder({ data: mockUpdatedVideo, error: null });
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.generatedVideos.update('video-1', {
+        const result = await database.generatedVideos.update('video-1', 'user-1', {
           status: 'completed',
           storage_path: 'path/to/video.mp4',
         });
@@ -852,19 +846,27 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a generated video', async () => {
-        // For delete operations, delete() returns a builder, and eq() returns the result
+        // For delete operations, delete() returns a builder, and eq() returns the result after 2 calls
+        let eqCallCount = 0;
         const deleteBuilder = {
-          eq: vi.fn(() => ({ data: null, error: null })),
+          eq: vi.fn(() => {
+            eqCallCount++;
+            if (eqCallCount >= 2) {
+              return { data: null, error: null };
+            }
+            return deleteBuilder;
+          }),
         };
         const queryBuilder = {
           delete: vi.fn(() => deleteBuilder),
         };
         mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await database.generatedVideos.delete('video-1');
+        await database.generatedVideos.delete('video-1', 'user-1');
 
         expect(queryBuilder.delete).toHaveBeenCalled();
         expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'video-1');
+        expect(deleteBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
       });
     });
   });
@@ -882,15 +884,26 @@ describe('database', () => {
           },
         ];
 
-        // Create a query builder that chains select -> eq -> order
-        const queryBuilder = {
-          select: vi.fn(() => queryBuilder),
-          eq: vi.fn(() => queryBuilder),
+        // First call: check video ownership - select('id').eq('id', videoId).eq('user_id', userId).single()
+        const videoCheckBuilder = {
+          select: vi.fn(() => videoCheckBuilder),
+          eq: vi.fn(() => videoCheckBuilder),
+          single: vi.fn(() => ({ data: { id: 'video-1' }, error: null })),
+        };
+
+        // Second call: get sources - select('*').eq('video_id', videoId).order(...)
+        const sourcesBuilder = {
+          select: vi.fn(() => sourcesBuilder),
+          eq: vi.fn(() => sourcesBuilder),
           order: vi.fn(() => ({ data: mockSources, error: null })),
         };
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        const result = await database.videoSources.list('video-1');
+        // Mock first call (video ownership check)
+        mockSupabaseClient.from.mockReturnValueOnce(videoCheckBuilder);
+        // Mock second call (get sources)
+        mockSupabaseClient.from.mockReturnValueOnce(sourcesBuilder);
+
+        const result = await database.videoSources.list('video-1', 'user-1');
 
         expect(result).toEqual(mockSources);
       });
@@ -906,15 +919,31 @@ describe('database', () => {
           sort_order: 1,
         };
 
-        const queryBuilder = createQueryBuilder({ data: mockSource, error: null });
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
+        // First call: check video ownership - select('id').eq('id', videoId).eq('user_id', userId).single()
+        const videoCheckBuilder = {
+          select: vi.fn(() => videoCheckBuilder),
+          eq: vi.fn(() => videoCheckBuilder),
+          single: vi.fn(() => ({ data: { id: 'video-1' }, error: null })),
+        };
+
+        // Second call: create source - insert(source).select().single()
+        const createBuilder = {
+          insert: vi.fn(() => createBuilder),
+          select: vi.fn(() => createBuilder),
+          single: vi.fn(() => ({ data: mockSource, error: null })),
+        };
+
+        // Mock first call (video ownership check)
+        mockSupabaseClient.from.mockReturnValueOnce(videoCheckBuilder);
+        // Mock second call (create source)
+        mockSupabaseClient.from.mockReturnValueOnce(createBuilder);
 
         const result = await database.videoSources.create({
           video_id: 'video-1',
           source_type: 'media_asset',
           source_id: 'asset-1',
           sort_order: 1,
-        });
+        }, 'user-1');
 
         expect(result).toEqual(mockSource);
       });
@@ -922,18 +951,34 @@ describe('database', () => {
 
     describe('delete', () => {
       it('successfully deletes a video source', async () => {
-        // For delete operations, delete() returns a builder, and eq() returns the result
+        // First call: get video_id from source - select('video_id').eq('id', sourceId).single()
+        const sourceBuilder = {
+          select: vi.fn(() => sourceBuilder),
+          eq: vi.fn(() => sourceBuilder),
+          single: vi.fn(() => ({ data: { video_id: 'video-1' }, error: null })),
+        };
+
+        // Second call: check video ownership - select('id').eq('id', videoId).eq('user_id', userId).single()
+        const videoCheckBuilder = {
+          select: vi.fn(() => videoCheckBuilder),
+          eq: vi.fn(() => videoCheckBuilder),
+          single: vi.fn(() => ({ data: { id: 'video-1' }, error: null })),
+        };
+
+        // Third call: delete source - delete().eq('id', sourceId)
         const deleteBuilder = {
+          delete: vi.fn(() => deleteBuilder),
           eq: vi.fn(() => ({ data: null, error: null })),
         };
-        const queryBuilder = {
-          delete: vi.fn(() => deleteBuilder),
-        };
-        mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-        await database.videoSources.delete('source-1');
+        // Mock calls in order
+        mockSupabaseClient.from.mockReturnValueOnce(sourceBuilder);     // get video_id
+        mockSupabaseClient.from.mockReturnValueOnce(videoCheckBuilder); // check ownership
+        mockSupabaseClient.from.mockReturnValueOnce(deleteBuilder);     // delete source
 
-        expect(queryBuilder.delete).toHaveBeenCalled();
+        await database.videoSources.delete('source-1', 'user-1');
+
+        expect(deleteBuilder.delete).toHaveBeenCalled();
         expect(deleteBuilder.eq).toHaveBeenCalledWith('id', 'source-1');
       });
     });
@@ -1110,7 +1155,7 @@ describe('lineages', () => {
       const queryBuilder = createQueryBuilder({ data: mockLineages, error: null });
       mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-      const result = await database.lineages.getByProject('project-1');
+      const result = await database.lineages.getByProject('project-1', 'user-1');
 
       expect(queryBuilder.select).toHaveBeenCalledWith('*');
       expect(queryBuilder.eq).toHaveBeenCalledWith('project_id', 'project-1');
@@ -1122,7 +1167,7 @@ describe('lineages', () => {
       const queryBuilder = createQueryBuilder({ data: null, error: null });
       mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-      const result = await database.lineages.getByProject('project-1');
+      const result = await database.lineages.getByProject('project-1', 'user-1');
 
       expect(result).toEqual([]);
     });
@@ -1143,7 +1188,7 @@ describe('lineages', () => {
       const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
       mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-      const result = await database.lineages.getById('lineage-1');
+      const result = await database.lineages.getById('lineage-1', 'user-1');
 
       expect(queryBuilder.select).toHaveBeenCalledWith('*');
       expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'lineage-1');
@@ -1167,7 +1212,7 @@ describe('lineages', () => {
       const queryBuilder = createQueryBuilder({ data: mockLineage, error: null });
       mockSupabaseClient.from.mockReturnValueOnce(queryBuilder);
 
-      const result = await database.lineages.getByRootAsset('asset-1');
+      const result = await database.lineages.getByRootAsset('asset-1', 'user-1');
 
       expect(queryBuilder.select).toHaveBeenCalledWith('*');
       expect(queryBuilder.eq).toHaveBeenCalledWith('root_media_asset_id', 'asset-1');
@@ -1213,21 +1258,43 @@ describe('lineages', () => {
       };
       mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
 
+      // For queries with 2 eq calls (lineage_id and user_id), return result after 2nd eq
+      let maEqCount = 0;
       const mediaAssetsBuilder = {
         select: vi.fn(() => mediaAssetsBuilder),
-        eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
+        eq: vi.fn(() => {
+          maEqCount++;
+          if (maEqCount >= 2) {
+            return { data: mockMediaAssets, error: null };
+          }
+          return mediaAssetsBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(mediaAssetsBuilder);
 
+      let eiEqCount = 0;
       const editedImagesBuilder = {
         select: vi.fn(() => editedImagesBuilder),
-        eq: vi.fn(() => ({ data: mockEditedImages, error: null })),
+        eq: vi.fn(() => {
+          eiEqCount++;
+          if (eiEqCount >= 2) {
+            return { data: mockEditedImages, error: null };
+          }
+          return editedImagesBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(editedImagesBuilder);
 
+      let gvEqCount = 0;
       const generatedVideosBuilder = {
         select: vi.fn(() => generatedVideosBuilder),
-        eq: vi.fn(() => ({ data: mockGeneratedVideos, error: null })),
+        eq: vi.fn(() => {
+          gvEqCount++;
+          if (gvEqCount >= 2) {
+            return { data: mockGeneratedVideos, error: null };
+          }
+          return generatedVideosBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(generatedVideosBuilder);
 
@@ -1246,7 +1313,7 @@ describe('lineages', () => {
       };
       mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
 
-      const result = await database.lineages.getTimelineData('lineage-1');
+      const result = await database.lineages.getTimelineData('lineage-1', 'user-1');
 
       expect(result.nodes).toHaveLength(3);
       expect(result.edges).toEqual([
@@ -1285,21 +1352,43 @@ describe('lineages', () => {
       };
       mockSupabaseClient.from.mockReturnValueOnce(lineageBuilder);
 
+      // For queries with 2 eq calls (lineage_id and user_id), return result after 2nd eq
+      let maEqCount2 = 0;
       const mediaAssetsBuilder = {
         select: vi.fn(() => mediaAssetsBuilder),
-        eq: vi.fn(() => ({ data: mockMediaAssets, error: null })),
+        eq: vi.fn(() => {
+          maEqCount2++;
+          if (maEqCount2 >= 2) {
+            return { data: mockMediaAssets, error: null };
+          }
+          return mediaAssetsBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(mediaAssetsBuilder);
 
+      let eiEqCount2 = 0;
       const editedImagesBuilder = {
         select: vi.fn(() => editedImagesBuilder),
-        eq: vi.fn(() => ({ data: mockEditedImages, error: null })),
+        eq: vi.fn(() => {
+          eiEqCount2++;
+          if (eiEqCount2 >= 2) {
+            return { data: mockEditedImages, error: null };
+          }
+          return editedImagesBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(editedImagesBuilder);
 
+      let gvEqCount2 = 0;
       const generatedVideosBuilder = {
         select: vi.fn(() => generatedVideosBuilder),
-        eq: vi.fn(() => ({ data: mockGeneratedVideos, error: null })),
+        eq: vi.fn(() => {
+          gvEqCount2++;
+          if (gvEqCount2 >= 2) {
+            return { data: mockGeneratedVideos, error: null };
+          }
+          return generatedVideosBuilder;
+        }),
       };
       mockSupabaseClient.from.mockReturnValueOnce(generatedVideosBuilder);
 
@@ -1311,7 +1400,7 @@ describe('lineages', () => {
       };
       mockSupabaseClient.storage.from.mockReturnValue(mockStorageBucket);
 
-      const result = await database.lineages.getTimelineData('lineage-1');
+      const result = await database.lineages.getTimelineData('lineage-1', 'user-1');
 
       expect(result.nodes).toHaveLength(2);
       expect(result.edges).toEqual([

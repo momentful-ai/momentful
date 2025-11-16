@@ -52,10 +52,11 @@ export interface GeneratedVideo {
 
 export const database = {
   projects: {
-    async list() {
+    async list(userId: string) {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', userId)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -66,6 +67,7 @@ export const database = {
             .from('media_assets')
             .select('storage_path')
             .eq('project_id', project.id)
+            .eq('user_id', userId)
             .eq('file_type', 'image')
             .order('created_at', { ascending: false })
             .limit(4);
@@ -95,11 +97,12 @@ export const database = {
       return data;
     },
 
-    async update(projectId: string, updates: { name?: string; description?: string }) {
+    async update(projectId: string, userId: string, updates: { name?: string; description?: string }) {
       const { data, error } = await supabase
         .from('projects')
         .update(updates)
         .eq('id', projectId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -107,33 +110,36 @@ export const database = {
       return data;
     },
 
-    async delete(projectId: string) {
+    async delete(projectId: string, userId: string) {
       const { error } = await supabase
         .from('projects')
         .delete()
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
   },
 
   mediaAssets: {
-    async list(projectId: string) {
+    async list(projectId: string, userId: string) {
       const { data, error } = await supabase
         .from('media_assets')
         .select('*')
         .eq('project_id', projectId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
 
-    async getById(assetId: string) {
+    async getById(assetId: string, userId: string) {
       const { data, error } = await supabase
         .from('media_assets')
         .select('*')
         .eq('id', assetId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
@@ -144,12 +150,13 @@ export const database = {
       project_id: string;
       user_id: string;
       file_name: string;
-      file_type: 'image' | 'video';
       file_size: number;
       storage_path: string;
       width?: number;
       height?: number;
       duration?: number;
+      file_type?: 'image' | 'video';
+      lineage_id?: string;
     }) {
       // Validate required fields
       if (!asset.project_id || !asset.project_id.trim()) {
@@ -159,7 +166,9 @@ export const database = {
         throw new Error('user_id is required and cannot be empty');
       }
 
-      // Insert the media asset - lineage will be created automatically by trigger
+      // Insert the media asset
+      // Note: lineage_id will be set by database trigger if it exists
+      // If the trigger doesn't work, lineage_id will be null (schema allows this for now)
       const { data, error } = await supabase
         .from('media_assets')
         .insert(asset)
@@ -167,26 +176,27 @@ export const database = {
         .single();
 
       if (error) throw error;
-
       return data;
     },
 
-    async delete(assetId: string) {
+    async delete(assetId: string, userId: string) {
       const { error } = await supabase
         .from('media_assets')
         .delete()
-        .eq('id', assetId);
+        .eq('id', assetId)
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
   },
 
   editedImages: {
-    async list(projectId: string) {
+    async list(projectId: string, userId: string) {
       const { data, error } = await supabase
         .from('edited_images')
         .select('*')
         .eq('project_id', projectId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -197,11 +207,12 @@ export const database = {
     },
 
 
-    async listByLineage(lineageId: string) {
+    async listByLineage(lineageId: string, userId: string) {
       const { data, error } = await supabase
         .from('edited_images')
         .select('*')
         .eq('lineage_id', lineageId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -247,22 +258,24 @@ export const database = {
       };
     },
 
-    async delete(imageId: string) {
+    async delete(imageId: string, userId: string) {
       const { error } = await supabase
         .from('edited_images')
         .delete()
-        .eq('id', imageId);
+        .eq('id', imageId)
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
   },
 
   generatedVideos: {
-    async list(projectId: string) {
+    async list(projectId: string, userId: string) {
       const { data, error } = await supabase
         .from('generated_videos')
         .select('*')
         .eq('project_id', projectId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -301,7 +314,7 @@ export const database = {
       return data;
     },
 
-    async update(videoId: string, updates: {
+    async update(videoId: string, userId: string, updates: {
       storage_path?: string;
       thumbnail_url?: string;
       duration?: number;
@@ -318,6 +331,7 @@ export const database = {
         .from('generated_videos')
         .update(updates)
         .eq('id', videoId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -325,18 +339,31 @@ export const database = {
       return data;
     },
 
-    async delete(videoId: string) {
+    async delete(videoId: string, userId: string) {
       const { error } = await supabase
         .from('generated_videos')
         .delete()
-        .eq('id', videoId);
+        .eq('id', videoId)
+        .eq('user_id', userId);
 
       if (error) throw error;
     },
   },
 
   videoSources: {
-    async list(videoId: string) {
+    async list(videoId: string, userId: string) {
+      // First check if the video belongs to the user
+      const { data: videoCheck, error: videoError } = await supabase
+        .from('generated_videos')
+        .select('id')
+        .eq('id', videoId)
+        .eq('user_id', userId)
+        .single();
+
+      if (videoError || !videoCheck) {
+        throw new Error('Video not found or access denied');
+      }
+
       const { data, error } = await supabase
         .from('video_sources')
         .select('*')
@@ -352,7 +379,19 @@ export const database = {
       source_type: 'edited_image' | 'media_asset';
       source_id: string;
       sort_order?: number;
-    }) {
+    }, userId: string) {
+      // First check if the video belongs to the user
+      const { data: videoCheck, error: videoError } = await supabase
+        .from('generated_videos')
+        .select('id')
+        .eq('id', source.video_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (videoError || !videoCheck) {
+        throw new Error('Video not found or access denied');
+      }
+
       const { data, error } = await supabase
         .from('video_sources')
         .insert(source)
@@ -363,7 +402,30 @@ export const database = {
       return data;
     },
 
-    async delete(sourceId: string) {
+    async delete(sourceId: string, userId: string) {
+      // First get the video_id from the source
+      const { data: sourceData, error: sourceError } = await supabase
+        .from('video_sources')
+        .select('video_id')
+        .eq('id', sourceId)
+        .single();
+
+      if (sourceError || !sourceData) {
+        throw new Error('Video source not found');
+      }
+
+      // Check if the video belongs to the user
+      const { data: videoCheck, error: videoError } = await supabase
+        .from('generated_videos')
+        .select('id')
+        .eq('id', sourceData.video_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (videoError || !videoCheck) {
+        throw new Error('Video not found or access denied');
+      }
+
       const { error } = await supabase
         .from('video_sources')
         .delete()
@@ -397,7 +459,7 @@ export const database = {
       return data;
     },
 
-    async update(lineageId: string, updates: {
+    async update(lineageId: string, userId: string, updates: {
       root_media_asset_id?: string;
       name?: string;
       metadata?: Record<string, unknown>;
@@ -406,6 +468,7 @@ export const database = {
         .from('lineages')
         .update(updates)
         .eq('id', lineageId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -413,45 +476,49 @@ export const database = {
       return data;
     },
 
-    async getByProject(projectId: string) {
+    async getByProject(projectId: string, userId: string) {
       const { data, error } = await supabase
         .from('lineages')
         .select('*')
         .eq('project_id', projectId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
 
-    async getById(lineageId: string) {
+    async getById(lineageId: string, userId: string) {
       const { data, error } = await supabase
         .from('lineages')
         .select('*')
         .eq('id', lineageId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
       return data;
     },
 
-    async getByRootAsset(rootAssetId: string) {
+    async getByRootAsset(rootAssetId: string, userId: string) {
       const { data, error } = await supabase
         .from('lineages')
         .select('*')
         .eq('root_media_asset_id', rootAssetId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
       return data;
     },
 
-    async getTimelineData(lineageId: string) {
+    async getTimelineData(lineageId: string, userId: string) {
       // Fetch the lineage to get the root media asset ID
       const { data: lineageData, error: lineageError } = await supabase
         .from('lineages')
         .select('root_media_asset_id')
         .eq('id', lineageId)
+        .eq('user_id', userId)
         .single();
 
       if (lineageError) throw lineageError;
@@ -460,7 +527,8 @@ export const database = {
       const { data: mediaAssetsData, error: maError } = await supabase
         .from('media_assets')
         .select('*')
-        .eq('lineage_id', lineageId);
+        .eq('lineage_id', lineageId)
+        .eq('user_id', userId);
 
       if (maError) throw maError;
 
@@ -468,7 +536,8 @@ export const database = {
       const { data: editedImagesData, error: eiError } = await supabase
         .from('edited_images')
         .select('*')
-        .eq('lineage_id', lineageId);
+        .eq('lineage_id', lineageId)
+        .eq('user_id', userId);
 
       if (eiError) throw eiError;
 
@@ -476,7 +545,8 @@ export const database = {
       const { data: generatedVideosData, error: gvError } = await supabase
         .from('generated_videos')
         .select('*')
-        .eq('lineage_id', lineageId);
+        .eq('lineage_id', lineageId)
+        .eq('user_id', userId);
 
       if (gvError) throw gvError;
 

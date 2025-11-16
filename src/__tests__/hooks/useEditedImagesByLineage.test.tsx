@@ -5,6 +5,20 @@ import { useEditedImagesByLineage } from '../../hooks/useEditedImages';
 import { database } from '../../lib/database';
 import { EditedImage } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -67,7 +81,7 @@ describe('useEditedImagesByLineage', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockEditedImages);
-    expect(database.editedImages.listByLineage).toHaveBeenCalledWith('lineage-1');
+    expect(database.editedImages.listByLineage).toHaveBeenCalledWith('lineage-1', 'test-user-id');
   });
 
   it('does not fetch when lineageId is empty string', () => {

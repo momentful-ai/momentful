@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { database } from '../../lib/database';
 import { GeneratedVideo } from '../../types';
+import { setupClerkMocks } from '../test-utils.tsx';
 
 // Mock the database module
 vi.mock('../../lib/database', () => ({
@@ -12,6 +13,11 @@ vi.mock('../../lib/database', () => ({
       list: vi.fn(),
     },
   },
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
 }));
 
 const mockGeneratedVideos: GeneratedVideo[] = [
@@ -49,6 +55,7 @@ describe('useGeneratedVideos', () => {
       },
     });
     vi.clearAllMocks();
+    setupClerkMocks();
     vi.mocked(database.generatedVideos.list).mockResolvedValue(mockGeneratedVideos);
   });
 
@@ -64,7 +71,7 @@ describe('useGeneratedVideos', () => {
     });
 
     expect(result.current.data).toEqual(mockGeneratedVideos);
-    expect(database.generatedVideos.list).toHaveBeenCalledWith('project-1');
+    expect(database.generatedVideos.list).toHaveBeenCalledWith('project-1', 'test-user-id');
   });
 
   it('returns empty array when query is disabled', async () => {
@@ -135,7 +142,7 @@ describe('useGeneratedVideos', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(database.generatedVideos.list).toHaveBeenCalledWith('project-1');
+    expect(database.generatedVideos.list).toHaveBeenCalledWith('project-1', 'test-user-id');
     expect(result.current.data).toEqual(mockGeneratedVideos);
   });
 });

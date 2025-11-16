@@ -1,14 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-
-if (!supabaseAnonKey) {
-  console.warn('⚠️  VITE_SUPABASE_ANON_KEY not set. API endpoints may not work properly.');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from './shared/supabase.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers for all responses

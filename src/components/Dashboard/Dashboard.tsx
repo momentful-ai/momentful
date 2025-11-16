@@ -47,8 +47,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   }, [userId, showToast, onSelectProject, queryClient]);
 
   const deleteProject = useCallback(async (project: Project) => {
+    if (!userId) return;
     try {
-      await database.projects.delete(project.id);
+      await database.projects.delete(project.id, userId);
       // Invalidate and refetch the projects query
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
       showToast('Project deleted successfully', 'success');
@@ -58,7 +59,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     } finally {
       setProjectToDelete(null);
     }
-  }, [showToast, queryClient]);
+  }, [showToast, queryClient, userId]);
 
   const handleSelectProject = useCallback((projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -75,8 +76,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   }, [projects]);
 
   const handleUpdateProjectName = useCallback(async (projectId: string, name: string) => {
+    if (!userId) return;
     try {
-      await database.projects.update(projectId, { name });
+      await database.projects.update(projectId, userId, { name });
       // Invalidate and refetch the projects query
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
       showToast('Project name updated', 'success');
@@ -84,7 +86,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       console.error('Error updating project name:', error);
       showToast('Failed to update project name', 'error');
     }
-  }, [showToast, queryClient]);
+  }, [showToast, queryClient, userId]);
 
 
   if (loading) {

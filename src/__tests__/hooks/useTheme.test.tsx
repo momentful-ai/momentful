@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import { useTheme } from '../../hooks/useTheme';
 import { ThemeProvider } from '../../contexts/ThemeProvider';
 
@@ -60,10 +60,10 @@ describe('useTheme', () => {
     );
 
     const lightButton = getByText('Light');
-    lightButton.click();
 
-    // Wait for state update
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    act(() => {
+      lightButton.click();
+    });
 
     expect(getByTestId('theme')).toHaveTextContent('light');
     expect(localStorage.getItem('momentful-theme')).toBe('light');
@@ -76,15 +76,14 @@ describe('useTheme', () => {
       </ThemeProvider>
     );
 
-    // Wait for initial render
-    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(getByTestId('theme')).toHaveTextContent('light');
 
     const darkButton = getByText('Dark');
-    darkButton.click();
 
-    // Wait for state update
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    act(() => {
+      darkButton.click();
+    });
+
     expect(getByTestId('theme')).toHaveTextContent('dark');
   });
 

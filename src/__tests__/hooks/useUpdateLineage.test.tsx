@@ -5,6 +5,20 @@ import { useUpdateLineage } from '../../hooks/useUpdateLineage';
 import { database } from '../../lib/database';
 import { Lineage } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -70,7 +84,7 @@ describe('useUpdateLineage', () => {
       projectId: 'project-1',
     });
 
-    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', {
+    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', 'test-user-id', {
       name: 'Updated Name',
     });
   });
@@ -92,7 +106,7 @@ describe('useUpdateLineage', () => {
       projectId: 'project-1',
     });
 
-    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', {
+    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', 'test-user-id', {
       name: 'Trimmed Name',
     });
   });
@@ -114,7 +128,7 @@ describe('useUpdateLineage', () => {
       projectId: 'project-1',
     });
 
-    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', {
+    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', 'test-user-id', {
       name: undefined,
     });
   });
@@ -136,7 +150,7 @@ describe('useUpdateLineage', () => {
       projectId: 'project-1',
     });
 
-    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', {
+    expect(database.lineages.update).toHaveBeenCalledWith('lineage-1', 'test-user-id', {
       name: undefined,
     });
   });
@@ -148,7 +162,8 @@ describe('useUpdateLineage', () => {
     };
     vi.mocked(database.lineages.update).mockResolvedValue(updatedLineage);
 
-    queryClient.setQueryData(['timelines', 'project-1'], mockLineages);
+    // Set initial cache data with correct key including userId
+    queryClient.setQueryData(['timelines', 'project-1', 'test-user-id'], mockLineages);
     const setQueryDataSpy = vi.spyOn(queryClient, 'setQueryData');
 
     const { result } = renderHook(() => useUpdateLineage(), { wrapper });
@@ -161,12 +176,12 @@ describe('useUpdateLineage', () => {
 
     // Verify setQueryData was called for optimistic update
     expect(setQueryDataSpy).toHaveBeenCalledWith(
-      ['timelines', 'project-1'],
+      ['timelines', 'project-1', 'test-user-id'],
       expect.any(Function)
     );
 
     // Verify the cache was updated correctly
-    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1']);
+    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1', 'test-user-id']);
     const updatedLineageInCache = cachedData?.find(l => l.id === 'lineage-1');
     expect(updatedLineageInCache?.name).toBe('Optimistic Name');
   });
@@ -186,7 +201,7 @@ describe('useUpdateLineage', () => {
     });
 
     expect(cancelQueriesSpy).toHaveBeenCalledWith({
-      queryKey: ['timelines', 'project-1'],
+      queryKey: ['timelines', 'project-1', 'test-user-id'],
     });
   });
 
@@ -197,7 +212,8 @@ describe('useUpdateLineage', () => {
     };
     vi.mocked(database.lineages.update).mockResolvedValue(updatedLineage);
 
-    queryClient.setQueryData(['timelines', 'project-1'], mockLineages);
+    // Set initial cache data with correct key including userId
+    queryClient.setQueryData(['timelines', 'project-1', 'test-user-id'], mockLineages);
 
     const { result } = renderHook(() => useUpdateLineage(), { wrapper });
 
@@ -209,7 +225,7 @@ describe('useUpdateLineage', () => {
 
     // The previous state should have been snapshotted
     // We can verify this by checking that rollback would work
-    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1']);
+    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1', 'test-user-id']);
     expect(cachedData).toBeDefined();
   });
 
@@ -217,7 +233,8 @@ describe('useUpdateLineage', () => {
     const error = new Error('Failed to update lineage');
     vi.mocked(database.lineages.update).mockRejectedValue(error);
 
-    queryClient.setQueryData(['timelines', 'project-1'], mockLineages);
+    // Set initial cache data with correct key including userId
+    queryClient.setQueryData(['timelines', 'project-1', 'test-user-id'], mockLineages);
     const originalData = [...mockLineages];
 
     const { result } = renderHook(() => useUpdateLineage(), { wrapper });
@@ -234,7 +251,7 @@ describe('useUpdateLineage', () => {
 
     // Wait for rollback to complete
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1']);
+      const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
     });
   });
@@ -255,7 +272,8 @@ describe('useUpdateLineage', () => {
       },
     ];
 
-    queryClient.setQueryData(['timelines', 'project-1'], customLineages);
+    // Set initial cache data with correct key including userId
+    queryClient.setQueryData(['timelines', 'project-1', 'test-user-id'], customLineages);
 
     const { result } = renderHook(() => useUpdateLineage(), { wrapper });
 
@@ -270,7 +288,7 @@ describe('useUpdateLineage', () => {
     }
 
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1']);
+      const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(customLineages);
       expect(cachedData?.[0]?.name).toBe('Original');
     });
@@ -292,7 +310,7 @@ describe('useUpdateLineage', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['timelines', 'project-1'],
+        queryKey: ['timelines', 'project-1', 'test-user-id'],
       });
     });
   });
@@ -318,7 +336,7 @@ describe('useUpdateLineage', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['timelines', 'project-1'],
+        queryKey: ['timelines', 'project-1', 'test-user-id'],
       });
     });
   });
@@ -378,7 +396,8 @@ describe('useUpdateLineage', () => {
     };
     vi.mocked(database.lineages.update).mockResolvedValue(updatedLineage);
 
-    queryClient.setQueryData(['timelines', 'project-1'], mockLineages);
+    // Set initial cache data with correct key including userId
+    queryClient.setQueryData(['timelines', 'project-1', 'test-user-id'], mockLineages);
 
     const { result } = renderHook(() => useUpdateLineage(), { wrapper });
 
@@ -388,7 +407,7 @@ describe('useUpdateLineage', () => {
       projectId: 'project-1',
     });
 
-    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1']);
+    const cachedData = queryClient.getQueryData<Lineage[]>(['timelines', 'project-1', 'test-user-id']);
     expect(cachedData?.find(l => l.id === 'lineage-1')?.name).toBe('Updated');
     expect(cachedData?.find(l => l.id === 'lineage-2')?.name).toBe('Another Lineage');
   });

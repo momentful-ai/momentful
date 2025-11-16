@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useToast } from '../../hooks/useToast';
 import { ToastProvider } from '../../contexts/ToastProvider';
 
@@ -51,9 +51,9 @@ describe('useToast', () => {
     const { result } = renderHook(() => useToast(), { wrapper });
 
     // Should not throw when calling showToast
-    expect(() => {
+    act(() => {
       result.current.showToast('Test message', 'success');
-    }).not.toThrow();
+    });
   });
 });
 

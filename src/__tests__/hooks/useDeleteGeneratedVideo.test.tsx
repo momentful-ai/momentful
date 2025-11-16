@@ -5,6 +5,20 @@ import { useDeleteGeneratedVideo } from '../../hooks/useDeleteGeneratedVideo';
 import { database } from '../../lib/database';
 import { GeneratedVideo } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -112,7 +126,7 @@ describe('useDeleteGeneratedVideo', () => {
     expect(database.storage.delete).toHaveBeenCalledWith('user-uploads', [
       'user-uploads/user-1/project-1/video-1.mp4',
     ]);
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-1');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-1', 'test-user-id');
   });
 
   it('conditionally deletes from storage (only if storagePath exists and is not external URL)', async () => {
@@ -138,7 +152,7 @@ describe('useDeleteGeneratedVideo', () => {
     });
 
     expect(database.storage.delete).not.toHaveBeenCalled();
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2', 'test-user-id');
   });
 
   it('skips storage deletion for http URLs (not just https)', async () => {
@@ -151,7 +165,7 @@ describe('useDeleteGeneratedVideo', () => {
     });
 
     expect(database.storage.delete).not.toHaveBeenCalled();
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2', 'test-user-id');
   });
 
   it('skips storage deletion when storagePath is undefined', async () => {
@@ -164,7 +178,7 @@ describe('useDeleteGeneratedVideo', () => {
     });
 
     expect(database.storage.delete).not.toHaveBeenCalled();
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-3');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-3', 'test-user-id');
   });
 
   it('always deletes from database regardless of storagePath', async () => {
@@ -177,7 +191,7 @@ describe('useDeleteGeneratedVideo', () => {
       projectId: 'project-1',
     });
 
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-2', 'test-user-id');
 
     vi.clearAllMocks();
 
@@ -188,11 +202,11 @@ describe('useDeleteGeneratedVideo', () => {
       projectId: 'project-1',
     });
 
-    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-3');
+    expect(database.generatedVideos.delete).toHaveBeenCalledWith('video-3', 'test-user-id');
   });
 
   it('optimistically removes video from cache immediately', async () => {
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
     const setQueryDataSpy = vi.spyOn(queryClient, 'setQueryData');
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
@@ -205,12 +219,12 @@ describe('useDeleteGeneratedVideo', () => {
 
     // Verify setQueryData was called for optimistic update
     expect(setQueryDataSpy).toHaveBeenCalledWith(
-      ['generated-videos', 'project-1'],
+      ['generated-videos', 'project-1', 'test-user-id'],
       expect.any(Function)
     );
 
     // Verify the cache was updated correctly (video removed)
-    const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1']);
+    const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1', 'test-user-id']);
     expect(cachedData?.length).toBe(2);
     expect(cachedData?.find(video => video.id === 'video-1')).toBeUndefined();
     expect(cachedData?.find(video => video.id === 'video-2')).toBeDefined();
@@ -218,7 +232,7 @@ describe('useDeleteGeneratedVideo', () => {
 
   it('cancels pending queries on mutate', async () => {
     const cancelQueriesSpy = vi.spyOn(queryClient, 'cancelQueries');
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -229,12 +243,12 @@ describe('useDeleteGeneratedVideo', () => {
     });
 
     expect(cancelQueriesSpy).toHaveBeenCalledWith({
-      queryKey: ['generated-videos', 'project-1'],
+      queryKey: ['generated-videos', 'project-1', 'test-user-id'],
     });
   });
 
   it('snapshots previous state before optimistic update', async () => {
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
     const originalData = [...mockGeneratedVideos];
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
@@ -253,7 +267,7 @@ describe('useDeleteGeneratedVideo', () => {
     const error = new Error('Failed to delete');
     vi.mocked(database.generatedVideos.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
     const originalData = [...mockGeneratedVideos];
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
@@ -270,7 +284,7 @@ describe('useDeleteGeneratedVideo', () => {
 
     // Wait for rollback to complete
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1']);
+      const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.length).toBe(3);
       expect(cachedData?.find(video => video.id === 'video-1')).toBeDefined();
@@ -281,7 +295,7 @@ describe('useDeleteGeneratedVideo', () => {
     const error = new Error('Database error');
     vi.mocked(database.generatedVideos.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
     const originalData = [...mockGeneratedVideos];
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
@@ -297,7 +311,7 @@ describe('useDeleteGeneratedVideo', () => {
     }
 
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1']);
+      const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.find(video => video.id === 'video-1')?.id).toBe('video-1');
     });
@@ -305,7 +319,7 @@ describe('useDeleteGeneratedVideo', () => {
 
   it('invalidates generated-videos query on settle (success)', async () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -317,7 +331,7 @@ describe('useDeleteGeneratedVideo', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['generated-videos', 'project-1'],
+        queryKey: ['generated-videos', 'project-1', 'test-user-id'],
       });
     });
   });
@@ -326,7 +340,7 @@ describe('useDeleteGeneratedVideo', () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
     const error = new Error('Delete failed');
     vi.mocked(database.generatedVideos.delete).mockRejectedValue(error);
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -342,13 +356,13 @@ describe('useDeleteGeneratedVideo', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['generated-videos', 'project-1'],
+        queryKey: ['generated-videos', 'project-1', 'test-user-id'],
       });
     });
   });
 
   it('handles empty previousVideos array', async () => {
-    queryClient.setQueryData(['generated-videos', 'project-1'], []);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], []);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -386,7 +400,7 @@ describe('useDeleteGeneratedVideo', () => {
   });
 
   it('only removes the specified video from cache', async () => {
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -396,7 +410,7 @@ describe('useDeleteGeneratedVideo', () => {
       projectId: 'project-1',
     });
 
-    const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1']);
+    const cachedData = queryClient.getQueryData<GeneratedVideo[]>(['generated-videos', 'project-1', 'test-user-id']);
     expect(cachedData?.find(video => video.id === 'video-1')).toBeUndefined();
     expect(cachedData?.find(video => video.id === 'video-2')).toBeDefined();
     expect(cachedData?.find(video => video.id === 'video-3')).toBeDefined();
@@ -404,7 +418,7 @@ describe('useDeleteGeneratedVideo', () => {
 
   it('handles undefined previousVideos in cache', async () => {
     // Set query data to undefined explicitly
-    queryClient.setQueryData(['generated-videos', 'project-1'], undefined);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], undefined);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -422,7 +436,7 @@ describe('useDeleteGeneratedVideo', () => {
     const error = new Error('Storage deletion failed');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -442,7 +456,7 @@ describe('useDeleteGeneratedVideo', () => {
     const error = new Error('Database deletion failed');
     vi.mocked(database.generatedVideos.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 
@@ -462,7 +476,7 @@ describe('useDeleteGeneratedVideo', () => {
     const error = new Error('Database deletion failed');
     vi.mocked(database.generatedVideos.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['generated-videos', 'project-1'], mockGeneratedVideos);
+    queryClient.setQueryData(['generated-videos', 'project-1', 'test-user-id'], mockGeneratedVideos);
 
     const { result } = renderHook(() => useDeleteGeneratedVideo(), { wrapper });
 

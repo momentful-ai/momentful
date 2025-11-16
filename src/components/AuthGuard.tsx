@@ -1,8 +1,8 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { SignIn, useUser, useAuth } from '@clerk/clerk-react';
+import { SignIn, useUser, useSession } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { Moon, Sun } from 'lucide-react';
-import { setSupabaseAuth } from '../lib/supabase-auth';
+import { setClerkTokenProvider } from '../lib/supabase';
 import { useBypassContext } from '../hooks/useBypassContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from './ui/button';
@@ -20,7 +20,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   );
 
   const { isLoaded, isSignedIn } = useUser();
-  const { getToken } = useAuth();
+  const { session } = useSession();
 
   // Listen to system theme changes
   useEffect(() => {
@@ -48,18 +48,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [theme, systemPrefersDark]);
 
   useEffect(() => {
-    if (isBypassEnabled) return;
-    const syncAuth = async () => {
-      if (isSignedIn) {
-        const token = await getToken({ template: 'supabase' });
-        if (token) {
-          await setSupabaseAuth(token);
-        }
-      }
-    };
+    if (isBypassEnabled) {
+      // In bypass mode, clear the token provider to use fallback
+      setClerkTokenProvider(null);
+      return;
+    }
 
-    syncAuth();
-  }, [isBypassEnabled, isSignedIn, getToken]);
+    if (!isSignedIn || !session) {
+      setClerkTokenProvider(null);
+      return;
+    }
+
+    // Set up the token provider to get fresh tokens from Clerk
+    setClerkTokenProvider(async () => {
+      const token = await session.getToken({ template: 'supabase' });
+      if (!token) {
+        throw new Error('Failed to get Clerk JWT token');
+      }
+      return token;
+    });
+  }, [isBypassEnabled, isSignedIn, session]);
 
   // In bypass mode, skip all auth checks
   if (isBypassEnabled) {

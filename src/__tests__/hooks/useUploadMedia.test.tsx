@@ -55,7 +55,7 @@ describe('useUploadMedia', () => {
       file_name: 'test.jpg',
       file_type: 'image',
       file_size: 1024,
-      storage_path: 'project-1/123-test.jpg',
+      storage_path: 'user-1/project-1/123-test.jpg',
       width: 1920,
       height: 1080,
       sort_order: 0,
@@ -92,7 +92,7 @@ describe('useUploadMedia', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['media-assets', 'project-1'],
+        queryKey: ['media-assets', 'project-1', 'user-1'],
       });
     });
   });
@@ -165,7 +165,7 @@ describe('useUploadMedia', () => {
     expect(getImageDimensions).toHaveBeenCalledTimes(3);
   });
 
-  it('creates storage path with projectId and timestamp', async () => {
+  it('creates storage path with userId, projectId and timestamp', async () => {
     const imageFile = createMockFile('test.jpg', 'image/jpeg');
     const mockTimestamp = 1234567890;
     vi.spyOn(Date, 'now').mockReturnValue(mockTimestamp);
@@ -179,7 +179,7 @@ describe('useUploadMedia', () => {
 
     expect(database.storage.upload).toHaveBeenCalledWith(
       'user-uploads',
-      `project-1/${mockTimestamp}-test.jpg`,
+      `user-1/project-1/${mockTimestamp}-test.jpg`,
       imageFile
     );
   });
@@ -233,28 +233,24 @@ describe('useUploadMedia', () => {
       file_name: 'test.jpg',
       file_type: 'image',
       file_size: 2048,
-      storage_path: `project-1/${mockTimestamp}-test.jpg`,
+      storage_path: `user-1/project-1/${mockTimestamp}-test.jpg`,
       width: 1920,
       height: 1080,
     });
   });
 
-  it('uses anonymous user_id when userId is null', async () => {
+  it('requires authentication for uploads', async () => {
     vi.mocked(useUserId).mockReturnValue(null);
     const imageFile = createMockFile('test.jpg', 'image/jpeg');
 
     const { result } = renderHook(() => useUploadMedia(), { wrapper });
 
-    await result.current.mutateAsync({
-      projectId: 'project-1',
-      files: [imageFile],
-    });
-
-    expect(database.mediaAssets.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: 'anonymous',
+    await expect(
+      result.current.mutateAsync({
+        projectId: 'project-1',
+        files: [imageFile],
       })
-    );
+    ).rejects.toThrow('You must be logged in to upload files');
   });
 
   it('handles partial failures (some files succeed, some fail)', async () => {
@@ -284,7 +280,7 @@ describe('useUploadMedia', () => {
         file_name: 'test1.jpg',
         file_type: 'image',
         file_size: 1024,
-        storage_path: 'project-1/123-test1.jpg',
+        storage_path: 'user-1/project-1/123-test1.jpg',
         width: 1920,
         height: 1080,
         sort_order: 0,
@@ -297,7 +293,7 @@ describe('useUploadMedia', () => {
         file_name: 'test3.webp',
         file_type: 'image',
         file_size: 1024,
-        storage_path: 'project-1/123-test3.webp',
+        storage_path: 'user-1/project-1/123-test3.webp',
         width: 1920,
         height: 1080,
         sort_order: 0,
@@ -346,7 +342,7 @@ describe('useUploadMedia', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['media-assets', 'project-1'],
+        queryKey: ['media-assets', 'project-1', 'user-1'],
       });
     });
   });

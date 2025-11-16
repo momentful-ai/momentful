@@ -5,12 +5,12 @@ import { AuthGuard } from '../../components/AuthGuard';
 
 // Mock Clerk hooks
 const mockUseUser = vi.fn();
-const mockUseAuth = vi.fn();
+const mockUseSession = vi.fn();
 const mockSignIn = vi.fn();
 
 vi.mock('@clerk/clerk-react', () => ({
   useUser: () => mockUseUser(),
-  useAuth: () => mockUseAuth(),
+  useSession: () => mockUseSession(),
   SignIn: ({ ...props }: { [key: string]: unknown }) => mockSignIn(props),
 }));
 
@@ -18,10 +18,15 @@ vi.mock('@clerk/themes', () => ({
   dark: { baseTheme: 'dark' },
 }));
 
-// Mock supabase-auth - define function first
-const mockSetSupabaseAuth = vi.fn();
-vi.mock('../../lib/supabase-auth', () => ({
-  setSupabaseAuth: (...args: unknown[]) => mockSetSupabaseAuth(...args),
+// Mock supabase setClerkTokenProvider - define function first
+const mockSetClerkTokenProvider = vi.fn();
+vi.mock('../../lib/supabase', () => ({
+  setClerkTokenProvider: (...args: unknown[]) => mockSetClerkTokenProvider(...args),
+  supabase: {
+    auth: {
+      setSession: vi.fn(),
+    },
+  },
 }));
 
 // Mock DevToolbar
@@ -56,6 +61,11 @@ describe('AuthGuard', () => {
       theme: 'light',
       setTheme: mockSetTheme,
     });
+    mockUseSession.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: false,
+      session: null,
+    });
   });
 
   it('renders children when user is signed in', async () => {
@@ -63,8 +73,13 @@ describe('AuthGuard', () => {
       isLoaded: true,
       isSignedIn: true,
     });
-    mockUseAuth.mockReturnValue({
+    const mockSession = {
       getToken: vi.fn().mockResolvedValue('test-token'),
+    };
+    mockUseSession.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      session: mockSession,
     });
 
     render(
@@ -101,9 +116,6 @@ describe('AuthGuard', () => {
       isLoaded: true,
       isSignedIn: false,
     });
-    mockUseAuth.mockReturnValue({
-      getToken: vi.fn(),
-    });
     mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
     render(
@@ -132,9 +144,6 @@ describe('AuthGuard', () => {
       isLoaded: false,
       isSignedIn: false,
     });
-    mockUseAuth.mockReturnValue({
-      getToken: vi.fn(),
-    });
 
     render(
       <AuthGuard>
@@ -147,15 +156,19 @@ describe('AuthGuard', () => {
   });
 
   it('syncs Supabase auth when user signs in', async () => {
-    const mockGetToken = vi.fn().mockResolvedValue('supabase-token-123');
+    // Set up mocks before rendering
+    const mockSession = {
+      getToken: vi.fn().mockResolvedValue('supabase-token-123'),
+    };
     mockUseUser.mockReturnValue({
       isLoaded: true,
       isSignedIn: true,
     });
-    mockUseAuth.mockReturnValue({
-      getToken: mockGetToken,
+    mockUseSession.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      session: mockSession,
     });
-    mockSetSupabaseAuth.mockResolvedValue({});
 
     render(
       <AuthGuard>
@@ -163,21 +176,33 @@ describe('AuthGuard', () => {
       </AuthGuard>
     );
 
+    // Wait for the effect to run and check that the token provider was set
     await waitFor(() => {
-      expect(mockGetToken).toHaveBeenCalledWith({ template: 'supabase' });
-      expect(mockSetSupabaseAuth).toHaveBeenCalledWith('supabase-token-123');
+      expect(mockSetClerkTokenProvider).toHaveBeenCalledWith(expect.any(Function));
     });
+
+    // Test that the token provider function actually calls getToken
+    const tokenProvider = mockSetClerkTokenProvider.mock.calls[0][0];
+    expect(tokenProvider).toBeDefined();
+
+    // Call the token provider and check it calls getToken
+    await tokenProvider();
+    expect(mockSession.getToken).toHaveBeenCalledWith({ template: 'supabase' });
   });
 
   it('does not sync auth when bypass mode is enabled', async () => {
     mockUseBypassContext.mockReturnValue(true);
-    const mockGetToken = vi.fn().mockResolvedValue('token');
     mockUseUser.mockReturnValue({
       isLoaded: true,
       isSignedIn: true,
     });
-    mockUseAuth.mockReturnValue({
-      getToken: mockGetToken,
+    const mockSession = {
+      getToken: vi.fn().mockResolvedValue('token'),
+    };
+    mockUseSession.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      session: mockSession,
     });
 
     render(
@@ -187,19 +212,23 @@ describe('AuthGuard', () => {
     );
 
     await waitFor(() => {
-      expect(mockGetToken).not.toHaveBeenCalled();
-      expect(mockSetSupabaseAuth).not.toHaveBeenCalled();
+      expect(mockSession.getToken).not.toHaveBeenCalled();
+      expect(mockSetClerkTokenProvider).toHaveBeenCalledWith(null);
     });
   });
 
-  it('does not sync auth when token is not available', async () => {
-    const mockGetToken = vi.fn().mockResolvedValue(null);
+  it('handles token fetch failure gracefully', async () => {
+    const mockSession = {
+      getToken: vi.fn().mockResolvedValue(null),
+    };
     mockUseUser.mockReturnValue({
       isLoaded: true,
       isSignedIn: true,
     });
-    mockUseAuth.mockReturnValue({
-      getToken: mockGetToken,
+    mockUseSession.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      session: mockSession,
     });
 
     render(
@@ -208,10 +237,15 @@ describe('AuthGuard', () => {
       </AuthGuard>
     );
 
+    // Wait for the effect to run and check that the token provider was set
     await waitFor(() => {
-      expect(mockGetToken).toHaveBeenCalled();
-      expect(mockSetSupabaseAuth).not.toHaveBeenCalled();
+      expect(mockSetClerkTokenProvider).toHaveBeenCalledWith(expect.any(Function));
     });
+
+    // Test that the token provider function throws when token is null
+    const tokenProvider = mockSetClerkTokenProvider.mock.calls[0][0];
+    await expect(tokenProvider()).rejects.toThrow('Failed to get Clerk JWT token');
+    expect(mockSession.getToken).toHaveBeenCalledWith({ template: 'supabase' });
   });
 
   describe('Theme functionality', () => {
@@ -219,9 +253,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -243,9 +274,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -269,9 +297,6 @@ describe('AuthGuard', () => {
         isLoaded: true,
         isSignedIn: false,
       });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
-      });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
       const { container } = render(
@@ -294,9 +319,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -322,9 +344,6 @@ describe('AuthGuard', () => {
         isLoaded: true,
         isSignedIn: false,
       });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
-      });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
       render(
@@ -347,9 +366,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -377,9 +393,6 @@ describe('AuthGuard', () => {
         isLoaded: true,
         isSignedIn: false,
       });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
-      });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
       const { container } = render(
@@ -405,9 +418,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -435,9 +445,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
@@ -481,9 +488,6 @@ describe('AuthGuard', () => {
         isLoaded: true,
         isSignedIn: false,
       });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
-      });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 
       const { container } = render(
@@ -516,9 +520,6 @@ describe('AuthGuard', () => {
       mockUseUser.mockReturnValue({
         isLoaded: true,
         isSignedIn: false,
-      });
-      mockUseAuth.mockReturnValue({
-        getToken: vi.fn(),
       });
       mockSignIn.mockReturnValue(<div>Sign In Component</div>);
 

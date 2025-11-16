@@ -7,6 +7,7 @@ import { UnifiedMediaEditor } from './components/UnifiedMediaEditor';
 import { ToastProvider } from './contexts/ToastProvider';
 import { Project, MediaAsset, EditedImage } from './types';
 import { database } from './lib/database';
+import { useUserId } from './hooks/useUserId';
 
 type View =
   | { type: 'dashboard' }
@@ -15,6 +16,7 @@ type View =
 
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
+  const userId = useUserId();
 
   const handleSelectProject = useCallback((project: Project) => {
     setView({ type: 'project', project });
@@ -22,7 +24,7 @@ function App() {
 
   const handleBackToDashboard = useCallback(() => {
     setView({ type: 'dashboard' });
-  }, []);
+  }, []); // No dependencies needed
 
   const handleEditImage = useCallback(async (asset: MediaAsset | EditedImage, projectId: string) => {
     if (view.type === 'project') {
@@ -32,9 +34,9 @@ function App() {
         // It's an EditedImage - we need to find the root media asset for the editor
         try {
           // Try to find the root media asset using lineage information
-          if (asset.lineage_id) {
-            const lineage = await database.lineages.getById(asset.lineage_id);
-            const rootAsset = await database.mediaAssets.getById(lineage.root_media_asset_id);
+          if (asset.lineage_id && userId) {
+            const lineage = await database.lineages.getById(asset.lineage_id, userId);
+            const rootAsset = await database.mediaAssets.getById(lineage.root_media_asset_id, userId);
             setView({
               type: 'unified-editor',
               initialMode: 'image-edit',
@@ -107,7 +109,7 @@ function App() {
         });
       }
     }
-  }, [view]);
+  }, [view, userId]);
 
   const handleNavigateToVideoGenerator = useCallback((projectId: string, imageId?: string) => {
     if (view.type === 'project') {

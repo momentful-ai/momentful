@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "prod-gen"
+project_id = "momentful"
 
 [api]
 enabled = true
@@ -302,9 +302,9 @@ enabled = false
 
 # Use Clerk as a third-party provider alongside Supabase Auth.
 [auth.third_party.clerk]
-enabled = false
+enabled = true
 # Obtain from https://clerk.com/setup/supabase
-# domain = "example.clerk.accounts.dev"
+domain = "classic-gannet-10.clerk.accounts.dev"
 
 # OAuth server configuration
 [auth.oauth_server]

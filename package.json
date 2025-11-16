@@ -23,6 +23,8 @@
     "supabase:migrate": "node scripts/migrate-supabase-project.js",
     "supabase:link": "node scripts/link-and-push.js",
     "supabase:push": "./bin/supabase db push",
+    "supabase:setup-storage": "node scripts/ensure-storage-buckets.js",
+    "supabase:verify-jwt": "node scripts/verify-jwt-rls.js",
     "supabase:pull": "./bin/supabase db push --include-all",
     "supabase:reset": "./bin/supabase db pull"
   },

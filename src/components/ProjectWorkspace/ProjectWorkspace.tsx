@@ -18,6 +18,7 @@ import { useToast } from '../../hooks/useToast';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
 import { useTimelinesByProject } from '../../hooks/useTimeline';
 import { useUploadMedia } from '../../hooks/useUploadMedia';
 import { useUserId } from '../../hooks/useUserId';
@@ -100,9 +101,9 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   }, []);
 
   const handleSaveName = useCallback(async () => {
-    if (editedName.trim() && editedName !== currentProject.name) {
+    if (editedName.trim() && editedName !== currentProject.name && userId) {
       try {
-        await database.projects.update(currentProject.id, { name: editedName.trim() });
+        await database.projects.update(currentProject.id, userId, { name: editedName.trim() });
         const updatedProject = { ...currentProject, name: editedName.trim() };
         setCurrentProject(updatedProject);
         onUpdateProject?.(updatedProject);
@@ -112,7 +113,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       }
     }
     setIsEditingName(false);
-  }, [editedName, currentProject, onUpdateProject]);
+  }, [editedName, currentProject, onUpdateProject, userId]);
 
   const handleCancelEdit = useCallback(() => {
     setEditedName(currentProject.name);
@@ -208,7 +209,18 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
           const fileName = `${timestamp}-${file.name}`;
           const storagePath = `${userId}/${project.id}/${fileName}`;
 
-          await database.storage.upload('user-uploads', storagePath, file);
+          // Validate storage path
+          const pathValidation = validateStoragePath(userId, storagePath);
+          if (!pathValidation.valid) {
+            throw new Error(`Storage path validation failed: ${pathValidation.error}`);
+          }
+
+          try {
+            await database.storage.upload('user-uploads', storagePath, file);
+          } catch (error) {
+            const errorResult = handleStorageError(error, 'video upload');
+            throw new Error(errorResult.error);
+          }
 
           // Get video dimensions
           const video = document.createElement('video');

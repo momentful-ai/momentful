@@ -6,7 +6,7 @@ import { GeneratedVideosView } from '../../components/ProjectWorkspace/Generated
 import { GeneratedVideo } from '../../types';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { ToastProvider } from '../../contexts/ToastProvider';
-import { mockSupabase } from '../test-utils.tsx';
+import { mockSupabase, setupClerkMocks } from '../test-utils.tsx';
 
 // Mock supabase
 mockSupabase();
@@ -60,6 +60,11 @@ vi.mock('../../hooks/useGeneratedVideos', () => ({
   useGeneratedVideos: vi.fn(),
 }));
 
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 type UseGeneratedVideosResult = UseQueryResult<GeneratedVideo[], Error>;
 
 // Mock ResizeObserver for test environment
@@ -101,6 +106,7 @@ describe('GeneratedVideosView', () => {
       },
     });
     vi.clearAllMocks();
+    setupClerkMocks();
   });
 
   // Mock video data that matches what we have in the database

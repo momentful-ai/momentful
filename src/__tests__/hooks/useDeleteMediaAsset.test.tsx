@@ -5,6 +5,20 @@ import { useDeleteMediaAsset } from '../../hooks/useDeleteMediaAsset';
 import { database } from '../../lib/database';
 import { MediaAsset } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -80,7 +94,7 @@ describe('useDeleteMediaAsset', () => {
     expect(database.storage.delete).toHaveBeenCalledWith('user-uploads', [
       'user-uploads/user-1/project-1/test1.jpg',
     ]);
-    expect(database.mediaAssets.delete).toHaveBeenCalledWith('asset-1');
+    expect(database.mediaAssets.delete).toHaveBeenCalledWith('asset-1', 'test-user-id');
   });
 
   it('deletes from storage first, then database (correct order)', async () => {
@@ -106,7 +120,7 @@ describe('useDeleteMediaAsset', () => {
   });
 
   it('optimistically removes asset from cache immediately', async () => {
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
     const setQueryDataSpy = vi.spyOn(queryClient, 'setQueryData');
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
@@ -119,12 +133,12 @@ describe('useDeleteMediaAsset', () => {
 
     // Verify setQueryData was called for optimistic update
     expect(setQueryDataSpy).toHaveBeenCalledWith(
-      ['media-assets', 'project-1'],
+      ['media-assets', 'project-1', 'test-user-id'],
       expect.any(Function)
     );
 
     // Verify the cache was updated correctly (asset removed)
-    const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1']);
+    const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1', 'test-user-id']);
     expect(cachedData?.length).toBe(1);
     expect(cachedData?.find(asset => asset.id === 'asset-1')).toBeUndefined();
     expect(cachedData?.find(asset => asset.id === 'asset-2')).toBeDefined();
@@ -132,7 +146,7 @@ describe('useDeleteMediaAsset', () => {
 
   it('cancels pending queries on mutate', async () => {
     const cancelQueriesSpy = vi.spyOn(queryClient, 'cancelQueries');
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -143,12 +157,12 @@ describe('useDeleteMediaAsset', () => {
     });
 
     expect(cancelQueriesSpy).toHaveBeenCalledWith({
-      queryKey: ['media-assets', 'project-1'],
+      queryKey: ['media-assets', 'project-1', 'test-user-id'],
     });
   });
 
   it('snapshots previous state before optimistic update', async () => {
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
     const originalData = [...mockMediaAssets];
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
@@ -168,7 +182,7 @@ describe('useDeleteMediaAsset', () => {
     const error = new Error('Failed to delete');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
     const originalData = [...mockMediaAssets];
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
@@ -185,7 +199,7 @@ describe('useDeleteMediaAsset', () => {
 
     // Wait for rollback to complete
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1']);
+      const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.length).toBe(2);
       expect(cachedData?.find(asset => asset.id === 'asset-1')).toBeDefined();
@@ -196,7 +210,7 @@ describe('useDeleteMediaAsset', () => {
     const error = new Error('Database error');
     vi.mocked(database.mediaAssets.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
     const originalData = [...mockMediaAssets];
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
@@ -212,7 +226,7 @@ describe('useDeleteMediaAsset', () => {
     }
 
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1']);
+      const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.find(asset => asset.id === 'asset-1')?.id).toBe('asset-1');
     });
@@ -220,7 +234,7 @@ describe('useDeleteMediaAsset', () => {
 
   it('invalidates media-assets query on settle (success)', async () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -232,7 +246,7 @@ describe('useDeleteMediaAsset', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['media-assets', 'project-1'],
+        queryKey: ['media-assets', 'project-1', 'test-user-id'],
       });
     });
   });
@@ -241,7 +255,7 @@ describe('useDeleteMediaAsset', () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
     const error = new Error('Delete failed');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -257,13 +271,13 @@ describe('useDeleteMediaAsset', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['media-assets', 'project-1'],
+        queryKey: ['media-assets', 'project-1', 'test-user-id'],
       });
     });
   });
 
   it('handles empty previousAssets array', async () => {
-    queryClient.setQueryData(['media-assets', 'project-1'], []);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], []);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -302,7 +316,7 @@ describe('useDeleteMediaAsset', () => {
   });
 
   it('only removes the specified asset from cache', async () => {
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -312,14 +326,14 @@ describe('useDeleteMediaAsset', () => {
       projectId: 'project-1',
     });
 
-    const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1']);
+    const cachedData = queryClient.getQueryData<MediaAsset[]>(['media-assets', 'project-1', 'test-user-id']);
     expect(cachedData?.find(asset => asset.id === 'asset-1')).toBeUndefined();
     expect(cachedData?.find(asset => asset.id === 'asset-2')).toBeDefined();
   });
 
   it('handles undefined previousAssets in cache', async () => {
     // Set query data to undefined explicitly
-    queryClient.setQueryData(['media-assets', 'project-1'], undefined);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], undefined);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -338,7 +352,7 @@ describe('useDeleteMediaAsset', () => {
     const error = new Error('Storage deletion failed');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 
@@ -358,7 +372,7 @@ describe('useDeleteMediaAsset', () => {
     const error = new Error('Database deletion failed');
     vi.mocked(database.mediaAssets.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['media-assets', 'project-1'], mockMediaAssets);
+    queryClient.setQueryData(['media-assets', 'project-1', 'test-user-id'], mockMediaAssets);
 
     const { result } = renderHook(() => useDeleteMediaAsset(), { wrapper });
 

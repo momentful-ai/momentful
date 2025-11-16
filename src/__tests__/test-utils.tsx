@@ -1,3 +1,34 @@
+// Mock Clerk hooks - these need to be at the top level for proper hoisting
+const mockUseUser = vi.fn();
+const mockUseSession = vi.fn();
+
+// Mock Clerk module with direct implementation
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => mockUseUser(),
+  useSession: () => mockUseSession(),
+  ClerkProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="clerk-provider">{children}</div>,
+  // Mock the ClerkLoaded component as well
+  ClerkLoaded: ({ children }: { children: React.ReactNode }) => <div data-testid="clerk-loaded">{children}</div>,
+  SignedIn: ({ children }: { children: React.ReactNode }) => <div data-testid="signed-in">{children}</div>,
+  SignedOut: ({ children }: { children: React.ReactNode }) => <div data-testid="signed-out">{children}</div>,
+  SignInButton: () => <button data-testid="sign-in-button">Sign In</button>,
+  SignUpButton: () => <button data-testid="sign-up-button">Sign Up</button>,
+  UserButton: () => <button data-testid="user-button">User</button>,
+}));
+
+// Mock Clerk shared to disable context checking - this needs to be mocked before Clerk imports
+vi.mock('@clerk/shared', () => ({
+  useAssertWrappedByClerkProvider: vi.fn(),
+  // Also mock other potential Clerk shared utilities
+  createClerkContext: vi.fn(() => ({
+    ClerkProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="clerk-provider">{children}</div>,
+  })),
+}));
+
+vi.mock('@clerk/themes', () => ({
+  dark: { baseTheme: 'dark' },
+}));
+
 import { vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactElement, Suspense } from 'react';
@@ -189,6 +220,118 @@ export const createUserEvent = () => userEvent.setup();
  * Creates user event setup with no delay (for faster tests)
  */
 export const createUserEventNoDelay = () => userEvent.setup({ delay: null });
+
+/**
+ * Sets up default Clerk mock values for tests
+ */
+export const setupClerkMocks = (options: {
+  isLoaded?: boolean;
+  isSignedIn?: boolean;
+  userId?: string;
+  user?: { id: string; [key: string]: unknown };
+} = {}) => {
+  const {
+    isLoaded = true,
+    isSignedIn = true,
+    userId = 'test-user-id',
+    user = { id: userId },
+  } = options;
+
+  mockUseUser.mockReturnValue({
+    isLoaded,
+    isSignedIn,
+    user: isSignedIn ? user : null,
+  });
+
+  mockUseSession.mockReturnValue({
+    isLoaded,
+    isSignedIn,
+    session: isSignedIn ? { getToken: vi.fn().mockResolvedValue('test-token') } : null,
+  });
+};
+
+/**
+ * Sets up a mock for useUserId hook to bypass Clerk context issues
+ */
+export const mockUseUserId = (userId: string = 'test-user-id') => {
+  vi.mock('../../hooks/useUserId', () => ({
+    useUserId: vi.fn(() => userId),
+  }));
+};
+
+/**
+ * Creates a test wrapper that mocks useUserId to return a specific user ID
+ */
+export const createWrapperWithUserId = (userId: string = 'test-user-id') => {
+  // Mock useUserId directly
+  vi.doMock('../../hooks/useUserId', () => ({
+    useUserId: vi.fn(() => userId),
+  }));
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={new QueryClient()}>
+      {children}
+    </QueryClientProvider>
+  );
+};
+
+/**
+ * Creates a test renderer wrapper that includes QueryClientProvider and ClerkProvider
+ */
+export const createTestRendererWithClerk = (queryClient: QueryClient, clerkOptions?: Parameters<typeof setupClerkMocks>[0]) => {
+  // Set up Clerk mocks with provided options
+  if (clerkOptions) {
+    setupClerkMocks(clerkOptions);
+  } else {
+    setupClerkMocks(); // Use defaults
+  }
+
+  return (component: ReactElement) => {
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <Suspense fallback={<div>Loading...</div>}>
+          {component}
+        </Suspense>
+      </QueryClientProvider>
+    );
+  };
+};
+
+/**
+ * Creates a wrapper component for renderHook that includes QueryClientProvider and ClerkProvider
+ */
+export const createHookWrapper = (queryClient: QueryClient, clerkOptions?: Parameters<typeof setupClerkMocks>[0]) => {
+  // Set up Clerk mocks with provided options
+  if (clerkOptions) {
+    setupClerkMocks(clerkOptions);
+  } else {
+    setupClerkMocks(); // Use defaults
+  }
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+};
+
+/**
+ * Creates a wrapper component for renderHook that includes ClerkProvider and QueryClientProvider
+ */
+export const createHookWrapperWithClerk = (queryClient: QueryClient, clerkOptions?: Parameters<typeof setupClerkMocks>[0]) => {
+  // Set up Clerk mocks with provided options
+  if (clerkOptions) {
+    setupClerkMocks(clerkOptions);
+  } else {
+    setupClerkMocks(); // Use defaults
+  }
+
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+};
 
 /**
  * Mock setup utility for VideoGenerator tests

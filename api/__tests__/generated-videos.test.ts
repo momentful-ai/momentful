@@ -13,34 +13,14 @@ const mockSupabaseClient = {
   single: vi.fn(),
 };
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => mockSupabaseClient),
+// Mock the shared supabase module
+vi.mock('../shared/supabase.js', () => ({
+  supabase: mockSupabaseClient,
 }));
 
 // Set environment variables
 process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
-process.env.VITE_SUPABASE_ANON_KEY = 'test-anon-key';
-
-// Mock console.warn
-const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-describe('Generated Videos API - Environment Variables', () => {
-  it('warns when VITE_SUPABASE_ANON_KEY is missing', async () => {
-    // Temporarily remove the environment variable
-    const originalKey = process.env.VITE_SUPABASE_ANON_KEY;
-    delete process.env.VITE_SUPABASE_ANON_KEY;
-
-    // Re-import the handler to trigger the warning
-    await import('../generated-videos');
-
-    // Restore the environment variable
-    process.env.VITE_SUPABASE_ANON_KEY = originalKey;
-
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '⚠️  VITE_SUPABASE_ANON_KEY not set. API endpoints may not work properly.'
-    );
-  });
-});
+process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
 
 describe('Generated Videos API', () => {
   let mockReq: Partial<VercelRequest>;

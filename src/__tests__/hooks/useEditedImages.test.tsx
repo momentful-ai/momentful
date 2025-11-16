@@ -5,6 +5,20 @@ import { useEditedImages } from '../../hooks/useEditedImages';
 import { database } from '../../lib/database';
 import { EditedImage } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -60,7 +74,7 @@ describe('useEditedImages', () => {
     });
 
     expect(result.current.data).toEqual(mockEditedImages);
-    expect(database.editedImages.list).toHaveBeenCalledWith('project-1');
+    expect(database.editedImages.list).toHaveBeenCalledWith('project-1', 'test-user-id');
   });
 
   it('returns empty array when query is disabled', async () => {
@@ -131,7 +145,7 @@ describe('useEditedImages', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(database.editedImages.list).toHaveBeenCalledWith('project-1');
+    expect(database.editedImages.list).toHaveBeenCalledWith('project-1', 'test-user-id');
     expect(result.current.data).toEqual(mockEditedImages);
   });
 });

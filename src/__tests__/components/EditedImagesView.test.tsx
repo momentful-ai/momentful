@@ -6,7 +6,7 @@ import { EditedImagesView } from '../../components/ProjectWorkspace/EditedImages
 import { EditedImage, MediaAsset } from '../../types';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { ToastProvider } from '../../contexts/ToastProvider';
-import { mockSupabase } from '../test-utils.tsx';
+import { mockSupabase, setupClerkMocks } from '../test-utils.tsx';
 
 // Mock Supabase and database dependencies
 vi.mock('../../lib/supabase', () => ({
@@ -55,6 +55,11 @@ vi.mock('../../lib/database', () => ({
 // Mock the useEditedImages hook
 vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImages: vi.fn(),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
 }));
 
 // Mock supabase
@@ -126,6 +131,7 @@ describe('EditedImagesView', () => {
       },
     });
     vi.clearAllMocks();
+    setupClerkMocks();
   });
 
   const mockEditedImages: EditedImage[] = [

@@ -5,6 +5,7 @@ import { useTimeline, useTimelinesByProject } from '../../hooks/useTimeline';
 import { database } from '../../lib/database';
 import { TimelineData } from '../../types/timeline';
 import { Lineage } from '../../types';
+import { setupClerkMocks } from '../test-utils.tsx';
 
 // Mock the database module
 vi.mock('../../lib/database', () => ({
@@ -14,6 +15,11 @@ vi.mock('../../lib/database', () => ({
       getByProject: vi.fn(),
     },
   },
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
 }));
 
 const mockTimelineData: TimelineData = {
@@ -39,6 +45,7 @@ describe('useTimeline', () => {
   beforeEach(() => {
     queryClient = new QueryClient();
     vi.clearAllMocks();
+    setupClerkMocks();
     vi.mocked(database.lineages.getTimelineData).mockResolvedValue(mockTimelineData);
   });
 
@@ -51,7 +58,7 @@ describe('useTimeline', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockTimelineData);
-    expect(database.lineages.getTimelineData).toHaveBeenCalledWith('lineage-1');
+    expect(database.lineages.getTimelineData).toHaveBeenCalledWith('lineage-1', 'test-user-id');
   });
 
   it('does not fetch when lineageId is empty string', () => {
@@ -91,6 +98,7 @@ describe('useTimelinesByProject', () => {
   beforeEach(() => {
     queryClient = new QueryClient();
     vi.clearAllMocks();
+    setupClerkMocks();
     vi.mocked(database.lineages.getByProject).mockResolvedValue(mockLineages);
   });
 
@@ -103,7 +111,7 @@ describe('useTimelinesByProject', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockLineages);
-    expect(database.lineages.getByProject).toHaveBeenCalledWith('project-1');
+    expect(database.lineages.getByProject).toHaveBeenCalledWith('project-1', 'test-user-id');
   });
 
   it('does not fetch when projectId is empty string', () => {

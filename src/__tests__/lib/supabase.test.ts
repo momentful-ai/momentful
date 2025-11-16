@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock environment variables that supabase needs
 vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
-vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
+vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'test-publishable-key');
 
 // Mock the supabase module to avoid configuration issues in tests
 vi.mock('../../lib/supabase', () => ({

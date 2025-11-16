@@ -5,6 +5,20 @@ import { useDeleteEditedImage } from '../../hooks/useDeleteEditedImage';
 import { database } from '../../lib/database';
 import { EditedImage } from '../../types';
 
+// Mock Clerk to avoid context issues
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({
+    user: { id: 'test-user-id' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
+// Mock useUserId to return a consistent user ID
+vi.mock('../../hooks/useUserId', () => ({
+  useUserId: () => 'test-user-id',
+}));
+
 // Mock the database module
 vi.mock('../../lib/database', () => ({
   database: {
@@ -82,7 +96,7 @@ describe('useDeleteEditedImage', () => {
     expect(database.storage.delete).toHaveBeenCalledWith('user-uploads', [
       'user-uploads/user-1/project-1/image-1.png',
     ]);
-    expect(database.editedImages.delete).toHaveBeenCalledWith('image-1');
+    expect(database.editedImages.delete).toHaveBeenCalledWith('image-1', 'test-user-id');
   });
 
   it('deletes from storage first, then database (correct order)', async () => {
@@ -108,7 +122,7 @@ describe('useDeleteEditedImage', () => {
   });
 
   it('optimistically removes image from cache immediately', async () => {
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
     const setQueryDataSpy = vi.spyOn(queryClient, 'setQueryData');
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
@@ -121,12 +135,12 @@ describe('useDeleteEditedImage', () => {
 
     // Verify setQueryData was called for optimistic update
     expect(setQueryDataSpy).toHaveBeenCalledWith(
-      ['edited-images', 'project-1'],
+      ['edited-images', 'project-1', 'test-user-id'],
       expect.any(Function)
     );
 
     // Verify the cache was updated correctly (image removed)
-    const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1']);
+    const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1', 'test-user-id']);
     expect(cachedData?.length).toBe(1);
     expect(cachedData?.find(img => img.id === 'image-1')).toBeUndefined();
     expect(cachedData?.find(img => img.id === 'image-2')).toBeDefined();
@@ -134,7 +148,7 @@ describe('useDeleteEditedImage', () => {
 
   it('cancels pending queries on mutate', async () => {
     const cancelQueriesSpy = vi.spyOn(queryClient, 'cancelQueries');
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -145,12 +159,12 @@ describe('useDeleteEditedImage', () => {
     });
 
     expect(cancelQueriesSpy).toHaveBeenCalledWith({
-      queryKey: ['edited-images', 'project-1'],
+      queryKey: ['edited-images', 'project-1', 'test-user-id'],
     });
   });
 
   it('snapshots previous state before optimistic update', async () => {
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
     const originalData = [...mockEditedImages];
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
@@ -170,7 +184,7 @@ describe('useDeleteEditedImage', () => {
     const error = new Error('Failed to delete');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
     const originalData = [...mockEditedImages];
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
@@ -187,7 +201,7 @@ describe('useDeleteEditedImage', () => {
 
     // Wait for rollback to complete
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1']);
+      const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.length).toBe(2);
       expect(cachedData?.find(img => img.id === 'image-1')).toBeDefined();
@@ -198,7 +212,7 @@ describe('useDeleteEditedImage', () => {
     const error = new Error('Database error');
     vi.mocked(database.editedImages.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
     const originalData = [...mockEditedImages];
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
@@ -214,7 +228,7 @@ describe('useDeleteEditedImage', () => {
     }
 
     await waitFor(() => {
-      const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1']);
+      const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1', 'test-user-id']);
       expect(cachedData).toEqual(originalData);
       expect(cachedData?.find(img => img.id === 'image-1')?.id).toBe('image-1');
     });
@@ -222,7 +236,7 @@ describe('useDeleteEditedImage', () => {
 
   it('invalidates edited-images query on settle (success)', async () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -234,7 +248,7 @@ describe('useDeleteEditedImage', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['edited-images', 'project-1'],
+        queryKey: ['edited-images', 'project-1', 'test-user-id'],
       });
     });
   });
@@ -243,7 +257,7 @@ describe('useDeleteEditedImage', () => {
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
     const error = new Error('Delete failed');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -259,13 +273,13 @@ describe('useDeleteEditedImage', () => {
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['edited-images', 'project-1'],
+        queryKey: ['edited-images', 'project-1', 'test-user-id'],
       });
     });
   });
 
   it('handles empty previousImages array', async () => {
-    queryClient.setQueryData(['edited-images', 'project-1'], []);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], []);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -304,7 +318,7 @@ describe('useDeleteEditedImage', () => {
   });
 
   it('only removes the specified image from cache', async () => {
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -314,14 +328,14 @@ describe('useDeleteEditedImage', () => {
       projectId: 'project-1',
     });
 
-    const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1']);
+    const cachedData = queryClient.getQueryData<EditedImage[]>(['edited-images', 'project-1', 'test-user-id']);
     expect(cachedData?.find(img => img.id === 'image-1')).toBeUndefined();
     expect(cachedData?.find(img => img.id === 'image-2')).toBeDefined();
   });
 
   it('handles undefined previousImages in cache', async () => {
     // Set query data to undefined explicitly
-    queryClient.setQueryData(['edited-images', 'project-1'], undefined);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], undefined);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -340,7 +354,7 @@ describe('useDeleteEditedImage', () => {
     const error = new Error('Storage deletion failed');
     vi.mocked(database.storage.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 
@@ -360,7 +374,7 @@ describe('useDeleteEditedImage', () => {
     const error = new Error('Database deletion failed');
     vi.mocked(database.editedImages.delete).mockRejectedValue(error);
 
-    queryClient.setQueryData(['edited-images', 'project-1'], mockEditedImages);
+    queryClient.setQueryData(['edited-images', 'project-1', 'test-user-id'], mockEditedImages);
 
     const { result } = renderHook(() => useDeleteEditedImage(), { wrapper });
 

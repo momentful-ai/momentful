@@ -310,7 +310,7 @@ describe('Dashboard', () => {
     await user.click(updateButtons[0]);
 
     await waitFor(() => {
-      expect(mockUpdateProject).toHaveBeenCalledWith('project-1', { name: 'Updated Name' });
+      expect(mockUpdateProject).toHaveBeenCalledWith('project-1', 'test-user-id', { name: 'Updated Name' });
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project name updated', 'success');
     });
@@ -343,7 +343,7 @@ describe('Dashboard', () => {
     await user.click(confirmButton);
 
     await waitFor(() => {
-      expect(mockDeleteProject).toHaveBeenCalledWith('project-1');
+      expect(mockDeleteProject).toHaveBeenCalledWith('project-1', 'test-user-id');
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['projects'] });
       expect(mockShowToast).toHaveBeenCalledWith('Project deleted successfully', 'success');
     });

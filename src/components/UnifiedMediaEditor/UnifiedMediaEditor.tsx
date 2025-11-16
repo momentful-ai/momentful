@@ -10,6 +10,7 @@ import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
+import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
 import { EditedImage } from '../../types';
 import { SelectedSource } from './types';
 import * as RunwayAPI from '../../services/aiModels/runway';
@@ -192,8 +193,19 @@ export function UnifiedMediaEditor({
     const fileName = `edited-${timestamp}.png`;
     const storagePath = `${userId}/${projectId}/${fileName}`;
 
+    // Validate storage path
+    const pathValidation = validateStoragePath(userId, storagePath);
+    if (!pathValidation.valid) {
+      throw new Error(`Storage path validation failed: ${pathValidation.error}`);
+    }
+
     const file = new File([blob], fileName, { type: 'image/png' });
-    await database.storage.upload('user-uploads', storagePath, file);
+    try {
+      await database.storage.upload('user-uploads', storagePath, file);
+    } catch (error) {
+      const errorResult = handleStorageError(error, 'edited image upload');
+      throw new Error(errorResult.error);
+    }
 
     const { width, height } = await getImageDimensionsFromUrl(imageUrl);
 
@@ -422,12 +434,12 @@ export function UnifiedMediaEditor({
             source_type: source.type,
             source_id: source.id,
             sort_order: index,
-          });
+          }, userId);
         }));
 
         // Invalidate generated videos cache (only refetch if actively used)
-        queryClient.invalidateQueries({ 
-          queryKey: ['generated-videos', projectId],
+        queryClient.invalidateQueries({
+          queryKey: ['generated-videos', projectId, userId],
           refetchType: 'active'
         });
 
@@ -498,7 +510,18 @@ export function UnifiedMediaEditor({
         const fileName = `${timestamp}-${file.name}`;
         const storagePath = `${userId}/${projectId}/${fileName}`;
 
-        await database.storage.upload('user-uploads', storagePath, file);
+        // Validate storage path
+        const pathValidation = validateStoragePath(userId, storagePath);
+        if (!pathValidation.valid) {
+          throw new Error(`Storage path validation failed: ${pathValidation.error}`);
+        }
+
+        try {
+          await database.storage.upload('user-uploads', storagePath, file);
+        } catch (error) {
+          const errorResult = handleStorageError(error, 'batch image upload');
+          throw new Error(errorResult.error);
+        }
 
         const img = new Image();
         await new Promise<void>((resolve, reject) => {
