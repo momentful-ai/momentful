@@ -123,7 +123,7 @@ export function isRetryableError(error: unknown): boolean {
  * Configuration for signed URL requests
  */
 export const SIGNED_URL_CONFIG = {
-  defaultExpiry: 3600, // 1 hour
+  defaultExpiry: 86400, // 1 day
   maxExpiry: 24 * 60 * 60, // 24 hours
   cacheExpiry: 50 * 60 * 1000, // 50 minutes (to ensure URLs don't expire during use)
 };
@@ -277,7 +277,7 @@ export async function getSignedUrl(bucket: string, path: string, expiresIn: numb
 
   // Validate expiry time
   if (typeof expiresIn !== 'number' || expiresIn <= 0 || expiresIn > SIGNED_URL_CONFIG.maxExpiry) {
-    return { success: false, error: `expiresIn must be a positive number not exceeding ${SIGNED_URL_CONFIG.maxExpiry} seconds (24 hours)` };
+    return { success: false, error: `expiresIn must be a positive number not exceeding ${SIGNED_URL_CONFIG.maxExpiry} seconds (1 day)` };
   }
 
   // Check cache first

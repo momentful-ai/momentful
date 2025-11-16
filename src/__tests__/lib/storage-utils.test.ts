@@ -36,7 +36,7 @@ describe('storage-utils signed URLs', () => {
       const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
 
       expect(mockSupabaseStorage.from).toHaveBeenCalledWith('user-uploads');
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 3600);
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith('user123/file.jpg', 86400);
 
       expect(result).toEqual({
         success: true,
@@ -179,7 +179,7 @@ describe('storage-utils signed URLs', () => {
   describe('SIGNED_URL_CONFIG', () => {
     it('should have correct default values', () => {
       expect(SIGNED_URL_CONFIG).toEqual({
-        defaultExpiry: 3600, // 1 hour
+        defaultExpiry: 86400, // 1 day
         maxExpiry: 24 * 60 * 60, // 24 hours
         cacheExpiry: 50 * 60 * 1000, // 50 minutes
       });
