@@ -164,6 +164,62 @@ export function validateStoragePath(userId: string, storagePath: string): { vali
 }
 
 /**
+ * Generate a signed URL for secure storage access
+ */
+export async function generateSignedUrl(bucket: string, path: string, expiresIn: number = 3600): Promise<{ success: boolean; signedUrl?: string; error?: string; expiresAt?: string }> {
+  try {
+    // Validate bucket
+    const allowedBuckets = ['user-uploads', 'edited-images', 'generated-videos', 'thumbnails'];
+    if (!allowedBuckets.includes(bucket)) {
+      return {
+        success: false,
+        error: `Invalid bucket. Must be one of: ${allowedBuckets.join(', ')}`
+      };
+    }
+
+    // Validate expiry time (max 24 hours)
+    const maxExpiry = 24 * 60 * 60; // 24 hours in seconds
+    if (expiresIn <= 0 || expiresIn > maxExpiry) {
+      return {
+        success: false,
+        error: `expiresIn must be a positive number not exceeding ${maxExpiry} seconds (24 hours)`
+      };
+    }
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresIn);
+
+    if (error) {
+      console.error('Error generating signed URL:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+
+    if (!data?.signedUrl) {
+      return {
+        success: false,
+        error: 'Failed to generate signed URL'
+      };
+    }
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString()
+    };
+  } catch (error) {
+    console.error('Exception generating signed URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error generating signed URL'
+    };
+  }
+}
+
+/**
  * Handle storage errors gracefully
  */
 export function handleStorageError(error: unknown, operation: string): { success: false; error: string; retryable: boolean } {

@@ -63,6 +63,14 @@ export function getAssetUrl(storagePath: string): string {
   return database.storage.getPublicUrl('user-uploads', storagePath);
 }
 
+/**
+ * Get a signed URL for secure access to storage assets
+ * Use this for private buckets instead of getAssetUrl
+ */
+export async function getSecureAssetUrl(storagePath: string, expiresIn?: number): Promise<string> {
+  return await database.storage.getSignedUrl('user-uploads', storagePath, expiresIn);
+}
+
 export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();

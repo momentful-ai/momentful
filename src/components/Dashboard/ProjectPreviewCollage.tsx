@@ -1,14 +1,25 @@
 import { Project } from '../../types';
 import { database } from '../../lib/database';
 import { FolderOpen } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 
 
 export function ProjectPreviewCollage({ project }: { project: Project }) {
-    const previewImages = project.previewImages || [];
+    const previewImages = useMemo(() => project.previewImages || [], [project.previewImages]);
     const imageCount = previewImages.length;
-  
+    const { preloadSignedUrls } = useSignedUrls();
+    const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+
+    // Preload signed URLs for all preview images
+    useEffect(() => {
+      if (previewImages.length > 0) {
+        preloadSignedUrls('user-uploads', previewImages).then(setImageUrls);
+      }
+    }, [previewImages, preloadSignedUrls]);
+
     const getImageUrl = (storagePath: string) => {
-      return database.storage.getPublicUrl('user-uploads', storagePath);
+      return imageUrls[storagePath] || database.storage.getPublicUrl('user-uploads', storagePath);
     };
   
     const renderImage = (path: string, alt: string, className = '') => (

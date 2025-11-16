@@ -7,6 +7,7 @@ import {
   Mode,
 } from '../../shared/runway.js';
 import { extractErrorMessage, getStatusCodeFromError } from '../../shared/utils.js';
+import { convertStoragePathsToSignedUrls } from '../../shared/external-signed-urls.js';
 
 // Re-export for backward compatibility
 export { createVideoTask, createImageTask };
@@ -19,31 +20,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   try {
+    // Convert any storage paths to signed URLs for external provider access
+    const processedData = await convertStoragePathsToSignedUrls(parsed.data);
+
     let task;
-    
-    if (parsed.data.mode === 'image-generation') {
-      if (!parsed.data.promptImage) {
+
+    if (processedData.mode === 'image-generation') {
+      if (!processedData.promptImage) {
         return res.status(400).json({ error: 'promptImage required for image-generation mode' });
       }
-      if (!parsed.data.promptText) {
+      if (!processedData.promptText) {
         return res.status(400).json({ error: 'promptText required for image-generation mode' });
       }
-      if (!parsed.data.ratio) {
+      if (!processedData.ratio) {
         return res.status(400).json({ error: 'ratio required for image-generation mode' });
       }
       task = await createImageTask({
-        promptImage: parsed.data.promptImage,
-        promptText: parsed.data.promptText,
-        model: parsed.data.model,
-        ratio: parsed.data.ratio as RunwayML.TextToImageCreateParams['ratio'],
+        promptImage: processedData.promptImage,
+        promptText: processedData.promptText,
+        model: processedData.model,
+        ratio: processedData.ratio as RunwayML.TextToImageCreateParams['ratio'],
       });
     } else {
       task = await createVideoTask({
-        mode: parsed.data.mode,
-        promptText: parsed.data.promptText,
-        promptImage: parsed.data.promptImage,
-        model: parsed.data.model,
-        ratio: parsed.data.ratio,
+        mode: processedData.mode,
+        promptText: processedData.promptText,
+        promptImage: processedData.promptImage,
+        model: processedData.model,
+        ratio: processedData.ratio,
       });
     }
     

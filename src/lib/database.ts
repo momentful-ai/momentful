@@ -690,5 +690,22 @@ export const database = {
         .getPublicUrl(path);
       return data.publicUrl;
     },
+
+    /**
+     * Get a signed URL for secure access to private storage objects
+     * This method uses the signed URL API endpoint for proper authentication
+     */
+    async getSignedUrl(bucket: string, path: string, expiresIn?: number) {
+      // Import the signed URL utility dynamically to avoid circular dependencies
+      const { getSignedUrl } = await import('./storage-utils');
+
+      const result = await getSignedUrl(bucket, path, expiresIn);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get signed URL');
+      }
+
+      return result.signedUrl!;
+    },
   },
 };

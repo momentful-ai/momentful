@@ -4,6 +4,7 @@ import {
   validatePredictionInput,
   ReplicateModels,
 } from '../../shared/replicate.js';
+import { convertStoragePathsToSignedUrls } from '../../shared/external-signed-urls.js';
 
 // Re-export for backward compatibility
 export { createReplicatePrediction, ReplicateModels };
@@ -29,7 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const prediction = await createReplicatePrediction({ version, input });
+    // Convert any storage paths to signed URLs for external provider access
+    const processedInput = await convertStoragePathsToSignedUrls(input);
+
+    const prediction = await createReplicatePrediction({ version, input: processedInput });
     return res.status(201).json(prediction);
   } catch (error) {
     // Better error handling - log the actual error for debugging

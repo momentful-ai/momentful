@@ -118,3 +118,132 @@ export function isRetryableError(error: unknown): boolean {
   const errorResult = handleStorageError(error, 'check');
   return errorResult.retryable;
 }
+
+/**
+ * Configuration for signed URL requests
+ */
+export const SIGNED_URL_CONFIG = {
+  defaultExpiry: 3600, // 1 hour
+  maxExpiry: 24 * 60 * 60, // 24 hours
+  cacheExpiry: 50 * 60 * 1000, // 50 minutes (to ensure URLs don't expire during use)
+};
+
+/**
+ * Cache for signed URLs to avoid unnecessary requests
+ */
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+/**
+ * Generate a cache key for signed URLs
+ */
+function getSignedUrlCacheKey(bucket: string, path: string): string {
+  return `${bucket}:${path}`;
+}
+
+/**
+ * Check if a cached signed URL is still valid
+ */
+function isSignedUrlValid(cacheKey: string): boolean {
+  const cached = signedUrlCache.get(cacheKey);
+  if (!cached) return false;
+
+  // Check if URL is still valid (with some buffer time)
+  return Date.now() < (cached.expiresAt - 5 * 60 * 1000); // 5 minute buffer
+}
+
+/**
+ * Fetch a signed URL from the API
+ */
+export async function fetchSignedUrl(bucket: string, path: string, expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+  try {
+    const response = await fetch('/api/signed-urls', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bucket,
+        path,
+        expiresIn,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      return {
+        success: false,
+        error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    if (!data.signedUrl) {
+      return {
+        success: false,
+        error: 'No signed URL returned from server',
+      };
+    }
+
+    // Cache the signed URL
+    const cacheKey = getSignedUrlCacheKey(bucket, path);
+    const expiresAt = new Date(data.expiresAt).getTime();
+    signedUrlCache.set(cacheKey, {
+      url: data.signedUrl,
+      expiresAt,
+    });
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+    };
+  } catch (error) {
+    console.error('Error fetching signed URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error fetching signed URL',
+    };
+  }
+}
+
+/**
+ * Get a signed URL for secure storage access, using cache when possible
+ */
+export async function getSignedUrl(bucket: string, path: string, expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+  // Validate parameters
+  if (!bucket || typeof bucket !== 'string') {
+    return { success: false, error: 'Bucket parameter is required and must be a string' };
+  }
+
+  if (!path || typeof path !== 'string') {
+    return { success: false, error: 'Path parameter is required and must be a string' };
+  }
+
+  // Validate bucket is allowed
+  const allowedBuckets = ['user-uploads', 'edited-images', 'generated-videos', 'thumbnails'];
+  if (!allowedBuckets.includes(bucket)) {
+    return { success: false, error: `Invalid bucket. Must be one of: ${allowedBuckets.join(', ')}` };
+  }
+
+  // Validate expiry time
+  if (typeof expiresIn !== 'number' || expiresIn <= 0 || expiresIn > SIGNED_URL_CONFIG.maxExpiry) {
+    return { success: false, error: `expiresIn must be a positive number not exceeding ${SIGNED_URL_CONFIG.maxExpiry} seconds (24 hours)` };
+  }
+
+  // Check cache first
+  const cacheKey = getSignedUrlCacheKey(bucket, path);
+  if (isSignedUrlValid(cacheKey)) {
+    const cached = signedUrlCache.get(cacheKey)!;
+    return { success: true, signedUrl: cached.url };
+  }
+
+  // Fetch new signed URL
+  return await fetchSignedUrl(bucket, path, expiresIn);
+}
+
+/**
+ * Clear the signed URL cache (useful for testing or when authentication changes)
+ */
+export function clearSignedUrlCache(): void {
+  signedUrlCache.clear();
+}

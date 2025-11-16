@@ -1,15 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import * as RunwayAPI from '../../../../services/aiModels/runway';
 
-// Mock the api-client module
-vi.mock('../../../../services/aiModels/runway/api-client', () => ({
-  createRunwayJob: vi.fn(),
-  createRunwayImageJob: vi.fn(),
-  getRunwayJobStatus: vi.fn(),
-  pollJobStatus: vi.fn(),
-  extractImageUrl: vi.fn(),
-  updateProjectVideoStatuses: vi.fn(),
+// Mock fetch globally to prevent actual HTTP calls that might hang
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+// Mock any database calls that might hang
+vi.mock('../../../../lib/database', () => ({
+  database: {
+    generatedVideos: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
+  },
 }));
+
+// Import the actual module after mocking dependencies
+import * as RunwayAPI from '../../../../services/aiModels/runway';
 
 describe('Runway Service Index', () => {
   it('should re-export all functions from api-client', () => {

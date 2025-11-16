@@ -1,6 +1,27 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Set environment variables before any imports
+process.env.REPLICATE_API_TOKEN = 'test-api-token';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+
+// Mock Supabase client creation
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        createSignedUrl: vi.fn(),
+      })),
+    },
+  })),
+}));
+
+// Mock the external signed URLs module
+vi.mock('../shared/external-signed-urls', () => ({
+  convertStoragePathsToSignedUrls: vi.fn((obj) => Promise.resolve(obj)),
+}));
+
 // Mock Replicate SDK
 const mockReplicateClient = {
   predictions: {
@@ -15,19 +36,28 @@ vi.mock('replicate', () => {
   };
 });
 
-// Set environment variable
-process.env.REPLICATE_API_TOKEN = 'test-api-token';
+// Mock the shared replicate module
+const mockCreateReplicatePrediction = vi.fn();
+const mockGetReplicatePredictionStatus = vi.fn();
+const mockValidateFluxKontextProInput = vi.fn();
+const mockValidatePredictionInput = vi.fn();
 
-  // Mock the shared replicate module
-  vi.mock('../shared/replicate', async () => {
-    const actual = await vi.importActual('../shared/replicate');
-    return {
-      ...actual,
-      replicate: mockReplicateClient,
-    };
-  });
+vi.mock('../shared/replicate', () => ({
+  replicate: mockReplicateClient,
+  createReplicatePrediction: mockCreateReplicatePrediction,
+  getReplicatePredictionStatus: mockGetReplicatePredictionStatus,
+  validateFluxKontextProInput: mockValidateFluxKontextProInput,
+  validatePredictionInput: mockValidatePredictionInput,
+  ReplicateModels: {
+    STABLE_DIFFUSION: 'stability-ai/stable-diffusion:db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
+    STABLE_VIDEO_DIFFUSION: 'stability-ai/stable-video-diffusion:3f0455e4619daac51287dedb1a3f5dbe6bc8d0a1e6e715b9a49c7d61b7c1b8a8',
+    FLUX_PRO: 'black-forest-labs/flux-kontext-pro',
+  },
+  fluxKontextProInputSchema: {},
+  isFluxModel: vi.fn(),
+}));
 
-  describe('Replicate Predictions Nested Routes', () => {
+describe('Replicate Predictions Nested Routes', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
   let indexHandler: typeof import('../replicate/predictions/index').default;
@@ -65,6 +95,17 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
     // Clear all mocks
     vi.clearAllMocks();
+
+    // Setup default mock behaviors
+    mockCreateReplicatePrediction.mockResolvedValue({ id: 'prediction-123' });
+    mockGetReplicatePredictionStatus.mockResolvedValue({
+      id: 'prediction-123',
+      status: 'succeeded',
+      output: 'https://example.com/output.jpg',
+      created_at: '2025-01-01T00:00:00Z',
+    });
+    mockValidatePredictionInput.mockReturnValue({ valid: true });
+    mockValidateFluxKontextProInput.mockReturnValue({ valid: true });
   });
 
   describe('POST /api/replicate/predictions (index.ts)', () => {
@@ -82,7 +123,7 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
       await indexHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockReplicateClient.predictions.create).toHaveBeenCalledWith({
+      expect(mockCreateReplicatePrediction).toHaveBeenCalledWith({
         version: 'stability-ai/stable-diffusion',
         input: {
           prompt: 'A beautiful sunset',
@@ -123,7 +164,12 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
     });
 
     it('returns 400 when input validation fails', async () => {
-      // For this test, we'll test with invalid input that passes basic validation but fails model-specific validation
+      // Mock validation to fail
+      mockValidatePredictionInput.mockReturnValue({
+        valid: false,
+        error: 'Missing required prompt field'
+      });
+
       mockReq.body = {
         version: 'black-forest-labs/flux-kontext-pro',
         input: {
@@ -133,16 +179,17 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
       await indexHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockValidatePredictionInput).toHaveBeenCalledWith('black-forest-labs/flux-kontext-pro', {});
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
         error: 'Invalid input format',
-        details: expect.any(String),
+        details: 'Missing required prompt field',
       });
     });
 
     it('handles Replicate API errors gracefully', async () => {
       const error = new Error('Replicate API error');
-      mockReplicateClient.predictions.create.mockRejectedValue(error);
+      mockCreateReplicatePrediction.mockRejectedValue(error);
 
       mockReq.body = {
         version: 'stability-ai/stable-diffusion',
@@ -153,9 +200,16 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
       await indexHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockCreateReplicatePrediction).toHaveBeenCalledWith({
+        version: 'stability-ai/stable-diffusion',
+        input: {
+          prompt: 'A beautiful sunset',
+        },
+      });
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({
         error: 'Failed to create Replicate prediction',
+        details: undefined, // In test environment, details are not included
       });
     });
   });
@@ -175,7 +229,7 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
       await idHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockReplicateClient.predictions.get).toHaveBeenCalledWith('prediction-123');
+      expect(mockGetReplicatePredictionStatus).toHaveBeenCalledWith('prediction-123');
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalledWith(mockPrediction);
     });
@@ -213,13 +267,14 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
         error: 'Model execution failed',
         created_at: '2025-01-01T00:00:00Z',
       };
-      mockReplicateClient.predictions.get.mockResolvedValue(mockPrediction);
+      mockGetReplicatePredictionStatus.mockResolvedValue(mockPrediction);
 
       mockReq.method = 'GET';
       mockReq.query = { id: 'prediction-123' };
 
       await idHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockGetReplicatePredictionStatus).toHaveBeenCalledWith('prediction-123');
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({
         detail: 'Model execution failed',
@@ -228,13 +283,14 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
 
     it('handles Replicate API errors gracefully', async () => {
       const error = new Error('Replicate API error');
-      mockReplicateClient.predictions.get.mockRejectedValue(error);
+      mockGetReplicatePredictionStatus.mockRejectedValue(error);
 
       mockReq.method = 'GET';
       mockReq.query = { id: 'prediction-123' };
 
       await idHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockGetReplicatePredictionStatus).toHaveBeenCalledWith('prediction-123');
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({
         error: 'Failed to get Replicate prediction status',
@@ -243,13 +299,14 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
     });
 
     it('handles unknown errors', async () => {
-      mockReplicateClient.predictions.get.mockRejectedValue('Unknown error');
+      mockGetReplicatePredictionStatus.mockRejectedValue('Unknown error');
 
       mockReq.method = 'GET';
       mockReq.query = { id: 'prediction-123' };
 
       await idHandler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockGetReplicatePredictionStatus).toHaveBeenCalledWith('prediction-123');
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({
         error: 'Failed to get Replicate prediction status',
@@ -261,16 +318,14 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
   describe('Helper Functions', () => {
     describe('createReplicatePrediction', () => {
       it('creates a prediction and returns the id', async () => {
-        mockReplicateClient.predictions.create.mockResolvedValue({
-          id: 'prediction-456',
-        });
+        mockCreateReplicatePrediction.mockResolvedValue({ id: 'prediction-456' });
 
         const result = await createPredictionFn({
           version: 'stability-ai/stable-diffusion',
           input: { prompt: 'Test' },
         });
 
-        expect(mockReplicateClient.predictions.create).toHaveBeenCalledWith({
+        expect(mockCreateReplicatePrediction).toHaveBeenCalledWith({
           version: 'stability-ai/stable-diffusion',
           input: { prompt: 'Test' },
         });
@@ -285,11 +340,11 @@ process.env.REPLICATE_API_TOKEN = 'test-api-token';
           status: 'processing',
           created_at: '2025-01-01T00:00:00Z',
         };
-        mockReplicateClient.predictions.get.mockResolvedValue(mockPrediction);
+        mockGetReplicatePredictionStatus.mockResolvedValue(mockPrediction);
 
         const result = await getPredictionStatusFn('prediction-789');
 
-        expect(mockReplicateClient.predictions.get).toHaveBeenCalledWith('prediction-789');
+        expect(mockGetReplicatePredictionStatus).toHaveBeenCalledWith('prediction-789');
         expect(result).toEqual(mockPrediction);
       });
     });

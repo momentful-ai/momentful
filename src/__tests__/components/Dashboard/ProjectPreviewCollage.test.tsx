@@ -4,13 +4,24 @@ import { ProjectPreviewCollage } from '../../../components/Dashboard/ProjectPrev
 import { Project } from '../../../types';
 import { database } from '../../../lib/database';
 
-// Mock database
+// Mock database and storage
 vi.mock('../../../lib/database', () => ({
   database: {
     storage: {
       getPublicUrl: vi.fn((bucket, path) => `https://example.com/${bucket}/${path}`),
+      getSignedUrl: vi.fn((bucket, path) => `https://signed.example.com/${bucket}/${path}`),
     },
   },
+}));
+
+// Mock the useSignedUrls hook to prevent infinite polling
+vi.mock('../../../hooks/useSignedUrls', () => ({
+  useSignedUrls: () => ({
+    preloadSignedUrls: vi.fn().mockResolvedValue({}),
+    getSignedUrl: vi.fn(),
+    clearCache: vi.fn(),
+    isLoading: vi.fn(),
+  }),
 }));
 
 describe('ProjectPreviewCollage', () => {

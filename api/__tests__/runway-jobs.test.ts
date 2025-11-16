@@ -10,8 +10,26 @@ interface RunwayTask {
   failure?: string;
 }
 
-// Set environment variable before any imports
+// Set environment variables before any imports
 process.env.RUNWAY_API_KEY = 'test-api-key';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+
+// Mock Supabase client creation
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        createSignedUrl: vi.fn(),
+      })),
+    },
+  })),
+}));
+
+// Mock the external signed URLs module
+vi.mock('../shared/external-signed-urls', () => ({
+  convertStoragePathsToSignedUrls: vi.fn((obj) => Promise.resolve(obj)),
+}));
 
 // Create mock Runway client
 // NOTE: Type safety is now enforced through:
@@ -53,13 +71,29 @@ vi.mock('dotenv', () => ({
 }));
 
 // Mock the shared runway module
-vi.mock('../shared/runway', async () => {
-  const actual = await vi.importActual('../shared/runway');
-  return {
-    ...actual,
-    runway: mockRunwayClient,
-  };
-});
+const mockCreateVideoTask = vi.fn();
+const mockCreateImageTask = vi.fn();
+const mockGetRunwayTask = vi.fn();
+
+vi.mock('../shared/runway', () => ({
+  runway: mockRunwayClient,
+  createVideoTask: mockCreateVideoTask,
+  createImageTask: mockCreateImageTask,
+  getRunwayTask: mockGetRunwayTask,
+  Mode: { 'image-to-video': 'image-to-video', 'image-generation': 'image-generation' },
+  supportedImageModels: new Set(),
+  supportedImageRatios: new Set(['1280:720', '720:1280', '1024:1024', '1920:1080', '1080:1920']),
+  defaultImageRatio: '1280:720',
+  defaultVideoModel: 'gen4',
+  defaultVideoRatio: '1280:720',
+  defaultVideoDuration: 4,
+  RunwayModels: {
+    GEN_4_IMAGE: 'gen4_image',
+    GEN_4_IMAGE_TURBO: 'gen4_image_turbo',
+    GEMINI_2_5_FLASH: 'gemini_2_5_flash',
+    GEN4_TURBO: 'gen4_turbo',
+  },
+}));
 
 describe('Runway Jobs API - Image Generation', () => {
   let mockReq: Partial<VercelRequest>;
@@ -92,6 +126,10 @@ describe('Runway Jobs API - Image Generation', () => {
 
     // Clear all mocks
     vi.clearAllMocks();
+
+    // Setup default mock behaviors
+    mockCreateImageTask.mockResolvedValue({ id: 'task-123' });
+    mockCreateVideoTask.mockResolvedValue({ id: 'task-456' });
   });
 
   describe('Image Generation Mode', () => {
@@ -113,17 +151,12 @@ describe('Runway Jobs API - Image Generation', () => {
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      // Verify Runway API was called correctly
-      expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith({
-        model: 'gen4_image_turbo',
+      // Verify createImageTask was called correctly
+      expect(mockCreateImageTask).toHaveBeenCalledWith({
+        promptImage: 'https://example.com/source-image.jpg',
         promptText: 'A beautiful sunset',
+        model: 'gen4_image_turbo',
         ratio: '1280:720',
-        referenceImages: [
-          {
-            uri: 'https://example.com/source-image.jpg',
-            tag: 'source',
-          },
-        ],
       });
 
       // Verify response
@@ -224,16 +257,16 @@ describe('Runway Jobs API - Image Generation', () => {
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
       // Should use default model (gen4_image)
-      expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith(
+      expect(mockCreateImageTask).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gen4_image',
+          model: undefined, // Should not pass model, let function use default
         })
       );
     });
 
     it('handles Runway API errors gracefully', async () => {
       const error = new Error('HTTP 400: Bad Request - {"error":"Invalid image URL"}');
-      mockRunwayClient.textToImage.create.mockRejectedValue(error);
+      mockCreateImageTask.mockRejectedValue(error);
 
       mockReq.body = {
         mode: 'image-generation',
@@ -244,6 +277,12 @@ describe('Runway Jobs API - Image Generation', () => {
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
+      expect(mockCreateImageTask).toHaveBeenCalledWith({
+        promptImage: 'https://example.com/source-image.jpg',
+        promptText: 'A beautiful sunset',
+        model: undefined,
+        ratio: '1280:720',
+      });
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -273,7 +312,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
         await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-        expect(mockRunwayClient.textToImage.create).toHaveBeenCalledWith(
+        expect(mockCreateImageTask).toHaveBeenCalledWith(
           expect.objectContaining({
             ratio,
           })
@@ -298,7 +337,7 @@ describe('Runway Jobs API - Image Generation', () => {
 
       await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-      expect(mockRunwayClient.imageToVideo.create).toHaveBeenCalled();
+      expect(mockCreateVideoTask).toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 

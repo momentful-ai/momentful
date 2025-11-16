@@ -1,5 +1,26 @@
 import { describe, it, expect, vi } from 'vitest';
 
+// Mock Supabase client creation
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        createSignedUrl: vi.fn(),
+      })),
+    },
+  })),
+}));
+
+// Mock Replicate SDK
+vi.mock('replicate', () => ({
+  default: vi.fn(() => ({
+    predictions: {
+      create: vi.fn(),
+      get: vi.fn(),
+    },
+  })),
+}));
+
 // Mock Runway SDK
 vi.mock('@runwayml/sdk', () => ({
   default: vi.fn(() => ({
@@ -13,7 +34,11 @@ vi.mock('dotenv', () => ({
   config: vi.fn(() => ({ parsed: { RUNWAY_API_KEY: 'test-key' } })),
 }));
 
+// Set environment variables
 process.env.RUNWAY_API_KEY = 'test-api-key';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+process.env.REPLICATE_API_TOKEN = 'test-replicate-token';
 
 /**
  * Integration tests to ensure consolidation works correctly
