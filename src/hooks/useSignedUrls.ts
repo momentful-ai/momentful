@@ -22,11 +22,19 @@ export function useSignedUrls() {
 
     // Don't fetch if already loading
     if (loading[cacheKey]) {
-      // Wait for existing request to complete
-      return new Promise((resolve) => {
+      // Wait for existing request to complete (with timeout to prevent infinite loops)
+      return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const maxWaitTime = 30000; // 30 seconds max wait
+        
         const checkCache = () => {
           if (signedUrls[cacheKey]) {
             resolve(signedUrls[cacheKey]);
+          } else if (Date.now() - startTime > maxWaitTime) {
+            reject(new Error('Timeout waiting for signed URL'));
+          } else if (!loading[cacheKey]) {
+            // Request completed but no URL - likely an error
+            reject(new Error('Failed to get signed URL'));
           } else {
             setTimeout(checkCache, 100);
           }

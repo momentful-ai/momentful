@@ -3,6 +3,7 @@ import { SignIn, useUser, useSession } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { Moon, Sun } from 'lucide-react';
 import { setClerkTokenProvider } from '../lib/supabase';
+import { setTokenProvider } from '../lib/storage-utils';
 import { useBypassContext } from '../hooks/useBypassContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from './ui/button';
@@ -51,22 +52,28 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (isBypassEnabled) {
       // In bypass mode, clear the token provider to use fallback
       setClerkTokenProvider(null);
+      setTokenProvider(null);
       return;
     }
 
     if (!isSignedIn || !session) {
       setClerkTokenProvider(null);
+      setTokenProvider(null);
       return;
     }
 
-    // Set up the token provider to get fresh tokens from Clerk
-    setClerkTokenProvider(async () => {
+    // Create a token provider function that gets fresh tokens from Clerk
+    const tokenProviderFn = async () => {
       const token = await session.getToken({ template: 'supabase' });
       if (!token) {
         throw new Error('Failed to get Clerk JWT token');
       }
       return token;
-    });
+    };
+
+    // Set up the token provider for both Supabase client and storage utils
+    setClerkTokenProvider(tokenProviderFn);
+    setTokenProvider(tokenProviderFn);
   }, [isBypassEnabled, isSignedIn, session]);
 
   // In bypass mode, skip all auth checks

@@ -152,15 +152,79 @@ function isSignedUrlValid(cacheKey: string): boolean {
 }
 
 /**
+ * Track failed requests to prevent infinite retry loops
+ */
+const failedRequests = new Map<string, { count: number; lastAttempt: number }>();
+const MAX_RETRIES = 3;
+const RETRY_COOLDOWN = 60000; // 1 minute cooldown after max retries
+
+/**
+ * Global token provider function that can be set by the app
+ * This allows the storage utils to access Clerk tokens without React hooks
+ */
+let tokenProvider: (() => Promise<string | null>) | null = null;
+
+/**
+ * Set the token provider function
+ */
+export function setTokenProvider(provider: (() => Promise<string | null>) | null) {
+  tokenProvider = provider;
+}
+
+/**
+ * Get Clerk token for API requests
+ * This function attempts to get the token from the token provider
+ */
+async function getClerkToken(): Promise<string | null> {
+  if (tokenProvider) {
+    try {
+      return await tokenProvider();
+    } catch (error) {
+      console.warn('Failed to get token from provider:', error);
+    }
+  }
+  return null;
+}
+
+/**
  * Fetch a signed URL from the API
  */
 export async function fetchSignedUrl(bucket: string, path: string, expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+  const cacheKey = getSignedUrlCacheKey(bucket, path);
+  
+  // Check if we've exceeded retry limit for this path
+  const failureInfo = failedRequests.get(cacheKey);
+  if (failureInfo) {
+    const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
+    
+    // If we've exceeded max retries and cooldown hasn't passed, reject immediately
+    if (failureInfo.count >= MAX_RETRIES && timeSinceLastAttempt < RETRY_COOLDOWN) {
+      return {
+        success: false,
+        error: 'Too many failed attempts. Please try again later.',
+      };
+    }
+    
+    // Reset counter if cooldown has passed
+    if (timeSinceLastAttempt >= RETRY_COOLDOWN) {
+      failedRequests.delete(cacheKey);
+    }
+  }
+
+  // Get Clerk token for authentication
+  const token = await getClerkToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
     const response = await fetch('/api/signed-urls', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         bucket,
         path,
@@ -170,6 +234,14 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      
+      // Track failed requests
+      const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
+      failedRequests.set(cacheKey, {
+        count: currentFailureInfo.count + 1,
+        lastAttempt: Date.now(),
+      });
+      
       return {
         success: false,
         error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
@@ -179,14 +251,23 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
     const data = await response.json();
 
     if (!data.signedUrl) {
+      // Track failed requests
+      const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
+      failedRequests.set(cacheKey, {
+        count: currentFailureInfo.count + 1,
+        lastAttempt: Date.now(),
+      });
+      
       return {
         success: false,
         error: 'No signed URL returned from server',
       };
     }
 
+    // Success - clear any failure tracking
+    failedRequests.delete(cacheKey);
+
     // Cache the signed URL
-    const cacheKey = getSignedUrlCacheKey(bucket, path);
     const expiresAt = new Date(data.expiresAt).getTime();
     signedUrlCache.set(cacheKey, {
       url: data.signedUrl,
@@ -198,6 +279,13 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
       signedUrl: data.signedUrl,
     };
   } catch (error) {
+    // Track failed requests
+    const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
+    failedRequests.set(cacheKey, {
+      count: currentFailureInfo.count + 1,
+      lastAttempt: Date.now(),
+    });
+    
     console.error('Error fetching signed URL:', error);
     return {
       success: false,
