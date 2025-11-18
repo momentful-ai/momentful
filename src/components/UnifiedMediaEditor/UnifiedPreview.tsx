@@ -6,14 +6,19 @@ import { VideoPlayer } from '../VideoPlayer';
 import { ImagePreviewSkeleton, VideoPreviewSkeleton } from './MediaPreviewSkeletons';
 import { shouldShowAllSkeletons } from '../../lib/local-mode';
 import { MediaThumbnail } from '../shared/MediaThumbnail';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 
 
 interface UnifiedPreviewProps {
   mode: MediaEditorMode;
 
-  // Image mode props
+  // Image mode props - can be URLs or storage paths
   originalImageUrl?: string | null;
+  originalImageStoragePath?: string | null;
+  originalImageBucket?: string;
   editedImageUrl?: string | null;
+  editedImageStoragePath?: string | null;
+  editedImageBucket?: string;
   showComparison?: boolean;
   fileName?: string;
 
@@ -31,17 +36,26 @@ interface UnifiedPreviewProps {
 
 function ImagePreview({
   originalImageUrl,
+  originalImageStoragePath,
+  originalImageBucket = 'user-uploads',
   editedImageUrl,
+  editedImageStoragePath,
+  editedImageBucket = 'user-uploads',
   showComparison,
   fileName,
   isGenerating,
 }: {
-  originalImageUrl: string;
-  editedImageUrl: string | null;
+  originalImageUrl?: string | null;
+  originalImageStoragePath?: string | null;
+  originalImageBucket?: string;
+  editedImageUrl?: string | null;
+  editedImageStoragePath?: string | null;
+  editedImageBucket?: string;
   showComparison: boolean;
   fileName: string;
   isGenerating: boolean;
 }) {
+  const { useSignedUrl } = useSignedUrls();
   const [forceShowSkeleton, setForceShowSkeleton] = useState(shouldShowAllSkeletons());
 
   useEffect(() => {
@@ -52,8 +66,22 @@ function ImagePreview({
     return () => window.removeEventListener('dev-skeletons-toggle', handleToggle);
   }, []);
 
-  const shouldShowComparison = showComparison && !!editedImageUrl && editedImageUrl !== originalImageUrl && !forceShowSkeleton;
-  const shouldShowSkeleton = (isGenerating && !editedImageUrl) || forceShowSkeleton;
+  // Get signed URLs for storage paths (hooks must be called unconditionally)
+  const originalSignedUrlQuery = useSignedUrl(originalImageBucket || 'user-uploads', originalImageStoragePath || '');
+  const editedSignedUrlQuery = useSignedUrl(editedImageBucket || 'user-uploads', editedImageStoragePath || '');
+
+  // Determine which URLs to use - prefer storage paths with signed URLs, fallback to direct URLs
+  // Handle cases where hooks might not return expected results (e.g., in test environments)
+  const actualOriginalUrl = (originalImageStoragePath && originalSignedUrlQuery && 'data' in originalSignedUrlQuery && originalSignedUrlQuery.data) || originalImageUrl;
+  const actualEditedUrl = (editedImageStoragePath && editedSignedUrlQuery && 'data' in editedSignedUrlQuery && editedSignedUrlQuery.data) || editedImageUrl;
+
+  // Check if we're still loading signed URLs (only when we have storage paths)
+  const isLoadingOriginal = originalImageStoragePath && originalSignedUrlQuery && 'isLoading' in originalSignedUrlQuery && originalSignedUrlQuery.isLoading;
+  const isLoadingEdited = editedImageStoragePath && editedSignedUrlQuery && 'isLoading' in editedSignedUrlQuery && editedSignedUrlQuery.isLoading;
+  const isLoadingAny = isLoadingOriginal || isLoadingEdited;
+
+  const shouldShowComparison = showComparison && !!actualEditedUrl && actualEditedUrl !== actualOriginalUrl && !forceShowSkeleton;
+  const shouldShowSkeleton = (isGenerating && !actualEditedUrl) || forceShowSkeleton || isLoadingAny;
 
   return (
     <div className="h-full bg-card overflow-hidden">
@@ -66,12 +94,18 @@ function ImagePreview({
                   Original
                 </div>
                 <div className="flex-1 flex items-center justify-center w-full">
-                  <img
-                    src={originalImageUrl}
-                    alt="Original"
-                    className="max-w-full max-h-full rounded-xl"
-                    style={{ objectFit: 'contain' }}
-                  />
+                  {originalImageUrl ? (
+                    <img
+                      src={originalImageUrl}
+                      alt="Original"
+                      className="max-w-full max-h-full rounded-xl"
+                      style={{ objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted rounded-xl flex items-center justify-center">
+                      <span className="text-muted-foreground text-sm">Loading...</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col items-center justify-center">
@@ -86,7 +120,7 @@ function ImagePreview({
           ) : !shouldShowComparison ? (
             <div className="flex items-center justify-center w-full h-full animate-fade-in">
               <img
-                src={originalImageUrl}
+                src={actualOriginalUrl || ''}
                 alt={fileName}
                 className="max-w-full max-h-full rounded-xl transition-transform hover:scale-105"
                 style={{ objectFit: 'contain' }}
@@ -100,7 +134,7 @@ function ImagePreview({
                 </div>
                 <div className="flex-1 flex items-center justify-center w-full">
                   <img
-                    src={originalImageUrl}
+                    src={actualOriginalUrl || ''}
                     alt="Original"
                     className="max-w-full max-h-full rounded-xl"
                     style={{ objectFit: 'contain' }}
@@ -113,7 +147,7 @@ function ImagePreview({
                 </div>
                 <div className="flex-1 flex items-center justify-center w-full">
                   <img
-                    src={editedImageUrl || originalImageUrl}
+                    src={actualEditedUrl || actualOriginalUrl || ''}
                     alt="Edited"
                     className="max-w-full max-h-full rounded-xl"
                     style={{ objectFit: 'contain' }}
@@ -273,7 +307,11 @@ function VideoPreview({
 export function UnifiedPreview({
   mode,
   originalImageUrl,
+  originalImageStoragePath,
+  originalImageBucket,
   editedImageUrl,
+  editedImageStoragePath,
+  editedImageBucket,
   showComparison,
   fileName,
   aspectRatio,
@@ -295,10 +333,14 @@ export function UnifiedPreview({
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       {mode === 'image-edit' ? (
-        originalImageUrl && fileName ? (
+        (originalImageUrl || originalImageStoragePath) && fileName ? (
           <ImagePreview
             originalImageUrl={originalImageUrl}
-            editedImageUrl={editedImageUrl || null}
+            originalImageStoragePath={originalImageStoragePath}
+            originalImageBucket={originalImageBucket}
+            editedImageUrl={editedImageUrl}
+            editedImageStoragePath={editedImageStoragePath}
+            editedImageBucket={editedImageBucket}
             showComparison={showComparison || false}
             fileName={fileName}
             isGenerating={isGenerating || false}

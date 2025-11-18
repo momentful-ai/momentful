@@ -42,6 +42,8 @@ export function UnifiedMediaEditor({
 
   // Initialize state based on mode
   const [originalImageUrl, setOriginalImageUrl] = useState<string | undefined>();
+  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<string | undefined>();
+  const [editedImageStoragePath, setEditedImageStoragePath] = useState<string | undefined>();
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
     const baseState: UnifiedEditorState = {
@@ -103,26 +105,21 @@ export function UnifiedMediaEditor({
     }
   }, [initialSelectedImageId, editedImages, state.mode]);
 
-  // Load original image URL for fallback display
+  // Set original image data for signed URL handling
   useEffect(() => {
-    const loadOriginalImageUrl = async () => {
-      if (asset && !sourceEditedImage) {
-        try {
-          const url = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
-          setOriginalImageUrl(url);
-        } catch (error) {
-          console.error('Failed to load original image URL:', error);
-          setOriginalImageUrl(undefined);
-        }
-      } else if (sourceEditedImage) {
-        setOriginalImageUrl(sourceEditedImage.edited_url);
-      } else {
-        setOriginalImageUrl(undefined);
-      }
-    };
-
-    loadOriginalImageUrl();
-  }, [asset, sourceEditedImage, signedUrls]);
+    if (asset && !sourceEditedImage) {
+      // For media assets, pass storage path for signing
+      setOriginalImageStoragePath(asset.storage_path);
+      setOriginalImageUrl(undefined); // Clear any old URL
+    } else if (sourceEditedImage) {
+      // For edited images, use the stored signed URL as fallback and storage path for fresh signing
+      setOriginalImageUrl(sourceEditedImage.edited_url);
+      setOriginalImageStoragePath(sourceEditedImage.storage_path);
+    } else {
+      setOriginalImageUrl(undefined);
+      setOriginalImageStoragePath(undefined);
+    }
+  }, [asset, sourceEditedImage]);
 
   // Initialize selected image for preview in image-edit mode
   useEffect(() => {
@@ -287,6 +284,7 @@ export function UnifiedMediaEditor({
       const { storagePath, width, height } = await downloadAndUploadImage(generatedImageUrl, projectId);
       const uploadedImageUrl = await signedUrls.getSignedUrl('user-uploads', storagePath);
       setState(prev => ({ ...prev, editedImageUrl: uploadedImageUrl, showComparison: true }));
+      setEditedImageStoragePath(storagePath);
 
       // Save to database
       const createdImage = await database.editedImages.create({
@@ -632,6 +630,7 @@ export function UnifiedMediaEditor({
     if (state.mode === 'image-edit') {
       // In image-edit mode, set the selected image for preview
       let imageUrl: string | null = null;
+      let storagePath: string | null = null;
       let fileName: string = '';
 
       if (source.type === 'edited_image') {
@@ -640,6 +639,7 @@ export function UnifiedMediaEditor({
           || editingHistory.find(img => img.id === source.id);
         if (editedImage) {
           imageUrl = editedImage.edited_url || null;
+          storagePath = editedImage.storage_path || null;
           fileName = editedImage.prompt.substring(0, 30);
         }
       } else if (source.type === 'media_asset') {
@@ -647,6 +647,7 @@ export function UnifiedMediaEditor({
         if (mediaAsset) {
           try {
             imageUrl = await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path);
+            storagePath = mediaAsset.storage_path;
             fileName = mediaAsset.file_name;
           } catch (error) {
             console.error('Failed to load asset URL:', error);
@@ -667,6 +668,9 @@ export function UnifiedMediaEditor({
           editedImageUrl: null, // Clear any edited image when selecting a new source
           showComparison: false,
         }));
+        // Update the original image state to reflect the selected image
+        setOriginalImageUrl(imageUrl || undefined);
+        setOriginalImageStoragePath(storagePath || undefined);
       }
     } else {
       // In video-generate mode, handle selection as single selection (no toggle)
@@ -735,7 +739,11 @@ export function UnifiedMediaEditor({
               originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview
                 ? state.selectedImageForPreview.url
                 : originalImageUrl}
+              originalImageStoragePath={originalImageStoragePath}
+              originalImageBucket="user-uploads"
               editedImageUrl={state.editedImageUrl}
+              editedImageStoragePath={editedImageStoragePath}
+              editedImageBucket="user-uploads"
               showComparison={state.showComparison}
               fileName={state.mode === 'image-edit' && state.selectedImageForPreview
                 ? state.selectedImageForPreview.fileName

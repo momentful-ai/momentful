@@ -30,6 +30,11 @@ vi.mock('../../hooks/useEditedImages', () => ({
 vi.mock('../../hooks/useMediaAssets', () => ({ useMediaAssets: vi.fn() }));
 vi.mock('../../hooks/useSignedUrls', () => ({
   useSignedUrls: vi.fn(() => ({
+    useSignedUrl: vi.fn((bucket: string, path: string) => ({
+      data: path ? `https://signed.example.com/${bucket}/${path}` : undefined,
+      isLoading: false,
+      error: null,
+    })),
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
     prefetchThumbnails: vi.fn(),
