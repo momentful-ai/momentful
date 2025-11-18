@@ -46,6 +46,9 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 
+// Import type guard functions
+import { isMediaAsset, isEditedImage, isGeneratedVideo } from '../../lib/type-guards';
+
 function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, onGenerateVideo, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
@@ -306,18 +309,18 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         actualItem = item;
       }
 
-      if ('file_type' in actualItem) {
+      if (isMediaAsset(actualItem)) {
         // MediaAsset
         await downloadFileByStoragePath(actualItem.storage_path, actualItem.file_name, 'user-uploads');
         showToast(`Downloaded ${actualItem.file_name}`, 'success');
-      } else if ('edited_url' in actualItem) {
+      } else if (isEditedImage(actualItem)) {
         // EditedImage
         const filename = `edited-image-${actualItem.id}.png`;
         await downloadFileByStoragePath(actualItem.storage_path, filename, 'user-uploads');
         showToast(`Downloaded ${filename}`, 'success');
-      } else if ('storage_path' in actualItem && actualItem.storage_path) {
+      } else if (isGeneratedVideo(actualItem) && actualItem.storage_path) {
         // GeneratedVideo
-        const filename = `${(actualItem as GeneratedVideo).name || `video-${actualItem.id}`}.mp4`;
+        const filename = `${actualItem.name || `video-${actualItem.id}`}.mp4`;
         await downloadFileByStoragePath(actualItem.storage_path, filename, 'generated-videos');
         showToast(`Downloaded ${filename}`, 'success');
       } else {
@@ -339,12 +342,14 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       itemType = item.type;
     } else {
       actualItem = item;
-      if ('file_type' in actualItem) {
+      if (isMediaAsset(actualItem)) {
         itemType = 'media_asset';
-      } else if ('edited_url' in actualItem) {
+      } else if (isEditedImage(actualItem)) {
         itemType = 'edited_image';
-      } else {
+      } else if (isGeneratedVideo(actualItem)) {
         itemType = 'generated_video';
+      } else {
+        itemType = 'unknown';
       }
     }
 
