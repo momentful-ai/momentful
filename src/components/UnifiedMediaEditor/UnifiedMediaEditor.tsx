@@ -86,16 +86,6 @@ export function UnifiedMediaEditor({
   const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
   const { data: editingHistory = [] } = useEditedImagesByLineage(lineageId);
 
-  // Helper function to get signed asset URL
-  const getAssetUrl = useCallback(async (storagePath: string): Promise<string> => {
-    try {
-      return await signedUrls.getSignedUrl('user-uploads', storagePath);
-    } catch (error) {
-      console.error('Failed to get signed URL for asset:', storagePath, error);
-      // Fallback to public URL
-      return database.storage.getPublicUrl('user-uploads', storagePath);
-    }
-  }, [signedUrls]);
 
   // Initialize selected image for video mode
   useEffect(() => {
@@ -118,7 +108,7 @@ export function UnifiedMediaEditor({
     const loadOriginalImageUrl = async () => {
       if (asset && !sourceEditedImage) {
         try {
-          const url = await getAssetUrl(asset.storage_path);
+          const url = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
           setOriginalImageUrl(url);
         } catch (error) {
           console.error('Failed to load original image URL:', error);
@@ -132,7 +122,7 @@ export function UnifiedMediaEditor({
     };
 
     loadOriginalImageUrl();
-  }, [asset, sourceEditedImage, getAssetUrl]);
+  }, [asset, sourceEditedImage, signedUrls]);
 
   // Initialize selected image for preview in image-edit mode
   useEffect(() => {
@@ -157,7 +147,7 @@ export function UnifiedMediaEditor({
           }));
         } else if (asset) {
           try {
-            const assetUrl = await getAssetUrl(asset.storage_path);
+            const assetUrl = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
             const source: SelectedSource = {
               id: asset.id,
               type: 'media_asset',
@@ -182,7 +172,7 @@ export function UnifiedMediaEditor({
     };
 
     initializeSelectedImage();
-  }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, getAssetUrl]);
+  }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, signedUrls]);
 
   // Reset state when switching modes
   useEffect(() => {
@@ -263,7 +253,7 @@ export function UnifiedMediaEditor({
         return;
       }
 
-      const imageUrl = sourceEditedImage?.edited_url || (await getAssetUrl(asset.storage_path));
+      const imageUrl = sourceEditedImage?.edited_url || (await signedUrls.getSignedUrl('user-uploads', asset.storage_path));
       const enhancedPrompt = buildEnhancedImagePrompt(state.productName);
 
       showToast('Starting image generation...', 'info');
@@ -295,7 +285,7 @@ export function UnifiedMediaEditor({
       showToast('Image generated! Uploading...', 'info');
 
       const { storagePath, width, height } = await downloadAndUploadImage(generatedImageUrl, projectId);
-      const uploadedImageUrl = await getAssetUrl(storagePath);
+      const uploadedImageUrl = await signedUrls.getSignedUrl('user-uploads', storagePath);
       setState(prev => ({ ...prev, editedImageUrl: uploadedImageUrl, showComparison: true }));
 
       // Save to database
@@ -331,6 +321,11 @@ export function UnifiedMediaEditor({
         queryKey: ['timelines', projectId, userId],
         refetchType: 'active'
       });
+
+      // Invalidate thumbnail cache for new edited image
+      queryClient.invalidateQueries({ queryKey: ['signed-url'] });
+      // Dispatch custom event to trigger global thumbnail prefetch refresh
+      window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
       if (createdImage.lineage_id) {
         queryClient.invalidateQueries({
@@ -387,7 +382,7 @@ export function UnifiedMediaEditor({
         imageUrl = editedImage?.edited_url || null;
       } else if (imageSource.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === imageSource.id);
-        imageUrl = mediaAsset ? await getAssetUrl(mediaAsset.storage_path) : null;
+        imageUrl = mediaAsset ? await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path) : null;
       }
 
       if (!imageUrl) {
@@ -488,6 +483,11 @@ export function UnifiedMediaEditor({
           queryKey: ['timelines', projectId, userId],
           refetchType: 'active'
         });
+
+        // Invalidate thumbnail cache for new video
+        queryClient.invalidateQueries({ queryKey: ['signed-url'] });
+        // Dispatch custom event to trigger global thumbnail prefetch refresh
+        window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
         showToast('Video is ready to view!', 'success');
         onSave();
@@ -646,7 +646,7 @@ export function UnifiedMediaEditor({
         const mediaAsset = mediaAssets.find(asset => asset.id === source.id);
         if (mediaAsset) {
           try {
-            imageUrl = await getAssetUrl(mediaAsset.storage_path);
+            imageUrl = await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path);
             fileName = mediaAsset.file_name;
           } catch (error) {
             console.error('Failed to load asset URL:', error);
@@ -725,7 +725,6 @@ export function UnifiedMediaEditor({
               type: 'active'
             });
           }}
-          getAssetUrl={getAssetUrl}
         />
 
         <div className="flex-1 flex flex-col bg-card overflow-hidden">

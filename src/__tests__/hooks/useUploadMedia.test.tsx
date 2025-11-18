@@ -61,6 +61,8 @@ describe('useUploadMedia', () => {
       sort_order: 0,
       created_at: '2025-01-01T00:00:00Z',
     });
+    // Spy on queryClient methods
+    vi.spyOn(queryClient, 'invalidateQueries');
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -421,6 +423,36 @@ describe('useUploadMedia', () => {
 
     // Both files should be processed (order may vary due to Promise.allSettled)
     expect(uploadOrder.length).toBe(2);
+  });
+
+  it('invalidates signed URL cache and dispatches event on successful upload', async () => {
+    const file = createMockFile('test.jpg', 'image/jpeg');
+
+    // Mock addEventListener to capture the dispatched event
+    const mockAddEventListener = vi.spyOn(window, 'addEventListener');
+    const mockDispatchEvent = vi.spyOn(window, 'dispatchEvent');
+
+    const { result } = renderHook(() => useUploadMedia(), { wrapper });
+
+    await result.current.mutateAsync({
+      projectId: 'project-1',
+      files: [file],
+    });
+
+    // Should invalidate signed URL queries
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['signed-url']
+    });
+
+    // Should dispatch custom event for global thumbnail prefetch refresh
+    expect(mockDispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'thumbnail-cache-invalidated',
+      })
+    );
+
+    mockAddEventListener.mockRestore();
+    mockDispatchEvent.mockRestore();
   });
 });
 

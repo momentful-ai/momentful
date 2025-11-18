@@ -5,6 +5,8 @@ import { MediaEditorMode, SelectedSource } from './types';
 import { VideoPlayer } from '../VideoPlayer';
 import { ImagePreviewSkeleton, VideoPreviewSkeleton } from './MediaPreviewSkeletons';
 import { shouldShowAllSkeletons } from '../../lib/local-mode';
+import { MediaThumbnail } from '../shared/MediaThumbnail';
+
 
 interface UnifiedPreviewProps {
   mode: MediaEditorMode;
@@ -179,15 +181,11 @@ function VideoPreview({
                   }}
                 >
                   <div className="w-full h-full flex items-center justify-center bg-muted">
-                    {source.thumbnail ? (
-                      <img
-                        src={source.thumbnail}
-                        alt={source.name}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <Film className="w-8 h-8 text-muted-foreground" />
-                    )}
+                    <MediaThumbnail
+                      src={source.thumbnail}
+                      alt={source.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
                   </div>
                   {onRemoveSource && (
                     <button

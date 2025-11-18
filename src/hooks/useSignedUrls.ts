@@ -319,6 +319,41 @@ export function useSignedUrls() {
     }
   }, [queryClient, MEDIA_URL_CONFIG.cacheBuffer, MEDIA_URL_CONFIG.defaultExpiry, MEDIA_URL_CONFIG.maxExpiry, MEDIA_URL_CONFIG.staleBuffer, fetchSignedUrl]);
 
+  /**
+   * Prefetch thumbnails for a list of media items
+   * Useful for preloading thumbnails that are likely to be viewed soon
+   */
+  const prefetchThumbnails = useCallback(async (
+    items: Array<{ src?: string; storagePath?: string; bucket?: string }>
+  ) => {
+    const storagePaths = items
+      .filter(item => !item.src && item.storagePath)
+      .map(item => ({
+        bucket: item.bucket || 'user-uploads',
+        path: item.storagePath!
+      }));
+
+    if (storagePaths.length > 0) {
+      // Group by bucket for efficient prefetching
+      const byBucket = storagePaths.reduce((acc, item) => {
+        if (!acc[item.bucket]) acc[item.bucket] = [];
+        acc[item.bucket].push(item.path);
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      // Prefetch each bucket
+      const prefetchPromises = Object.entries(byBucket).map(([bucket, paths]) =>
+        preloadSignedUrlsMutation.mutateAsync({
+          bucket,
+          paths,
+          expiresIn: MEDIA_URL_CONFIG.prefetchExpiry
+        })
+      );
+
+      await Promise.all(prefetchPromises);
+    }
+  }, [preloadSignedUrlsMutation, MEDIA_URL_CONFIG.prefetchExpiry]);
+
   return {
     // React Query hooks (recommended)
     useSignedUrl,
@@ -329,6 +364,7 @@ export function useSignedUrls() {
     // Utility functions (for backward compatibility)
     getSignedUrl, // Simple async function
     preloadSignedUrls: preloadSignedUrlsMutation.mutateAsync,
+    prefetchThumbnails, // New: prefetch thumbnails for media items
     clearCache,
     getMultipleSignedUrls,
     getUrlCacheStats,
