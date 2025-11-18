@@ -85,6 +85,10 @@ export function useUploadMedia() {
       queryClient.invalidateQueries({
         queryKey: ['timelines', projectId, userId],
       });
+      // Invalidate thumbnail cache for new uploads
+      queryClient.invalidateQueries({ queryKey: ['signed-url'] });
+      // Dispatch custom event to trigger global thumbnail prefetch refresh
+      window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
     },
   });
 }

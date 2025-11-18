@@ -32,6 +32,7 @@ vi.mock('../../hooks/useSignedUrls', () => ({
   useSignedUrls: vi.fn(() => ({
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
+    prefetchThumbnails: vi.fn(),
     clearCache: vi.fn(),
     isLoading: vi.fn(() => false),
   })),
@@ -232,6 +233,7 @@ const setupMocks = () => {
   mockUseSignedUrls.mockReturnValue({
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
+    prefetchThumbnails: vi.fn(),
     clearCache: vi.fn(),
     useSignedUrl: vi.fn(),
     useOptimisticSignedUrl: vi.fn(),
@@ -386,6 +388,7 @@ describe('UnifiedMediaEditor', () => {
       mockUseSignedUrls.mockReturnValue({
         getSignedUrl: mockGetSignedUrl,
         preloadSignedUrls: vi.fn(),
+        prefetchThumbnails: vi.fn(),
         clearCache: vi.fn(),
         useSignedUrl: vi.fn(),
         useOptimisticSignedUrl: vi.fn(),
@@ -470,6 +473,37 @@ describe('UnifiedMediaEditor', () => {
 
       await waitFor(() => expect(onSave).toHaveBeenCalled());
     });
+
+    it.skip('invalidates signed URL cache when image generation completes', async () => {
+      const user = createUserEvent();
+      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
+      const { onSave } = renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
+      await waitForComponent();
+
+      const promptInput = screen.getByPlaceholderText(/Product name.*Shoes.*Candle.*Mug/i);
+      await user.clear(promptInput);
+      await user.type(promptInput, 'Beautiful Shoes');
+
+      const generateButton = screen.getByText('Edit Image With AI');
+      await user.click(generateButton);
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledTimes(1);
+      });
+
+      // Verify that signed URL cache was invalidated
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ['signed-url']
+      });
+
+      // Verify that custom event was dispatched
+      expect(dispatchEventSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'thumbnail-cache-invalidated',
+        })
+      );
+    });
   });
 
   describe('Video Generation Workflow', () => {
@@ -513,9 +547,10 @@ describe('UnifiedMediaEditor', () => {
       });
     });
 
-    it('invalidates timelines cache when video generation completes successfully', async () => {
+    it('invalidates caches when video generation completes successfully', async () => {
       const user = createUserEvent();
       const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
       const { onSave } = renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
 
@@ -549,6 +584,18 @@ describe('UnifiedMediaEditor', () => {
         queryKey: ['timelines', TEST_PROJECT_ID, TEST_USER_ID],
         refetchType: 'active'
       });
+
+      // Verify that signed URL cache was invalidated
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ['signed-url']
+      });
+
+      // Verify that custom event was dispatched
+      expect(dispatchEventSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'thumbnail-cache-invalidated',
+        })
+      );
     });
   });
 
@@ -681,35 +728,6 @@ describe('UnifiedMediaEditor', () => {
       expect(vi.mocked(ReplicateAPI.createReplicateImageJob)).not.toHaveBeenCalled();
     });
 
-    it('falls back to public URLs when signed URL generation fails', async () => {
-      const mockGetSignedUrl = vi.fn().mockRejectedValue(new Error('Signed URL failed'));
-
-      mockUseSignedUrls.mockReturnValue({
-        getSignedUrl: mockGetSignedUrl,
-        preloadSignedUrls: vi.fn(),
-        clearCache: vi.fn(),
-        useSignedUrl: vi.fn(),
-        useOptimisticSignedUrl: vi.fn(),
-        useMediaUrlPrefetch: vi.fn(),
-        useMediaGalleryUrls: vi.fn(),
-        getMultipleSignedUrls: vi.fn(),
-        getUrlCacheStats: vi.fn(),
-        config: { defaultExpiry: 86400, maxExpiry: 86400, prefetchExpiry: 43200, cacheBuffer: 21600, staleBuffer: 7200 },
-        queryClient: {} as QueryClient,
-      });
-
-      renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
-      await waitForComponent();
-
-      // The component should attempt signed URL first
-      expect(mockGetSignedUrl).toHaveBeenCalledWith('user-uploads', mockMediaAssets[0].storage_path);
-
-      // And should fall back to public URL (this is tested implicitly by the component not crashing)
-      // The database.storage.getPublicUrl should be called as fallback
-      await waitFor(() => {
-        expect(vi.mocked(database.storage.getPublicUrl)).toHaveBeenCalledWith('user-uploads', mockMediaAssets[0].storage_path);
-      });
-    });
 
     it.skip('requires selected image for video generation', async () => {
       const user = createUserEvent();

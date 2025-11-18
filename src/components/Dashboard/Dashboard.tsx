@@ -6,6 +6,7 @@ import { Project } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useProjects } from '../../hooks/useProjects';
+import { useGlobalThumbnailPrefetch } from '../../hooks/useGlobalThumbnailPrefetch';
 import { DashboardSkeleton } from '../LoadingSkeleton';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { Button } from '../ui/button';
@@ -21,6 +22,9 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+
+  // Global thumbnail cache management
+  useGlobalThumbnailPrefetch();
 
   const { data: projects = [], isLoading: loading, error } = useProjects();
 
