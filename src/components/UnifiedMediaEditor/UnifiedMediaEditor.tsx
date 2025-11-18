@@ -628,7 +628,7 @@ export function UnifiedMediaEditor({
     }
   };
 
-  const handleImageMouseDown = async (source: SelectedSource) => {
+  const handleImageClick = async (source: SelectedSource) => {
     if (state.mode === 'image-edit') {
       // In image-edit mode, set the selected image for preview
       let imageUrl: string | null = null;
@@ -712,7 +712,7 @@ export function UnifiedMediaEditor({
           selectedSources={state.selectedSources}
           isSelecting={state.isSelecting}
           onDragStart={handleDragStart}
-          onMouseDown={handleImageMouseDown}
+          onClick={handleImageClick}
           onFileDrop={handleFileDrop}
           onRefresh={() => {
             // Only refetch active queries to avoid unnecessary network requests

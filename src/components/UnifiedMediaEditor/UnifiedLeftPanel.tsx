@@ -79,7 +79,7 @@ interface MediaSourceGridProps {
   selectedSources: SelectedSource[];
   isSelecting: boolean;
   onDragStart: (e: React.DragEvent, source: SelectedSource) => void;
-  onMouseDown: (source: SelectedSource) => void;
+  onClick: (source: SelectedSource) => void;
   onMouseEnter: (source: SelectedSource) => void;
   getSource: (item: MediaSourceItem) => SelectedSource;
   emptyMessage: string;
@@ -92,7 +92,7 @@ function MediaSourceGrid({
   selectedSources,
   isSelecting,
   onDragStart,
-  onMouseDown,
+  onClick,
   onMouseEnter,
   getSource,
   emptyMessage,
@@ -109,10 +109,7 @@ function MediaSourceGrid({
             key={item.id}
             draggable={!isSelecting}
             onDragStart={(e) => !isSelecting && onDragStart(e, source)}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              onMouseDown(source);
-            }}
+            onClick={() => onClick(source)}
             onMouseEnter={() => onMouseEnter(source)}
             className={`relative w-full max-h-32 rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
               isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'
@@ -152,7 +149,7 @@ interface UnifiedLeftPanelProps {
   selectedSources: SelectedSource[];
   isSelecting: boolean;
   onDragStart: (e: React.DragEvent, source: SelectedSource) => void;
-  onMouseDown: (source: SelectedSource) => void;
+  onClick: (source: SelectedSource) => void;
   onFileDrop: (files: File[]) => Promise<void>;
   onRefresh: () => void;
   getAssetUrl: (storagePath: string) => Promise<string>;
@@ -165,7 +162,7 @@ export function UnifiedLeftPanel({
   selectedSources,
   isSelecting,
   onDragStart,
-  onMouseDown,
+  onClick,
   onFileDrop,
   onRefresh: _onRefresh, // eslint-disable-line @typescript-eslint/no-unused-vars
   getAssetUrl,
@@ -276,7 +273,7 @@ export function UnifiedLeftPanel({
             selectedSources={selectedSources}
             isSelecting={isSelecting}
             onDragStart={onDragStart}
-            onMouseDown={onMouseDown}
+            onClick={onClick}
             onMouseEnter={() => {}} // Not used in unified mode
             getSource={(item) => ({
               id: item.id,
@@ -299,7 +296,7 @@ export function UnifiedLeftPanel({
             selectedSources={selectedSources}
             isSelecting={isSelecting}
             onDragStart={onDragStart}
-            onMouseDown={onMouseDown}
+            onClick={onClick}
             onMouseEnter={() => {}} // Not used in unified mode
             getSource={(item) => ({
               id: item.id,
