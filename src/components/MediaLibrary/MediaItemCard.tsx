@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Trash2, Clock, Wand2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -14,7 +15,7 @@ interface MediaItemCardProps {
   onEditImage?: (asset: MediaAsset) => void;
   onRequestDelete: () => void;
   onDownload?: (asset: MediaAsset) => void;
-  getAssetUrl: (storagePath: string) => string;
+  getAssetUrl: (storagePath: string) => Promise<string>;
 }
 
 export function MediaItemCard({
@@ -27,6 +28,23 @@ export function MediaItemCard({
   onDownload,
   getAssetUrl,
 }: MediaItemCardProps) {
+  const [assetUrl, setAssetUrl] = useState<string | null>(null);
+
+  // Load the asset URL asynchronously
+  useEffect(() => {
+    const loadAssetUrl = async () => {
+      if (asset.storage_path) {
+        try {
+          const url = await getAssetUrl(asset.storage_path);
+          setAssetUrl(url);
+        } catch (error) {
+          console.error('Failed to load asset URL:', error);
+        }
+      }
+    };
+
+    loadAssetUrl();
+  }, [asset.storage_path, getAssetUrl]);
 
   return (
     <Card
@@ -49,15 +67,25 @@ export function MediaItemCard({
       )}>
         {asset.file_type === 'image' ? (
           <div className="w-full h-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform duration-300">
-            <img
-              src={getAssetUrl(asset.storage_path)}
-              alt={asset.file_name}
-              className="max-w-full max-h-full object-contain"
-            />
+            {assetUrl ? (
+              <img
+                src={assetUrl}
+                alt={asset.file_name}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full bg-muted animate-pulse rounded" />
+            )}
           </div>
         ) : (
           <div className="relative w-full h-full">
-            <VideoPlayer videoUrl={getAssetUrl(asset.storage_path)} />
+            {assetUrl ? (
+              <VideoPlayer videoUrl={assetUrl} />
+            ) : (
+              <div className="w-full h-full bg-muted animate-pulse rounded flex items-center justify-center">
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              </div>
+            )}
             {asset.duration && (
               <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg z-10">
                 <Clock className="w-3 h-3" />

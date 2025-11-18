@@ -58,7 +58,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [isUploading, setIsUploading] = useState(false);
   const [timelineItemToDelete, setTimelineItemToDelete] = useState<{ item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType; type: string } | null>(null);
   const { showToast } = useToast();
-  const { getSignedUrl } = useSignedUrls();
+  const signedUrls = useSignedUrls();
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
   const queryClient = useQueryClient();
@@ -411,7 +411,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     setIsDownloadingAll(true);
     try {
       const items = await Promise.all(mediaAssets.map(async (asset) => ({
-        url: await getSignedUrl('user-uploads', asset.storage_path),
+        url: await signedUrls.getSignedUrl('user-uploads', asset.storage_path),
         filename: asset.file_name,
       })));
 
@@ -426,7 +426,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     } finally {
       setIsDownloadingAll(false);
     }
-  }, [mediaAssets, getSignedUrl, currentProject.name, showToast]);
+  }, [mediaAssets, signedUrls, currentProject.name, showToast]);
 
   const handleDownloadAllEdited = useCallback(async () => {
     if (editedImages.length === 0) return;

@@ -95,9 +95,6 @@ vi.mock('../../../components/shared/MediaCard', () => ({
   },
 }));
 
-vi.mock('../../../lib/media', () => ({
-  getAssetUrl: vi.fn(() => 'mock-url'),
-}));
 
 
 const mockLineages: Lineage[] = [

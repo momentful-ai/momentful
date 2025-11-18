@@ -1,4 +1,3 @@
-import { database } from './database';
 
 export const ACCEPTABLE_IMAGE_TYPES = [
   'image/jpeg',
@@ -59,17 +58,6 @@ export const VIDEO_CAMERA_MOVEMENTS = [
   { id: 'rotate-right', label: 'Rotate Right', description: 'Counter-clockwise rotation around subject' },
 ] as const;
 
-export async function getAssetUrl(storagePath: string): Promise<string> {
-  return await database.storage.getSignedUrl('user-uploads', storagePath);
-}
-
-/**
- * Get a signed URL for secure access to storage assets
- * Use this for private buckets instead of getAssetUrl
- */
-export async function getSecureAssetUrl(storagePath: string, expiresIn?: number): Promise<string> {
-  return await database.storage.getSignedUrl('user-uploads', storagePath, expiresIn);
-}
 
 export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {

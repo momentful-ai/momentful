@@ -122,10 +122,11 @@ export function isRetryableError(error: unknown): boolean {
 /**
  * Configuration for signed URL requests
  */
+// Supabase-compliant expiry limits for immutable media
 export const SIGNED_URL_CONFIG = {
-  defaultExpiry: 86400, // 1 day
-  maxExpiry: 24 * 60 * 60, // 24 hours
-  cacheExpiry: 12 * 60 * 60 * 1000, // 12 hours (half of default expiry to ensure URLs don't expire during use)
+  defaultExpiry: 24 * 60 * 60, // 24 hours (matches server limit for AI models)
+  maxExpiry: 24 * 60 * 60, // 24 hours max (server-enforced limit)
+  cacheExpiry: 12 * 60 * 60 * 1000, // 12 hours cache time
 };
 
 /**

@@ -16,7 +16,7 @@ export function ProjectPreviewCollage({ project }: { project: Project }) {
       // Only attempt to load if we haven't tried before and have images
       if (previewImages.length > 0 && !hasAttemptedLoad) {
         setHasAttemptedLoad(true);
-        preloadSignedUrls('user-uploads', previewImages)
+        preloadSignedUrls({ bucket: 'user-uploads', paths: previewImages })
           .then(setImageUrls)
           .catch((error) => {
             console.error('Failed to preload preview images:', error);

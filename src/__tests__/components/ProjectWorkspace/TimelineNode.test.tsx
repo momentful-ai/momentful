@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { TimelineNodeComponent } from '../../../components/ProjectWorkspace/TimelineNode';
 import { TimelineNode } from '../../../types/timeline';
 import { MediaAsset, EditedImage, GeneratedVideo } from '../../../types';
-import { mockSupabase } from '../../test-utils.tsx';
+import { mockSupabase, createTestQueryClient, createTestRenderer } from '../../test-utils.tsx';
 
 // Mock supabase
 mockSupabase();
@@ -52,20 +53,32 @@ vi.mock('../../../lib/database', () => ({
   },
 }));
 
+// Mock useSignedUrls hook
+vi.mock('../../../hooks/useSignedUrls', () => ({
+  useSignedUrls: () => ({
+    getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
+    useSignedUrl: vi.fn(() => ({
+      data: 'https://signed.example.com/mock-url',
+      isLoading: false,
+      error: null,
+    })),
+  }),
+}));
+
 // Mock MediaCard component - provide more complete mock to match actual behavior
 vi.mock('../../../components/shared/MediaCard', async () => {
   const React = await import('react');
-  
+
   return {
-    MediaCard: ({ item, showTypeLabel, getAssetUrl }: { 
-      item: TimelineNode; 
+    MediaCard: ({ item, showTypeLabel }: {
+      item: TimelineNode;
       showTypeLabel?: boolean;
-      getAssetUrl: (path: string) => string;
+      getAssetUrl: (path: string) => Promise<string>;
     }) => {
       const { type, data } = item;
       const [imageError, setImageError] = React.useState(false);
       const [videoError, setVideoError] = React.useState(false);
-      
+
       const getThumbnail = () => {
         switch (type) {
           case 'media_asset':
@@ -78,16 +91,8 @@ vi.mock('../../../components/shared/MediaCard', async () => {
             if (!data.storage_path || data.storage_path === undefined || data.storage_path === null || (typeof data.storage_path === 'string' && data.storage_path.trim() === '')) {
               return '';
             }
-            // Only call getAssetUrl if it's provided and storage_path is valid
-            if (getAssetUrl && typeof getAssetUrl === 'function') {
-              try {
-                const url = getAssetUrl(data.storage_path);
-                return url || '';
-              } catch {
-                return '';
-              }
-            }
-            return '';
+            // For testing, return a mock URL directly
+            return `https://example.com/${data.storage_path}`;
           case 'edited_image':
             return (data.edited_url && data.edited_url.trim() !== '') ? data.edited_url : '';
           case 'generated_video':
@@ -98,16 +103,8 @@ vi.mock('../../../components/shared/MediaCard', async () => {
             if (!data.storage_path || data.storage_path === undefined || data.storage_path === null || (typeof data.storage_path === 'string' && data.storage_path.trim() === '')) {
               return '';
             }
-            // Only call getAssetUrl if it's provided and storage_path is valid
-            if (getAssetUrl && typeof getAssetUrl === 'function') {
-              try {
-                const url = getAssetUrl(data.storage_path);
-                return url || '';
-              } catch {
-                return '';
-              }
-            }
-            return '';
+            // For testing, return a mock URL directly
+            return `https://example.com/${data.storage_path}`;
         }
         return '';
       };
@@ -174,8 +171,13 @@ vi.mock('../../../components/shared/MediaCard', async () => {
 });
 
 describe('TimelineNodeComponent', () => {
+  let queryClient: QueryClient;
+  let renderWithQueryClient: ReturnType<typeof createTestRenderer>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient = createTestQueryClient();
+    renderWithQueryClient = createTestRenderer(queryClient);
   });
 
   const mockMediaAsset: MediaAsset = {
@@ -228,7 +230,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Original')).toBeInTheDocument();
     expect(screen.getByText('test-image.jpg')).toBeInTheDocument();
@@ -246,7 +248,7 @@ describe('TimelineNodeComponent', () => {
       data: mockEditedImage,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Edited')).toBeInTheDocument();
     // Title shows truncated prompt (first 20 chars) - "Make it more vibrant" is exactly 20 chars, so it shows fully
@@ -265,7 +267,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     expect(screen.getByText('Video')).toBeInTheDocument();
     expect(screen.getByText('Test Video')).toBeInTheDocument();
@@ -287,7 +289,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Image Placeholder')).toBeInTheDocument();
@@ -306,7 +308,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Image Placeholder')).toBeInTheDocument();
@@ -322,7 +324,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show placeholder
     expect(screen.getByText('Video Placeholder')).toBeInTheDocument();
@@ -338,7 +340,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const img = screen.getByAltText('test-image.jpg') as HTMLImageElement;
     
@@ -357,7 +359,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const video = document.querySelector('video') as HTMLVideoElement;
     expect(video).toBeInTheDocument();
@@ -377,7 +379,7 @@ describe('TimelineNodeComponent', () => {
       data: mockGeneratedVideo,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     const video = document.querySelector('video');
     expect(video).toBeInTheDocument();
@@ -391,7 +393,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // The date should be formatted by toLocaleString - check that it contains the year
     const dateElements = screen.getAllByText((_content, element) => {
@@ -410,7 +412,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should show truncated prompt in title (first 20 chars)
     expect(screen.getByText('A'.repeat(20))).toBeInTheDocument();
@@ -428,7 +430,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // Should not show duration metadata
     expect(screen.queryByText(/Duration:/)).not.toBeInTheDocument();
@@ -444,7 +446,7 @@ describe('TimelineNodeComponent', () => {
       },
     };
 
-    render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // The mock MediaCard shows the video name or "Untitled" as fallback
     // Since name is undefined, it will show "Untitled" in the mock
@@ -457,7 +459,7 @@ describe('TimelineNodeComponent', () => {
       data: mockMediaAsset,
     };
 
-    const { container } = render(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
+    const { container } = renderWithQueryClient(<TimelineNodeComponent node={node} index={0} total={1} viewMode="grid" />);
 
     // TimelineNode wraps MediaCard in a div with the id
     const wrapper = container.querySelector('[id="node-asset-1"]');

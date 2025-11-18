@@ -58,7 +58,7 @@ describe('MediaItemCard', () => {
     onEditImage: undefined,
     onRequestDelete: vi.fn(),
     onDownload: vi.fn(),
-    getAssetUrl: vi.fn((path: string) => `https://example.com/${path}`),
+    getAssetUrl: vi.fn((path: string) => Promise.resolve(`https://example.com/${path}`)),
   };
 
   beforeEach(() => {
@@ -66,19 +66,27 @@ describe('MediaItemCard', () => {
   });
 
   describe('Basic Rendering', () => {
-    it('renders image asset in grid view', () => {
+    it('renders image asset in grid view', async () => {
       render(<MediaItemCard {...defaultProps} />);
 
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      // Wait for the async URL loading to complete
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
       expect(screen.getByText('test-image.jpg')).toBeInTheDocument();
       expect(screen.getByText('1024 B')).toBeInTheDocument();
       expect(screen.getByText('1920 × 1080')).toBeInTheDocument();
     });
 
-    it('renders video asset with VideoPlayer', () => {
+    it('renders video asset with VideoPlayer', async () => {
       render(<MediaItemCard {...defaultProps} asset={mockVideoAsset} />);
 
-      expect(screen.getByTestId('mock-video-player')).toBeInTheDocument();
+      // Wait for the async URL loading to complete
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-video-player')).toBeInTheDocument();
+      });
+
       expect(screen.getByText('30s')).toBeInTheDocument();
     });
 

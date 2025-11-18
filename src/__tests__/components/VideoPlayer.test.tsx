@@ -38,6 +38,17 @@ const mockVideoElement = {
   error: null as MediaError | null,
 };
 
+// Mock useSignedUrls hook
+vi.mock('../../hooks/useSignedUrls', () => ({
+  useSignedUrls: vi.fn(() => ({
+    useSignedUrl: vi.fn(() => ({
+      data: 'https://signed.example.com/video.mp4',
+      isLoading: false,
+      error: null,
+    })),
+  })),
+}));
+
 // Create a custom render function that mocks the video ref
 const renderWithVideoMock = (component: React.ReactElement) => {
   const mockRef = { current: mockVideoElement };

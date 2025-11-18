@@ -74,7 +74,7 @@ export function UnifiedMediaEditor({
   // Load data for both modes
   const { data: editedImages = [] } = useEditedImages(projectId);
   const { data: mediaAssetsData = [] } = useMediaAssets(projectId);
-  const { getSignedUrl } = useSignedUrls();
+  const signedUrls = useSignedUrls();
 
   // Filter media assets to only include images
   const mediaAssets = useMemo(() =>
@@ -89,13 +89,13 @@ export function UnifiedMediaEditor({
   // Helper function to get signed asset URL
   const getAssetUrl = useCallback(async (storagePath: string): Promise<string> => {
     try {
-      return await getSignedUrl('user-uploads', storagePath);
+      return await signedUrls.getSignedUrl('user-uploads', storagePath);
     } catch (error) {
       console.error('Failed to get signed URL for asset:', storagePath, error);
       // Fallback to public URL
       return database.storage.getPublicUrl('user-uploads', storagePath);
     }
-  }, [getSignedUrl]);
+  }, [signedUrls]);
 
   // Initialize selected image for video mode
   useEffect(() => {

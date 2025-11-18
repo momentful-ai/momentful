@@ -108,8 +108,38 @@ const mockUseSignedUrls = vi.mocked(useSignedUrls);
 const TEST_PROJECT_ID = 'test-project';
 const TEST_USER_ID = 'test-user-id';
 
+// Types for test mocks
+type MockQueryResult<T = unknown> = {
+  data: T;
+  isLoading: boolean;
+  isError: boolean;
+  error: null;
+  isPending: boolean;
+  isLoadingError: boolean;
+  isRefetchError: boolean;
+  isSuccess: boolean;
+  status: 'pending' | 'error' | 'success';
+  dataUpdatedAt: number;
+  errorUpdatedAt: number;
+  failureCount: number;
+  failureReason: null;
+  errorUpdateCount: number;
+  isFetched: boolean;
+  isFetchedAfterMount: boolean;
+  isFetching: boolean;
+  isRefetching: boolean;
+  isStale: boolean;
+  isPlaceholderData: boolean;
+  isInitialLoading: boolean;
+  isPaused: boolean;
+  fetchStatus: 'idle' | 'fetching' | 'paused';
+  isEnabled: boolean;
+  refetch: () => Promise<unknown>;
+  promise: Promise<unknown> | undefined;
+};
+
 // Helper functions for common test patterns
-const createMockQueryResult = (data: unknown, isLoading = false, isError = false) => {
+const createMockQueryResult = <T = unknown>(data: T, isLoading = false, isError = false): MockQueryResult<T> => {
   return {
     data,
     isLoading,
@@ -203,15 +233,22 @@ const setupMocks = () => {
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
     clearCache: vi.fn(),
-    isLoading: vi.fn(() => false),
+    useSignedUrl: vi.fn(),
+    useOptimisticSignedUrl: vi.fn(),
+    useMediaUrlPrefetch: vi.fn(),
+    useMediaGalleryUrls: vi.fn(),
+    getMultipleSignedUrls: vi.fn(),
+    getUrlCacheStats: vi.fn(),
+    config: { defaultExpiry: 86400, maxExpiry: 86400, prefetchExpiry: 43200, cacheBuffer: 21600, staleBuffer: 7200 },
+    queryClient: {} as QueryClient,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseEditedImages.mockReturnValue(createMockQueryResult(mockEditedImages) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult([]) as any);
+  mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult<EditedImage[]>([]) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockUseMediaAssets.mockReturnValue(createMockQueryResult(mockMediaAssets) as any);
+  mockUseMediaAssets.mockReturnValue(createMockQueryResult<MediaAsset[]>(mockMediaAssets) as any);
 
   // Setup API mocks
   vi.mocked(database.editedImages.create).mockResolvedValue(mockEditedImages[0]);
@@ -350,7 +387,14 @@ describe('UnifiedMediaEditor', () => {
         getSignedUrl: mockGetSignedUrl,
         preloadSignedUrls: vi.fn(),
         clearCache: vi.fn(),
-        isLoading: vi.fn(() => false),
+        useSignedUrl: vi.fn(),
+        useOptimisticSignedUrl: vi.fn(),
+        useMediaUrlPrefetch: vi.fn(),
+        useMediaGalleryUrls: vi.fn(),
+        getMultipleSignedUrls: vi.fn(),
+        getUrlCacheStats: vi.fn(),
+        config: { defaultExpiry: 86400, maxExpiry: 86400, prefetchExpiry: 43200, cacheBuffer: 21600, staleBuffer: 7200 },
+        queryClient: {} as QueryClient,
       });
 
       renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
@@ -644,7 +688,14 @@ describe('UnifiedMediaEditor', () => {
         getSignedUrl: mockGetSignedUrl,
         preloadSignedUrls: vi.fn(),
         clearCache: vi.fn(),
-        isLoading: vi.fn(() => false),
+        useSignedUrl: vi.fn(),
+        useOptimisticSignedUrl: vi.fn(),
+        useMediaUrlPrefetch: vi.fn(),
+        useMediaGalleryUrls: vi.fn(),
+        getMultipleSignedUrls: vi.fn(),
+        getUrlCacheStats: vi.fn(),
+        config: { defaultExpiry: 86400, maxExpiry: 86400, prefetchExpiry: 43200, cacheBuffer: 21600, staleBuffer: 7200 },
+        queryClient: {} as QueryClient,
       });
 
       renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });

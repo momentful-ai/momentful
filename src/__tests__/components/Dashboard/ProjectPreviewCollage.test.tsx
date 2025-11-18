@@ -14,7 +14,7 @@ vi.mock('../../../lib/database', () => ({
 }));
 
 // Mock the useSignedUrls hook to return mock signed URLs synchronously
-const mockPreloadSignedUrls = vi.fn((bucket, paths) => {
+const mockPreloadSignedUrls = vi.fn(({ bucket, paths }) => {
   const result: Record<string, string> = {};
   paths.forEach((path: string) => {
     result[path] = `https://signed.example.com/${bucket}/${path}`;
@@ -143,7 +143,7 @@ describe('ProjectPreviewCollage', () => {
     render(<ProjectPreviewCollage project={project} />);
 
     // Should preload signed URLs
-    expect(mockPreloadSignedUrls).toHaveBeenCalledWith('user-uploads', ['user-uploads/project1/image.jpg']);
+    expect(mockPreloadSignedUrls).toHaveBeenCalledWith({ bucket: 'user-uploads', paths: ['user-uploads/project1/image.jpg'] });
   });
 });
 

@@ -10,12 +10,22 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, AlertCircl
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
+import { useSignedUrls } from "../hooks/useSignedUrls"
+
 interface VideoPlayerProps {
   videoUrl: string
   aspectRatio?: number
+  // If true, treat videoUrl as a storage path and fetch signed URL
+  isStoragePath?: boolean
+  bucket?: string // Required if isStoragePath is true
 }
 
-export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: VideoPlayerProps) {
+export function VideoPlayer({
+  videoUrl,
+  aspectRatio: externalAspectRatio,
+  isStoragePath = false,
+  bucket = 'generated-videos'
+}: VideoPlayerProps) {
 
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -52,9 +62,19 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
 
+  const { useSignedUrl } = useSignedUrls()
+
+  // Use React Query to get signed URL if videoUrl is a storage path
+  const signedUrlQuery = useSignedUrl(bucket, videoUrl, 86400)
+
+  // Determine the actual video URL to use
+  const actualVideoUrl = isStoragePath
+    ? signedUrlQuery.data
+    : videoUrl
+
   useEffect(() => {
 
-    if (videoUrl) {
+    if (actualVideoUrl) {
 
       setVideoError(null)
 
@@ -68,7 +88,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
     }
 
-  }, [videoUrl])
+  }, [actualVideoUrl])
 
   // Reset internal aspect ratio when external aspect ratio changes
   useEffect(() => {
@@ -208,7 +228,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
     }
 
-  }, [videoUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [actualVideoUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = () => {
 
@@ -346,7 +366,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
   }
 
-  if (!videoUrl) {
+  if (!actualVideoUrl) {
 
     return null
 
@@ -372,11 +392,11 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
       {/* Video Element */}
 
-      <video ref={videoRef} src={videoUrl || undefined} className="w-full h-full object-contain" preload="metadata" />
+      <video ref={videoRef} src={actualVideoUrl || undefined} className="w-full h-full object-contain" preload="metadata" />
 
       {/* Loading Spinner */}
 
-      {isBuffering && !videoError && (
+      {(isBuffering || (isStoragePath && signedUrlQuery.isLoading)) && !videoError && (
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
 
@@ -386,7 +406,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
       )}
 
-      {videoError && (
+      {(videoError || (isStoragePath && signedUrlQuery.error)) && (
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
 
@@ -400,14 +420,19 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
             <h3 className="text-xl font-semibold text-white mb-2">Unable to Play Video</h3>
 
-            <p className="text-white/70 mb-6">{videoError}</p>
+            <p className="text-white/70 mb-6">
+              {videoError ||
+               (signedUrlQuery.error instanceof Error ? signedUrlQuery.error.message : 'Failed to load video URL')}
+            </p>
 
             <Button
 
               onClick={() => {
-
                 setVideoError(null)
-
+                // Refetch signed URL if that's the error
+                if (isStoragePath && signedUrlQuery.error) {
+                  signedUrlQuery.refetch()
+                }
               }}
 
               variant="secondary"
@@ -416,7 +441,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
             >
 
-              Try Another Video
+              {isStoragePath && signedUrlQuery.error ? 'Retry Loading' : 'Try Another Video'}
 
             </Button>
 
@@ -428,7 +453,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
       {/* Play Overlay */}
 
-      {!isPlaying && !isBuffering && videoUrl && !videoError && (
+      {!isPlaying && !isBuffering && actualVideoUrl && !videoError && (
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm transition-all">
 
@@ -436,7 +461,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
             onClick={togglePlay}
 
-            className="flex h-24 w-24 items-center justify-center rounded-full bg-white/20 shadow-2xl transition-all hover:scale-110 hover:bg-white/30 opacity-50 shadow-none"
+            className="flex h-24 w-24 items-center justify-center rounded-full bg-white/20 shadow-2xl transition-all hover:scale-110 hover:bg-white/30 opacity-50"
 
           >
 
@@ -450,7 +475,7 @@ export function VideoPlayer({ videoUrl, aspectRatio: externalAspectRatio }: Vide
 
       {/* Custom Controls */}
 
-      {videoUrl && !videoError && (
+      {actualVideoUrl && !videoError && (
 
         <div
 

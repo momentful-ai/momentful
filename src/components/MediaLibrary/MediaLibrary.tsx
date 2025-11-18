@@ -26,17 +26,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
   const { data: assets = [], isLoading, error } = useMediaAssets(projectId);
   const uploadMutation = useUploadMedia();
   const deleteMutation = useDeleteMediaAsset();
-  const { getSignedUrl } = useSignedUrls();
-
-  // Async function to get signed URL for assets
-  const getAssetUrl = async (storagePath: string): Promise<string> => {
-    try {
-      return await getSignedUrl('user-uploads', storagePath);
-    } catch (error) {
-      console.error('Failed to get signed URL for asset:', storagePath, error);
-      throw error; // Don't fallback to public URLs - surface the error
-    }
-  };
+  const signedUrls = useSignedUrls();
 
   const handleFileUpload = (files: File[]) => {
     uploadMutation.mutate(
@@ -72,7 +62,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
 
   const handleDownload = async (asset: MediaAsset) => {
     try {
-      const url = await getAssetUrl(asset.storage_path);
+      const url = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
       await downloadFile(url, asset.file_name);
       showToast(`Downloaded ${asset.file_name}`, 'success');
     } catch (error) {
@@ -110,7 +100,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
           setAssetToDelete({ id: assetId, path: storagePath });
         }}
         onDownload={handleDownload}
-        getAssetUrl={getAssetUrl}
+        getAssetUrl={(storagePath) => signedUrls.getSignedUrl('user-uploads', storagePath)}
       />
 
       {assetToDelete && (

@@ -14,11 +14,11 @@ interface TimelineNodeProps {
 }
 
 export function TimelineNodeComponent({ node, viewMode, onEditImage, onDownload, onDelete }: TimelineNodeProps) {
-  const { getSignedUrl } = useSignedUrls();
+  const signedUrls = useSignedUrls();
 
   const getAssetUrl = async (storagePath: string): Promise<string> => {
     try {
-      return await getSignedUrl('user-uploads', storagePath);
+      return await signedUrls.getSignedUrl('user-uploads', storagePath);
     } catch (error) {
       console.error('Failed to get signed URL for timeline node:', storagePath, error);
       throw error; // Don't fallback to public URLs - surface the error

@@ -8,7 +8,7 @@ import { useToast } from '../../hooks/useToast';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MediaLibrarySkeleton } from '../LoadingSkeleton';
 import { MediaCard } from '../shared/MediaCard';
-import { getAssetUrl } from '../../lib/media';
+import { useSignedUrls } from '../../hooks/useSignedUrls';
 
 interface EditedImagesViewProps {
   projectId: string;
@@ -27,6 +27,12 @@ export function EditedImagesView({
   const { showToast } = useToast();
   const [imageToDelete, setImageToDelete] = useState<{ id: string; storagePath: string } | null>(null);
   const deleteMutation = useDeleteEditedImage();
+  const signedUrls = useSignedUrls();
+
+  // Create getAssetUrl function using the useSignedUrls hook
+  const getAssetUrl = useCallback(async (storagePath: string): Promise<string> => {
+    return await signedUrls.getSignedUrl('user-uploads', storagePath);
+  }, [signedUrls]);
 
   const confirmDeleteImage = () => {
     if (!imageToDelete) return;
