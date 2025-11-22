@@ -373,6 +373,52 @@ describe('UnifiedMediaEditor', () => {
   });
 
   describe('Initial Rendering', () => {
+    it('does not show "No image selected" when opened with sourceEditedImage from edited images', async () => {
+      const mockEditedImage: EditedImage = {
+        id: 'edited-1',
+        project_id: 'project-1',
+        user_id: 'test-user-id',
+        prompt: 'Test edited image prompt',
+        context: {},
+        ai_model: 'flux-pro',
+        storage_path: 'user-uploads/test-user-id/project-1/edited-1.png',
+        edited_url: 'https://example.com/edited-1.png',
+        width: 1920,
+        height: 1080,
+        version: 1,
+        parent_id: undefined,
+        lineage_id: 'lineage-123',
+        created_at: '2025-01-15T10:00:00.000Z',
+      };
+
+      // Mock the hooks to return the edited image data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockUseEditedImages.mockReturnValue(createMockQueryResult(mockEditedImages) as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult([mockEditedImage]) as any);
+
+      renderComponent({
+        initialMode: 'image-edit',
+        sourceEditedImage: mockEditedImage,
+      });
+
+      await waitForComponent();
+
+      // Should NOT show "No image selected" message
+      expect(screen.queryByText('No image selected')).not.toBeInTheDocument();
+
+      // Should show the image preview (UnifiedPreview should render with image)
+      // Find images in the preview area specifically
+      const previewImages = document.querySelectorAll('[class*="flex items-center justify-center"] img');
+
+      expect(previewImages.length).toBeGreaterThan(0);
+
+      // The edited image URL should be used in the preview
+      const previewImage = Array.from(previewImages).find(img =>
+        img.getAttribute('src') === mockEditedImage.edited_url
+      );
+      expect(previewImage).toBeInTheDocument();
+    });
     it('renders in image-edit mode without crashing', async () => {
       renderComponent({ initialMode: 'image-edit', asset: mockMediaAssets[0] });
       await waitForComponent();

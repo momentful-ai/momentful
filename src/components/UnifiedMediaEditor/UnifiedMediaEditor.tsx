@@ -44,13 +44,51 @@ export function UnifiedMediaEditor({
   const [originalImageData, setOriginalImageData] = useState<{
     url?: string;
     storagePath?: string;
-  } | undefined>();
+  } | undefined>(() => {
+    if (sourceEditedImage) {
+      return {
+        url: sourceEditedImage.edited_url,
+        storagePath: sourceEditedImage.storage_path
+      };
+    } else if (asset) {
+      return {
+        storagePath: asset.storage_path,
+        url: undefined
+      };
+    }
+    return undefined;
+  });
+
   const [editedImageStoragePath, setEditedImageStoragePath] = useState<string | undefined>();
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
+    let initialSelectedSources: SelectedSource[] = [];
+    let initialSelectedImageForPreview: { id: string; url: string; fileName: string; type: 'edited_image' | 'media_asset' } | null = null;
+
+    // Initialize selected sources and preview image based on props
+    if (initialMode === 'image-edit') {
+      if (sourceEditedImage) {
+        // For edited images, we have the URL immediately
+        const source: SelectedSource = {
+          id: sourceEditedImage.id,
+          type: 'edited_image',
+          thumbnail: sourceEditedImage.edited_url,
+          name: sourceEditedImage.prompt.substring(0, 30),
+        };
+        initialSelectedSources = [source];
+        initialSelectedImageForPreview = {
+          id: sourceEditedImage.id,
+          url: sourceEditedImage.edited_url || '',
+          fileName: sourceEditedImage.prompt.substring(0, 30),
+          type: 'edited_image',
+        };
+      }
+      // For assets, initialization happens in useEffect to get signed URLs
+    }
+
     const baseState: UnifiedEditorState = {
       mode: initialMode,
-      selectedSources: [],
+      selectedSources: initialSelectedSources,
       // Image editing defaults
       productName: sourceEditedImage?.prompt ?? '',
       selectedRatio: IMAGE_ASPECT_RATIOS[0].id,
@@ -58,7 +96,7 @@ export function UnifiedMediaEditor({
       showComparison: false,
       editedImageUrl: null,
       versions: [],
-      selectedImageForPreview: null,
+      selectedImageForPreview: initialSelectedImageForPreview,
       // Video generation defaults
       prompt: '',
       cameraMovement: 'dynamic',
