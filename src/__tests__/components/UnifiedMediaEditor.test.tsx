@@ -12,7 +12,6 @@ import { useEditedImages, useEditedImagesByLineage } from '../../hooks/useEdited
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
 import {
-  mockSupabase,
   createTestQueryClient,
   createTestRenderer,
   createMockEditedImage,
@@ -21,6 +20,26 @@ import {
 } from '../test-utils.tsx';
 
 // Setup global mocks
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        })),
+      })),
+    })),
+    storage: {
+      from: vi.fn(() => ({
+        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/test' } })),
+      })),
+    },
+  },
+  // Important: Export config values to prevent "Missing Supabase configuration" error
+  SUPABASE_URL: 'https://mock.supabase.co',
+  SUPABASE_ANON_KEY: 'mock-key',
+}));
+
 vi.mock('../../hooks/useUserId', () => ({ useUserId: vi.fn(() => 'test-user-id') }));
 vi.mock('../../hooks/useToast', () => ({ useToast: vi.fn(() => ({ showToast: vi.fn() })) }));
 vi.mock('../../hooks/useEditedImages', () => ({
@@ -99,8 +118,6 @@ vi.mock('../../services/aiModels/runway', () => ({
   createRunwayJob: vi.fn(),
   pollJobStatus: vi.fn(),
 }));
-
-mockSupabase();
 
 // Mock accessors
 const mockUseUserId = vi.mocked(useUserId);

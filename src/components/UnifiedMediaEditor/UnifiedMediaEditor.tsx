@@ -41,8 +41,10 @@ export function UnifiedMediaEditor({
   const { showToast } = useToast();
 
   // Initialize state based on mode
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | undefined>();
-  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<string | undefined>();
+  const [originalImageData, setOriginalImageData] = useState<{
+    url?: string;
+    storagePath?: string;
+  } | undefined>();
   const [editedImageStoragePath, setEditedImageStoragePath] = useState<string | undefined>();
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
@@ -109,15 +111,18 @@ export function UnifiedMediaEditor({
   useEffect(() => {
     if (asset && !sourceEditedImage) {
       // For media assets, pass storage path for signing
-      setOriginalImageStoragePath(asset.storage_path);
-      setOriginalImageUrl(undefined); // Clear any old URL
+      setOriginalImageData({
+        storagePath: asset.storage_path,
+        url: undefined // Clear any old URL
+      });
     } else if (sourceEditedImage) {
       // For edited images, use the stored signed URL as fallback and storage path for fresh signing
-      setOriginalImageUrl(sourceEditedImage.edited_url);
-      setOriginalImageStoragePath(sourceEditedImage.storage_path);
+      setOriginalImageData({
+        url: sourceEditedImage.edited_url,
+        storagePath: sourceEditedImage.storage_path
+      });
     } else {
-      setOriginalImageUrl(undefined);
-      setOriginalImageStoragePath(undefined);
+      setOriginalImageData(undefined);
     }
   }, [asset, sourceEditedImage]);
 
@@ -626,7 +631,7 @@ export function UnifiedMediaEditor({
     }
   };
 
-  const handleImageClick = async (source: SelectedSource) => {
+  const handleImageClick = (source: SelectedSource) => {
     if (state.mode === 'image-edit') {
       // In image-edit mode, set the selected image for preview
       let imageUrl: string | null = null;
@@ -645,22 +650,21 @@ export function UnifiedMediaEditor({
       } else if (source.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === source.id);
         if (mediaAsset) {
-          try {
-            imageUrl = await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path);
-            storagePath = mediaAsset.storage_path;
-            fileName = mediaAsset.file_name;
-          } catch (error) {
-            console.error('Failed to load asset URL:', error);
-          }
+          // Use storage path directly - UnifiedPreview will handle signing
+          imageUrl = null; // Will be fetched by UnifiedPreview
+          storagePath = mediaAsset.storage_path;
+          fileName = mediaAsset.file_name;
         }
       }
 
-      if (imageUrl) {
+      // For media assets, we might not have imageUrl yet, but we have storagePath
+      // For edited images, we usually have both
+      if (storagePath || imageUrl) {
         setState(prev => ({
           ...prev,
           selectedImageForPreview: {
             id: source.id,
-            url: imageUrl!,
+            url: imageUrl || '', // Will be populated by preview component if missing
             fileName,
             type: source.type,
           },
@@ -669,8 +673,10 @@ export function UnifiedMediaEditor({
           showComparison: false,
         }));
         // Update the original image state to reflect the selected image
-        setOriginalImageUrl(imageUrl || undefined);
-        setOriginalImageStoragePath(storagePath || undefined);
+        setOriginalImageData({
+          url: imageUrl || undefined,
+          storagePath: storagePath || undefined
+        });
       }
     } else {
       // In video-generate mode, handle selection as single selection (no toggle)
@@ -736,10 +742,10 @@ export function UnifiedMediaEditor({
             <UnifiedPreview
               mode={state.mode}
               // Image mode props
-              originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview
+              originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview?.url
                 ? state.selectedImageForPreview.url
-                : originalImageUrl}
-              originalImageStoragePath={originalImageStoragePath}
+                : originalImageData?.url}
+              originalImageStoragePath={originalImageData?.storagePath}
               originalImageBucket="user-uploads"
               editedImageUrl={state.editedImageUrl}
               editedImageStoragePath={editedImageStoragePath}

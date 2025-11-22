@@ -71,13 +71,14 @@ function ImagePreview({
   const editedSignedUrlQuery = useSignedUrl(editedImageBucket || 'user-uploads', editedImageStoragePath || '');
 
   // Determine which URLs to use - prefer storage paths with signed URLs, fallback to direct URLs
-  // Handle cases where hooks might not return expected results (e.g., in test environments)
-  const actualOriginalUrl = (originalImageStoragePath && originalSignedUrlQuery && 'data' in originalSignedUrlQuery && originalSignedUrlQuery.data) || originalImageUrl;
-  const actualEditedUrl = (editedImageStoragePath && editedSignedUrlQuery && 'data' in editedSignedUrlQuery && editedSignedUrlQuery.data) || editedImageUrl;
+  const actualOriginalUrl = (originalImageStoragePath && originalSignedUrlQuery?.data)
+    || (originalImageUrl && originalImageUrl.trim() !== '' ? originalImageUrl : undefined)
+    || undefined;
+  const actualEditedUrl = (editedImageStoragePath && editedSignedUrlQuery?.data) || editedImageUrl;
 
   // Check if we're still loading signed URLs (only when we have storage paths)
-  const isLoadingOriginal = originalImageStoragePath && originalSignedUrlQuery && 'isLoading' in originalSignedUrlQuery && originalSignedUrlQuery.isLoading;
-  const isLoadingEdited = editedImageStoragePath && editedSignedUrlQuery && 'isLoading' in editedSignedUrlQuery && editedSignedUrlQuery.isLoading;
+  const isLoadingOriginal = originalImageStoragePath && originalSignedUrlQuery?.isLoading;
+  const isLoadingEdited = editedImageStoragePath && editedSignedUrlQuery?.isLoading;
   const isLoadingAny = isLoadingOriginal || isLoadingEdited;
 
   const shouldShowComparison = showComparison && !!actualEditedUrl && actualEditedUrl !== actualOriginalUrl && !forceShowSkeleton;
@@ -94,9 +95,9 @@ function ImagePreview({
                   Original
                 </div>
                 <div className="flex-1 flex items-center justify-center w-full">
-                  {originalImageUrl ? (
+                  {actualOriginalUrl ? (
                     <img
-                      src={originalImageUrl}
+                      src={actualOriginalUrl}
                       alt="Original"
                       className="max-w-full max-h-full rounded-xl"
                       style={{ objectFit: 'contain' }}
