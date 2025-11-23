@@ -715,7 +715,7 @@ describe('UnifiedMediaEditor', () => {
 
         // Verify video was uploaded to Supabase
         expect(database.storage.upload).toHaveBeenCalledWith(
-          'generated_videos',
+          'generated-videos',
           expect.stringMatching(new RegExp(`${TEST_USER_ID}/${TEST_PROJECT_ID}/generated-\\d+\\.mp4`)),
           expect.any(File)
         );

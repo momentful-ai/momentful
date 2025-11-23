@@ -310,7 +310,7 @@ export function UnifiedMediaEditor({
 
     const file = new File([blob], fileName, { type: 'video/mp4' });
     try {
-      await database.storage.upload('generated_videos', storagePath, file);
+      await database.storage.upload('generated-videos', storagePath, file);
     } catch (error) {
       const errorResult = handleStorageError(error, 'generated video upload');
       throw new Error(errorResult.error);
@@ -508,7 +508,7 @@ export function UnifiedMediaEditor({
         showToast('Video generated! Saving...', 'info');
 
         const { storagePath } = await downloadAndUploadVideo(runwayVideoUrl, projectId);
-        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated_videos', storagePath);
+        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', storagePath);
 
         setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
