@@ -37,7 +37,7 @@ export interface UnifiedEditorState {
   isGenerating: boolean;
   showComparison: boolean;
   editedImageUrl: string | null;
-  selectedImageForPreview: { id: string; url: string; fileName: string; type: 'edited_image' | 'media_asset' } | null;
+  selectedImageForPreview: { id: string; url: string; storagePath?: string; fileName: string; type: 'edited_image' | 'media_asset' } | null;
 
   // Video generation state
   prompt: string;

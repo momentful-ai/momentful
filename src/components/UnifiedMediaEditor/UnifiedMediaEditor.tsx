@@ -63,7 +63,7 @@ export function UnifiedMediaEditor({
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
     let initialSelectedSources: SelectedSource[] = [];
-    let initialSelectedImageForPreview: { id: string; url: string; fileName: string; type: 'edited_image' | 'media_asset' } | null = null;
+    let initialSelectedImageForPreview: { id: string; url: string; storagePath?: string; fileName: string; type: 'edited_image' | 'media_asset' } | null = null;
 
     // Initialize selected sources and preview image based on props
     if (initialMode === 'image-edit') {
@@ -79,6 +79,7 @@ export function UnifiedMediaEditor({
         initialSelectedImageForPreview = {
           id: sourceEditedImage.id,
           url: sourceEditedImage.edited_url || '',
+          storagePath: sourceEditedImage.storage_path,
           fileName: sourceEditedImage.prompt.substring(0, 30),
           type: 'edited_image',
         };
@@ -179,6 +180,7 @@ export function UnifiedMediaEditor({
             selectedImageForPreview: {
               id: sourceEditedImage.id,
               url: sourceEditedImage.edited_url || '',
+              storagePath: sourceEditedImage.storage_path,
               fileName: sourceEditedImage.prompt.substring(0, 30),
               type: 'edited_image',
             },
@@ -198,6 +200,7 @@ export function UnifiedMediaEditor({
               selectedImageForPreview: {
                 id: asset.id,
                 url: assetUrl,
+                storagePath: asset.storage_path,
                 fileName: asset.file_name,
                 type: 'media_asset',
               },
@@ -698,6 +701,7 @@ export function UnifiedMediaEditor({
           selectedImageForPreview: {
             id: source.id,
             url: imageUrl || '', // Will be populated by preview component if missing
+            storagePath: storagePath || undefined,
             fileName,
             type: source.type,
           },
@@ -788,7 +792,9 @@ export function UnifiedMediaEditor({
               originalImageUrl={state.mode === 'image-edit' && state.selectedImageForPreview?.url
                 ? state.selectedImageForPreview.url
                 : originalImageData?.url}
-              originalImageStoragePath={originalImageData?.storagePath}
+              originalImageStoragePath={state.mode === 'image-edit' && state.selectedImageForPreview?.storagePath
+                ? state.selectedImageForPreview.storagePath
+                : originalImageData?.storagePath}
               originalImageBucket="user-uploads"
               editedImageUrl={state.editedImageUrl}
               editedImageStoragePath={editedImageStoragePath}
