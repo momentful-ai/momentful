@@ -1,10 +1,10 @@
-import { ReactNode } from 'react';
-import { Sparkles, LogOut, User, Moon, Sun } from 'lucide-react';
-import { useUser, useClerk } from '@clerk/clerk-react';
-import { useBypassContext } from '../hooks/useBypassContext';
-import { useTheme } from '../hooks/useTheme';
-import { Button } from './ui/button';
-import { DevToolbar } from './DevToolbar';
+import { ReactNode } from "react";
+import { LogOut, User, Moon, Sun } from "lucide-react";
+import { useUser, useClerk } from "@clerk/clerk-react";
+import { useBypassContext } from "../hooks/useBypassContext";
+import { useTheme } from "../hooks/useTheme";
+import { Button } from "./ui/button";
+import { DevToolbar } from "./DevToolbar";
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,13 +28,15 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 sm:gap-3">
-              <a href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
-                <div className="gradient-primary p-2 shadow-lg" style={{ borderRadius: '8px' }}>
-                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <h1 className="text-lg sm:text-xl font-bold text-gradient">
-                  momentful
-                </h1>
+              <a
+                href="/"
+                className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
+              >
+                <img
+                  src="/logo-text.png"
+                  alt="momentful"
+                  className="h-6 w-auto"
+                />
               </a>
               {isBypassEnabled && (
                 <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-md font-medium border border-border">
@@ -46,10 +48,10 @@ export function Layout({ children }: LayoutProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="rounded-full"
               >
-                {theme === 'dark' ? (
+                {theme === "dark" ? (
                   <Sun className="w-5 h-5" />
                 ) : (
                   <Moon className="w-5 h-5" />
@@ -58,7 +60,9 @@ export function Layout({ children }: LayoutProps) {
               {isBypassEnabled ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
                   <User className="w-5 h-5 text-muted-foreground" />
-                  <span className="hidden sm:inline text-sm text-muted-foreground">Local Dev</span>
+                  <span className="hidden sm:inline text-sm text-muted-foreground">
+                    Local Dev
+                  </span>
                 </div>
               ) : (
                 displayUser && (
@@ -66,7 +70,8 @@ export function Layout({ children }: LayoutProps) {
                     <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
                       <User className="w-5 h-5 text-muted-foreground" />
                       <span className="max-w-[150px] truncate text-sm text-muted-foreground">
-                        {displayUser.firstName || displayUser.emailAddresses[0]?.emailAddress}
+                        {displayUser.firstName ||
+                          displayUser.emailAddresses[0]?.emailAddress}
                       </span>
                     </div>
                     <Button
