@@ -13,7 +13,7 @@ import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEdited
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
-import { EditedImage } from '../../types';
+import { EditedImage, GeneratedVideo } from '../../types';
 import { SelectedSource } from './types';
 import * as RunwayAPI from '../../services/aiModels/runway';
 import {
@@ -284,6 +284,41 @@ export function UnifiedMediaEditor({
     return { storagePath, width, height };
   };
 
+  const downloadAndUploadVideo = async (
+    videoUrl: string,
+    projectId: string
+  ): Promise<{ storagePath: string }> => {
+    if (!userId) {
+      throw new Error('User ID is required to upload videos');
+    }
+
+    const response = await fetch(videoUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download video: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const timestamp = Date.now();
+    const fileName = `generated-${timestamp}.mp4`;
+    const storagePath = `${userId}/${projectId}/${fileName}`;
+
+    // Validate storage path
+    const pathValidation = validateStoragePath(userId, storagePath);
+    if (!pathValidation.valid) {
+      throw new Error(`Storage path validation failed: ${pathValidation.error}`);
+    }
+
+    const file = new File([blob], fileName, { type: 'video/mp4' });
+    try {
+      await database.storage.upload('generated_videos', storagePath, file);
+    } catch (error) {
+      const errorResult = handleStorageError(error, 'generated video upload');
+      throw new Error(errorResult.error);
+    }
+
+    return { storagePath };
+  };
+
   const handleImageGenerate = async () => {
     if (!state.productName.trim() || !asset) return;
 
@@ -465,7 +500,17 @@ export function UnifiedMediaEditor({
           : Array.isArray(result.output)
             ? result.output[0]
             : null;
-        setState(prev => ({ ...prev, generatedVideoUrl: runwayVideoUrl as string }));
+
+        if (!runwayVideoUrl) {
+          throw new Error('No video URL returned from Runway');
+        }
+
+        showToast('Video generated! Uploading...', 'info');
+
+        const { storagePath } = await downloadAndUploadVideo(runwayVideoUrl, projectId);
+        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated_videos', storagePath);
+
+        setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
         let lineage_id: string | undefined;
         const preferredSource = state.selectedSources.find(s => s.type === 'edited_image') || state.selectedSources[0];
@@ -496,7 +541,7 @@ export function UnifiedMediaEditor({
           aspect_ratio: state.aspectRatio,
           camera_movement: state.cameraMovement,
           runway_task_id: taskId,
-          storage_path: runwayVideoUrl,
+          storage_path: storagePath,
           status: 'completed',
           completed_at: new Date().toISOString(),
           lineage_id,
@@ -511,7 +556,17 @@ export function UnifiedMediaEditor({
           }, userId);
         }));
 
-        // Invalidate generated videos cache (only refetch if actively used)
+        // Manually cache the signed URL for the new video so it's available immediately
+        // This prevents a double-fetch when the video appears in the list
+        queryClient.setQueryData(
+          ['signed-url', 'generated_videos', storagePath],
+          uploadedVideoUrl
+        );
+
+        // Optimistic cache updates - update cache immediately without refetching
+        queryClient.setQueryData<GeneratedVideo[]>(['generated-videos', projectId, userId], (old = []) => [createdVideo, ...old]);
+
+        // Invalidate related queries in background (only refetch if actively used)
         queryClient.invalidateQueries({
           queryKey: ['generated-videos', projectId, userId],
           refetchType: 'active'
@@ -523,8 +578,6 @@ export function UnifiedMediaEditor({
           refetchType: 'active'
         });
 
-        // Invalidate thumbnail cache for new video
-        queryClient.invalidateQueries({ queryKey: ['signed-url'] });
         // Dispatch custom event to trigger global thumbnail prefetch refresh
         window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 

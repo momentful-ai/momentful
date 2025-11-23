@@ -664,17 +664,68 @@ describe('UnifiedMediaEditor', () => {
         refetchType: 'active'
       });
 
-      // Verify that signed URL cache was invalidated
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['signed-url']
-      });
-
-      // Verify that custom event was dispatched
+      // Verify that custom event was dispatched for thumbnail prefetch refresh
       expect(dispatchEventSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'thumbnail-cache-invalidated',
         })
       );
+    });
+
+    it('downloads and uploads generated video to Supabase', async () => {
+      const user = createUserEvent();
+      const { onSave } = renderComponent({ initialMode: 'video-generate' });
+      await waitForComponent();
+
+      // Mock fetch for video download
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['video content'], { type: 'video/mp4' })),
+      });
+
+      // Switch to Images tab
+      const imagesTab = screen.getByText('Images');
+      await user.click(imagesTab);
+
+      // Select an image
+      await waitFor(() => {
+        const imageElement = screen.getByAltText('A beautiful landscape');
+        expect(imageElement).toBeInTheDocument();
+      });
+      const imageElement = screen.getByAltText('A beautiful landscape');
+      await user.click(imageElement);
+
+      // Enter prompt
+      const promptInput = screen.getByPlaceholderText(/Describe your product/i);
+      await user.type(promptInput, 'Test video prompt');
+
+      // Click Generate
+      const generateButton = screen.getByText('Generate Video');
+      await user.click(generateButton);
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalled();
+
+        // Verify Runway API was called
+        expect(RunwayAPI.createRunwayJob).toHaveBeenCalled();
+        expect(RunwayAPI.pollJobStatus).toHaveBeenCalled();
+
+        // Verify video was downloaded
+        expect(global.fetch).toHaveBeenCalledWith('https://example.com/generated-video.mp4');
+
+        // Verify video was uploaded to Supabase
+        expect(database.storage.upload).toHaveBeenCalledWith(
+          'generated_videos',
+          expect.stringMatching(new RegExp(`${TEST_USER_ID}/${TEST_PROJECT_ID}/generated-\\d+\\.mp4`)),
+          expect.any(File)
+        );
+
+        // Verify database record created with new storage path
+        expect(database.generatedVideos.create).toHaveBeenCalledWith(expect.objectContaining({
+          storage_path: expect.stringMatching(new RegExp(`${TEST_USER_ID}/${TEST_PROJECT_ID}/generated-\\d+\\.mp4`)),
+          runway_task_id: 'runway-task-123',
+        }));
+      });
     });
   });
 
