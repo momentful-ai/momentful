@@ -4,8 +4,9 @@ export type MediaEditorMode = 'image-edit' | 'video-generate';
 
 export interface SelectedSource {
   id: string;
-  type: 'edited_image' | 'media_asset';
+  type: 'edited_image' | 'media_asset' | 'generated_video';
   thumbnail?: string;
+  storagePath?: string;
   name: string;
 }
 
@@ -37,7 +38,7 @@ export interface UnifiedEditorState {
   isGenerating: boolean;
   showComparison: boolean;
   editedImageUrl: string | null;
-  selectedImageForPreview: { id: string; url: string; storagePath?: string; fileName: string; type: 'edited_image' | 'media_asset' } | null;
+  selectedImageForPreview: { id: string; url: string; storagePath?: string; fileName: string; type: 'edited_image' | 'media_asset' | 'generated_video' } | null;
 
   // Video generation state
   prompt: string;

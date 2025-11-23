@@ -68,7 +68,7 @@ export interface GeneratedVideo {
 export interface VideoSource {
   id: string;
   video_id: string;
-  source_type: 'edited_image' | 'media_asset';
+  source_type: 'edited_image' | 'media_asset' | 'generated_video';
   source_id: string;
   sort_order: number;
   created_at: string;

@@ -432,7 +432,7 @@ export const database = {
 
     async create(source: {
       video_id: string;
-      source_type: 'edited_image' | 'media_asset';
+      source_type: 'edited_image' | 'media_asset' | 'generated_video';
       source_id: string;
       sort_order?: number;
     }, userId: string) {
