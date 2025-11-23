@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Crop, History, Sparkles } from 'lucide-react';
 import { MediaEditorMode } from './types';
-import { VersionHistoryItem } from './types';
+import { EditedImage } from '../../types';
 import { ResizableSidebar } from '../shared/ResizableSidebar';
 import { IMAGE_ASPECT_RATIOS, VIDEO_ASPECT_RATIOS, VIDEO_CAMERA_MOVEMENTS } from '../../lib/media';
 import { videoModels } from '../../data/aiModels';
@@ -13,8 +13,9 @@ interface UnifiedSidebarProps {
 
   // Image mode props
   selectedRatio?: string;
-  versions?: VersionHistoryItem[];
+  versions?: EditedImage[];
   onRatioChange?: (ratio: string) => void;
+  onVersionSelect?: (version: EditedImage) => void;
 
   // Video mode props
   selectedModel?: string;
@@ -46,11 +47,10 @@ function ImageEditorAspectRatioSelector({
           <button
             key={ratio.id}
             onClick={() => onRatioChange(ratio.id)}
-            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${
-              selectedRatio === ratio.id
+            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${selectedRatio === ratio.id
                 ? 'border-primary bg-primary/10'
                 : 'border-border hover:border-border/70'
-            }`}
+              }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
               {ratio.label}
@@ -65,7 +65,13 @@ function ImageEditorAspectRatioSelector({
   );
 }
 
-function VersionHistory({ versions }: { versions: VersionHistoryItem[] }) {
+function VersionHistory({
+  versions,
+  onVersionSelect
+}: {
+  versions: EditedImage[];
+  onVersionSelect?: (version: EditedImage) => void;
+}) {
   if (versions.length === 0) {
     return null;
   }
@@ -78,23 +84,24 @@ function VersionHistory({ versions }: { versions: VersionHistoryItem[] }) {
       </div>
       <div className="space-y-2">
         {versions.map((version, index) => (
-          <div
-            key={index}
-            className="bg-muted rounded-lg p-3 text-xs animate-slide-up hover:bg-muted/70 transition-colors"
+          <button
+            key={version.id}
+            onClick={() => onVersionSelect?.(version)}
+            className="w-full text-left bg-muted rounded-lg p-3 text-xs animate-slide-up hover:bg-muted/70 transition-colors border border-transparent hover:border-primary/20"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="font-medium text-foreground">
                 Version {versions.length - index}
               </span>
               <span className="text-muted-foreground">
-                {new Date(version.timestamp).toLocaleTimeString()}
+                {new Date(version.created_at).toLocaleTimeString()}
               </span>
             </div>
-            <p className="text-muted-foreground mb-1">{version.prompt}</p>
+            <p className="text-muted-foreground mb-1 line-clamp-2">{version.prompt}</p>
             <p className="text-muted-foreground/70">
-              Model: {imageModels.find((m) => m.id === version.model)?.name}
+              Model: {imageModels.find((m) => m.id === version.ai_model)?.name || version.ai_model}
             </p>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -125,11 +132,10 @@ function AIModelSelector({
           <button
             key={model.id}
             onClick={() => onModelChange(model.id)}
-            className={`w-full text-left p-2.5 rounded-lg border transition-all hover:scale-[1.02] ${
-              selectedModel === model.id
+            className={`w-full text-left p-2.5 rounded-lg border transition-all hover:scale-[1.02] ${selectedModel === model.id
                 ? 'border-primary bg-primary/10'
                 : 'border-border hover:border-border/70'
-            }`}
+              }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -166,11 +172,10 @@ function VideoAspectRatioSelector({
           <button
             key={ratio.id}
             onClick={() => onAspectRatioChange(ratio.id as '16:9' | '9:16' | '1:1' | '4:5')}
-            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${
-              aspectRatio === ratio.id
+            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${aspectRatio === ratio.id
                 ? 'border-primary bg-primary/10'
                 : 'border-border hover:border-border/70'
-            }`}
+              }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
               {ratio.label}
@@ -200,11 +205,10 @@ function CameraMovementSelector({
           <button
             key={camera.id}
             onClick={() => onCameraMovementChange(camera.id)}
-            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${
-              cameraMovement === camera.id
+            className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${cameraMovement === camera.id
                 ? 'border-primary bg-primary/10'
                 : 'border-border hover:border-border/70'
-            }`}
+              }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
               {camera.label}
@@ -224,6 +228,7 @@ export function UnifiedSidebar({
   selectedRatio,
   versions,
   onRatioChange,
+  onVersionSelect,
   selectedModel,
   aspectRatio,
   cameraMovement,
@@ -244,9 +249,12 @@ export function UnifiedSidebar({
           <>
             <ImageEditorAspectRatioSelector
               selectedRatio={selectedRatio || '1:1'}
-              onRatioChange={onRatioChange || (() => {})}
+              onRatioChange={onRatioChange || (() => { })}
             />
-            <VersionHistory versions={versions || []} />
+            <VersionHistory
+              versions={versions || []}
+              onVersionSelect={onVersionSelect}
+            />
           </>
         ) : (
           <>
@@ -254,15 +262,15 @@ export function UnifiedSidebar({
               models={videoModels}
               selectedModel={selectedModel || 'gen-3-alpha-turbo'}
               description="Choose the best AI model for your video"
-              onModelChange={onModelChange || (() => {})}
+              onModelChange={onModelChange || (() => { })}
             />
             <VideoAspectRatioSelector
               aspectRatio={aspectRatio || '9:16'}
-              onAspectRatioChange={onAspectRatioChange || (() => {})}
+              onAspectRatioChange={onAspectRatioChange || (() => { })}
             />
             <CameraMovementSelector
               cameraMovement={cameraMovement || 'dynamic'}
-              onCameraMovementChange={onCameraMovementChange || (() => {})}
+              onCameraMovementChange={onCameraMovementChange || (() => { })}
             />
           </>
         )}

@@ -37,7 +37,6 @@ export interface UnifiedEditorState {
   isGenerating: boolean;
   showComparison: boolean;
   editedImageUrl: string | null;
-  versions: VersionHistoryItem[];
   selectedImageForPreview: { id: string; url: string; fileName: string; type: 'edited_image' | 'media_asset' } | null;
 
   // Video generation state
@@ -49,10 +48,4 @@ export interface UnifiedEditorState {
   videoError: boolean;
   isSelecting: boolean;
   selectionMode: 'add' | 'remove';
-}
-
-export interface VersionHistoryItem {
-  prompt: string;
-  model: string;
-  timestamp: string;
 }

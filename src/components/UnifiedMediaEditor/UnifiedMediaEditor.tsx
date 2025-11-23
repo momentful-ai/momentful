@@ -95,7 +95,6 @@ export function UnifiedMediaEditor({
       isGenerating: false,
       showComparison: false,
       editedImageUrl: null,
-      versions: [],
       selectedImageForPreview: initialSelectedImageForPreview,
       // Video generation defaults
       prompt: '',
@@ -377,11 +376,7 @@ export function UnifiedMediaEditor({
 
       setState(prev => ({
         ...prev,
-        versions: [{
-          prompt: state.productName,
-          model: 'flux-pro',
-          timestamp: new Date().toISOString(),
-        }, ...prev.versions]
+        // No need to update versions manually as we use editingHistory from hook
       }));
 
       showToast('Image generated and saved successfully!', 'success');
@@ -465,8 +460,8 @@ export function UnifiedMediaEditor({
         const runwayVideoUrl = typeof result.output === 'string'
           ? result.output
           : Array.isArray(result.output)
-          ? result.output[0]
-          : null;
+            ? result.output[0]
+            : null;
         setState(prev => ({ ...prev, generatedVideoUrl: runwayVideoUrl as string }));
 
         let lineage_id: string | undefined;
@@ -722,6 +717,16 @@ export function UnifiedMediaEditor({
     }
   };
 
+  const handleVersionSelect = (version: EditedImage) => {
+    const source: SelectedSource = {
+      id: version.id,
+      type: 'edited_image',
+      thumbnail: version.edited_url,
+      name: version.prompt.substring(0, 30),
+    };
+    handleImageClick(source);
+  };
+
   const handleMouseUp = () => {
     setState(prev => ({ ...prev, isSelecting: false }));
     selectionStartRef.current = null;
@@ -833,8 +838,9 @@ export function UnifiedMediaEditor({
           mode={state.mode}
           // Image mode props
           selectedRatio={state.selectedRatio}
-          versions={state.versions}
+          versions={editingHistory}
           onRatioChange={(ratio) => setState(prev => ({ ...prev, selectedRatio: ratio }))}
+          onVersionSelect={handleVersionSelect}
           // Video mode props
           selectedModel={state.selectedModel}
           aspectRatio={state.aspectRatio}
