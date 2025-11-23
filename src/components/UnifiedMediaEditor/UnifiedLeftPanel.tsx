@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Check } from 'lucide-react';
-import { MediaAsset, EditedImage } from '../../types';
+import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { SelectedSource, MediaEditorMode } from './types';
 import { useDropzone } from 'react-dropzone';
 import { MediaThumbnail } from '../shared/MediaThumbnail';
@@ -12,6 +12,7 @@ interface MediaSourceItem {
   thumbnail?: string;
   storagePath?: string;
   name: string;
+  type: 'edited_image' | 'media_asset' | 'generated_video';
 }
 
 interface MediaSourceGridProps {
@@ -49,9 +50,8 @@ function MediaSourceGrid({
             onDragStart={(e) => !isSelecting && onDragStart(e, source)}
             onClick={() => onClick(source)}
             onMouseEnter={() => onMouseEnter(source)}
-            className={`relative w-full max-h-32 rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${
-              isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'
-            }`}
+            className={`relative w-full max-h-32 rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:scale-105 hover:shadow-lg ${isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'
+              }`}
           >
             <div className="w-full h-full flex items-center justify-center">
               <MediaThumbnail
@@ -83,6 +83,7 @@ interface UnifiedLeftPanelProps {
   mode: MediaEditorMode;
   editedImages: EditedImage[];
   mediaAssets: MediaAsset[];
+  generatedVideos: GeneratedVideo[];
   selectedSources: SelectedSource[];
   isSelecting: boolean;
   onDragStart: (e: React.DragEvent, source: SelectedSource) => void;
@@ -92,9 +93,9 @@ interface UnifiedLeftPanelProps {
 }
 
 export function UnifiedLeftPanel({
-  mode,
   editedImages,
   mediaAssets,
+  generatedVideos,
   selectedSources,
   isSelecting,
   onDragStart,
@@ -105,7 +106,7 @@ export function UnifiedLeftPanel({
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
-  const [leftPanelTab, setLeftPanelTab] = useState<'edited' | 'library'>('edited');
+  const [leftPanelTab, setLeftPanelTab] = useState<'images' | 'videos'>('images');
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -140,8 +141,56 @@ export function UnifiedLeftPanel({
     noClick: true,
   });
 
-  // The editedImages prop is already filtered appropriately by the parent component
-  const displayEditedImages = editedImages;
+  // Filter content based on tabs
+  const displayImages = [
+    ...editedImages.map(img => ({
+      id: img.id,
+      thumbnail: img.edited_url,
+      storagePath: img.edited_url ? undefined : img.storage_path,
+      name: img.prompt.substring(0, 30),
+      type: 'edited_image' as const,
+      originalItem: img
+    })),
+    ...mediaAssets
+      .filter(asset => asset.file_type === 'image')
+      .map(asset => ({
+        id: asset.id,
+        thumbnail: asset.thumbnail_url,
+        storagePath: asset.thumbnail_url ? undefined : asset.storage_path,
+        name: asset.file_name,
+        type: 'media_asset' as const,
+        originalItem: asset
+      }))
+  ].sort((a, b) => {
+    const dateA = new Date(a.originalItem.created_at).getTime();
+    const dateB = new Date(b.originalItem.created_at).getTime();
+    return dateB - dateA;
+  });
+
+  const displayVideos = [
+    ...generatedVideos.map(video => ({
+      id: video.id,
+      thumbnail: video.thumbnail_url || video.storage_path, // Fallback to storage path if no thumbnail
+      storagePath: video.storage_path,
+      name: video.name,
+      type: 'generated_video' as const,
+      originalItem: video
+    })),
+    ...mediaAssets
+      .filter(asset => asset.file_type === 'video')
+      .map(asset => ({
+        id: asset.id,
+        thumbnail: asset.thumbnail_url,
+        storagePath: asset.thumbnail_url ? undefined : asset.storage_path,
+        name: asset.file_name,
+        type: 'media_asset' as const,
+        originalItem: asset
+      }))
+  ].sort((a, b) => {
+    const dateA = new Date(a.originalItem.created_at).getTime();
+    const dateB = new Date(b.originalItem.created_at).getTime();
+    return dateB - dateA;
+  });
 
   return (
     <motion.div
@@ -162,28 +211,26 @@ export function UnifiedLeftPanel({
       <div className="border-b border-border">
         <div className="flex">
           <button
-            onClick={() => setLeftPanelTab('edited')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-              leftPanelTab === 'edited'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            onClick={() => setLeftPanelTab('images')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${leftPanelTab === 'images'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
-            Edited Images
-            {leftPanelTab === 'edited' && (
+            Images
+            {leftPanelTab === 'images' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
           <button
-            onClick={() => setLeftPanelTab('library')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-              leftPanelTab === 'library'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            onClick={() => setLeftPanelTab('videos')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${leftPanelTab === 'videos'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
-            Library
-            {leftPanelTab === 'library' && (
+            Videos
+            {leftPanelTab === 'videos' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
@@ -197,49 +244,41 @@ export function UnifiedLeftPanel({
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => e.preventDefault()}
       >
-        {leftPanelTab === 'edited' ? (
+        {leftPanelTab === 'images' ? (
           <MediaSourceGrid
-            sources={displayEditedImages.map((img) => ({
-              id: img.id,
-              thumbnail: img.edited_url,
-              storagePath: img.edited_url ? undefined : img.storage_path,
-              name: img.prompt.substring(0, 30),
-            }))}
+            sources={displayImages}
             selectedSources={selectedSources}
             isSelecting={isSelecting}
             onDragStart={onDragStart}
             onClick={onClick}
-            onMouseEnter={() => {}} // Not used in unified mode
+            onMouseEnter={() => { }} // Not used in unified mode
             getSource={(item) => ({
               id: item.id,
-              type: 'edited_image',
+              type: item.type,
               thumbnail: item.thumbnail,
+              storagePath: item.storagePath,
               name: item.name,
             })}
-            emptyMessage={mode === 'image-edit' ? "No versions yet" : "No edited images yet"}
-            emptyHint={mode === 'image-edit' ? "Generate your first edit above" : "Upload images to get started"}
+            emptyMessage="No images found"
+            emptyHint="Upload images or generate edits to get started"
           />
         ) : (
           <MediaSourceGrid
-            sources={mediaAssets.map((asset) => ({
-              id: asset.id,
-              thumbnail: asset.thumbnail_url,
-              storagePath: asset.thumbnail_url ? undefined : asset.storage_path,
-              name: asset.file_name,
-            }))}
+            sources={displayVideos}
             selectedSources={selectedSources}
             isSelecting={isSelecting}
             onDragStart={onDragStart}
             onClick={onClick}
-            onMouseEnter={() => {}} // Not used in unified mode
+            onMouseEnter={() => { }} // Not used in unified mode
             getSource={(item) => ({
               id: item.id,
-              type: 'media_asset',
+              type: item.type,
               thumbnail: item.thumbnail,
+              storagePath: item.storagePath,
               name: item.name,
             })}
-            emptyMessage="No images in library"
-            emptyHint="Upload images to get started"
+            emptyMessage="No videos found"
+            emptyHint="Upload videos or generate videos to get started"
           />
         )}
 

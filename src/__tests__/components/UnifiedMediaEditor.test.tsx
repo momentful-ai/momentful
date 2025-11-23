@@ -10,6 +10,7 @@ import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useEditedImages, useEditedImagesByLineage } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
 import {
   createTestQueryClient,
@@ -47,6 +48,7 @@ vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImagesByLineage: vi.fn(),
 }));
 vi.mock('../../hooks/useMediaAssets', () => ({ useMediaAssets: vi.fn() }));
+vi.mock('../../hooks/useGeneratedVideos', () => ({ useGeneratedVideos: vi.fn() }));
 vi.mock('../../hooks/useSignedUrls', () => ({
   useSignedUrls: vi.fn(() => ({
     useSignedUrl: vi.fn((bucket: string, path: string) => ({
@@ -125,6 +127,7 @@ const mockUseToast = vi.mocked(useToast);
 const mockUseEditedImages = vi.mocked(useEditedImages);
 const mockUseEditedImagesByLineage = vi.mocked(useEditedImagesByLineage);
 const mockUseMediaAssets = vi.mocked(useMediaAssets);
+const mockUseGeneratedVideos = vi.mocked(useGeneratedVideos);
 const mockUseSignedUrls = vi.mocked(useSignedUrls);
 
 // Test constants
@@ -257,7 +260,10 @@ const setupMocks = () => {
     preloadSignedUrls: vi.fn(),
     prefetchThumbnails: vi.fn(),
     clearCache: vi.fn(),
-    useSignedUrl: vi.fn(),
+    useSignedUrl: vi.fn((bucket: string, path: string) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createMockQueryResult(path ? `https://signed.example.com/${bucket}/${path}` : undefined) as any
+    ),
     useOptimisticSignedUrl: vi.fn(),
     useMediaUrlPrefetch: vi.fn(),
     useMediaGalleryUrls: vi.fn(),
@@ -273,6 +279,8 @@ const setupMocks = () => {
   mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult<EditedImage[]>([]) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseMediaAssets.mockReturnValue(createMockQueryResult<MediaAsset[]>(mockMediaAssets) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockUseGeneratedVideos.mockReturnValue(createMockQueryResult<any[]>([]) as any);
 
   // Setup API mocks
   vi.mocked(database.editedImages.create).mockResolvedValue(mockEditedImages[0]);
@@ -335,7 +343,7 @@ const setupMocks = () => {
 };
 
 
-const waitForComponent = async (expectedText = 'Edited Images') => {
+const waitForComponent = async (expectedText = 'Images') => {
   await waitFor(() => expect(screen.getByText(expectedText)).toBeInTheDocument());
   expect(document.querySelector('div.h-screen')).toBeInTheDocument();
 };
@@ -458,7 +466,10 @@ describe('UnifiedMediaEditor', () => {
         preloadSignedUrls: vi.fn(),
         prefetchThumbnails: vi.fn(),
         clearCache: vi.fn(),
-        useSignedUrl: vi.fn(),
+        useSignedUrl: vi.fn((bucket: string, path: string) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          createMockQueryResult(path ? `https://signed.example.com/${bucket}/${path}` : undefined) as any
+        ),
         useOptimisticSignedUrl: vi.fn(),
         useMediaUrlPrefetch: vi.fn(),
         useMediaGalleryUrls: vi.fn(),
@@ -580,9 +591,9 @@ describe('UnifiedMediaEditor', () => {
       const { onSave } = renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
 
-      // Switch to Edited Images tab
-      const editedImagesTab = screen.getByText('Edited Images');
-      await user.click(editedImagesTab);
+      // Switch to Images tab
+      const imagesTab = screen.getByText('Images');
+      await user.click(imagesTab);
 
       // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {
@@ -622,9 +633,9 @@ describe('UnifiedMediaEditor', () => {
       const { onSave } = renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
 
-      // Switch to Edited Images tab
-      const editedImagesTab = screen.getByText('Edited Images');
-      await user.click(editedImagesTab);
+      // Switch to Images tab
+      const imagesTab = screen.getByText('Images');
+      await user.click(imagesTab);
 
       // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {
@@ -715,7 +726,7 @@ describe('UnifiedMediaEditor', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Edited Images')).toBeInTheDocument();
+        expect(screen.getByText('Images')).toBeInTheDocument();
       });
 
       const contentArea = container.querySelector('aside div.flex-1.overflow-y-auto');
@@ -762,8 +773,9 @@ describe('UnifiedMediaEditor', () => {
       renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
 
-      const editedImagesTab = screen.getByText('Edited Images');
-      await user.click(editedImagesTab);
+      // Switch to Images tab
+      const imagesTab = screen.getByText('Images');
+      await user.click(imagesTab);
 
       // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {
@@ -830,8 +842,8 @@ describe('UnifiedMediaEditor', () => {
       renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
 
-      const editedImagesTab = screen.getByText('Edited Images');
-      await user.click(editedImagesTab);
+      const imagesTab = screen.getByText('Images');
+      await user.click(imagesTab);
 
       // Wait for the thumbnail to load (edited images use pre-computed URLs)
       await waitFor(() => {

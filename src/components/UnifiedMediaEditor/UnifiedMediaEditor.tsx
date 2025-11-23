@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
@@ -11,6 +11,7 @@ import { useToast } from '../../hooks/useToast';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
 import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
+import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
 import { EditedImage } from '../../types';
 import { SelectedSource } from './types';
@@ -73,6 +74,7 @@ export function UnifiedMediaEditor({
           id: sourceEditedImage.id,
           type: 'edited_image',
           thumbnail: sourceEditedImage.edited_url,
+          storagePath: sourceEditedImage.storage_path,
           name: sourceEditedImage.prompt.substring(0, 30),
         };
         initialSelectedSources = [source];
@@ -115,14 +117,9 @@ export function UnifiedMediaEditor({
 
   // Load data for both modes
   const { data: editedImages = [] } = useEditedImages(projectId);
-  const { data: mediaAssetsData = [] } = useMediaAssets(projectId);
+  const { data: mediaAssets = [] } = useMediaAssets(projectId);
+  const { data: generatedVideos = [] } = useGeneratedVideos(projectId);
   const signedUrls = useSignedUrls();
-
-  // Filter media assets to only include images
-  const mediaAssets = useMemo(() =>
-    (mediaAssetsData || []).filter(asset => asset.file_type === 'image'),
-    [mediaAssetsData]
-  );
 
   // Determine lineage ID for editing history (image mode)
   const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
@@ -138,6 +135,7 @@ export function UnifiedMediaEditor({
           id: imageToSelect.id,
           type: 'edited_image' as const,
           thumbnail: imageToSelect.edited_url,
+          storagePath: imageToSelect.storage_path,
           name: imageToSelect.prompt.substring(0, 30),
         };
         setState(prev => ({ ...prev, selectedSources: [source] }));
@@ -173,6 +171,7 @@ export function UnifiedMediaEditor({
             id: sourceEditedImage.id,
             type: 'edited_image',
             thumbnail: sourceEditedImage.edited_url,
+            storagePath: sourceEditedImage.storage_path,
             name: sourceEditedImage.prompt.substring(0, 30),
           };
           setState(prev => ({
@@ -193,6 +192,7 @@ export function UnifiedMediaEditor({
               id: asset.id,
               type: 'media_asset',
               thumbnail: assetUrl,
+              storagePath: asset.storage_path,
               name: asset.file_name,
             };
             setState(prev => ({
@@ -555,6 +555,7 @@ export function UnifiedMediaEditor({
             id: latestImage.id,
             type: 'edited_image',
             thumbnail: latestImage.edited_url,
+            storagePath: latestImage.storage_path,
             name: latestImage.prompt.substring(0, 30),
           }];
         } else if (asset) {
@@ -726,6 +727,7 @@ export function UnifiedMediaEditor({
       id: version.id,
       type: 'edited_image',
       thumbnail: version.edited_url,
+      storagePath: version.storage_path,
       name: version.prompt.substring(0, 30),
     };
     handleImageClick(source);
@@ -766,6 +768,7 @@ export function UnifiedMediaEditor({
           mode={state.mode}
           editedImages={state.mode === 'image-edit' ? editingHistory : editedImages}
           mediaAssets={mediaAssets}
+          generatedVideos={generatedVideos}
           selectedSources={state.selectedSources}
           isSelecting={state.isSelecting}
           onDragStart={handleDragStart}
@@ -779,6 +782,10 @@ export function UnifiedMediaEditor({
             });
             queryClient.refetchQueries({
               queryKey: ['media-assets', projectId],
+              type: 'active'
+            });
+            queryClient.refetchQueries({
+              queryKey: ['generated-videos', projectId],
               type: 'active'
             });
           }}
