@@ -79,7 +79,10 @@ export function useSignedUrls() {
    * Optimized mutation for preloading multiple signed URLs
    * Uses longer expiry for prefetched URLs since they're for immutable media
    */
-  const preloadSignedUrlsMutation = useMutation({
+  const {
+    mutate: preloadSignedUrls,
+    mutateAsync: preloadSignedUrlsAsync,
+  } = useMutation({
     mutationFn: async ({
       bucket,
       paths,
@@ -211,7 +214,7 @@ export function useSignedUrls() {
       );
 
       if (uncachedItems.length > 0) {
-        await preloadSignedUrlsMutation.mutateAsync({
+        await preloadSignedUrlsAsync({
           bucket: uncachedItems[0].bucket, // Assume same bucket for simplicity
           paths: uncachedItems.map(item => item.path),
           expiresIn: Math.min(MEDIA_URL_CONFIG.prefetchExpiry, MEDIA_URL_CONFIG.maxExpiry)
@@ -259,7 +262,7 @@ export function useSignedUrls() {
       const prefetchItems = mediaItems.slice(visibleRange.start, visibleRange.end + prefetchCount);
       if (prefetchItems.length > 0) {
         // Prefetch in background (within server limits)
-        preloadSignedUrlsMutation.mutate({
+        preloadSignedUrls({
           bucket: prefetchItems[0].bucket,
           paths: prefetchItems.map(item => item.path),
           expiresIn: Math.min(MEDIA_URL_CONFIG.prefetchExpiry, MEDIA_URL_CONFIG.maxExpiry)
@@ -343,7 +346,7 @@ export function useSignedUrls() {
 
       // Prefetch each bucket
       const prefetchPromises = Object.entries(byBucket).map(([bucket, paths]) =>
-        preloadSignedUrlsMutation.mutateAsync({
+        preloadSignedUrlsAsync({
           bucket,
           paths,
           expiresIn: MEDIA_URL_CONFIG.prefetchExpiry
@@ -352,7 +355,7 @@ export function useSignedUrls() {
 
       await Promise.all(prefetchPromises);
     }
-  }, [preloadSignedUrlsMutation, MEDIA_URL_CONFIG.prefetchExpiry]);
+  }, [preloadSignedUrlsAsync, MEDIA_URL_CONFIG.prefetchExpiry]);
 
   return {
     // React Query hooks (recommended)
@@ -363,7 +366,7 @@ export function useSignedUrls() {
 
     // Utility functions (for backward compatibility)
     getSignedUrl, // Simple async function
-    preloadSignedUrls: preloadSignedUrlsMutation.mutateAsync,
+    preloadSignedUrls: preloadSignedUrlsAsync,
     prefetchThumbnails, // New: prefetch thumbnails for media items
     clearCache,
     getMultipleSignedUrls,

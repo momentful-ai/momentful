@@ -81,6 +81,10 @@ export function useUploadMedia() {
       queryClient.invalidateQueries({
         queryKey: ['media-assets', projectId, userId],
       });
+      // Invalidate project lookup so previewImages picks up the new upload
+      queryClient.invalidateQueries({
+        queryKey: ['projects', userId],
+      });
       // Invalidate timeline cache to refresh timeline with new images
       queryClient.invalidateQueries({
         queryKey: ['timelines', projectId, userId],

@@ -96,6 +96,9 @@ describe('useUploadMedia', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ['media-assets', 'project-1', 'user-1'],
       });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ['projects', 'user-1'],
+      });
     });
   });
 

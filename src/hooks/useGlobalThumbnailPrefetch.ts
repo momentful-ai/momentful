@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSignedUrls } from './useSignedUrls';
 import { useProjects } from './useProjects';
@@ -11,6 +11,7 @@ import { useProjects } from './useProjects';
 export function useGlobalThumbnailPrefetch() {
   const { clearCache, prefetchThumbnails } = useSignedUrls();
   const queryClient = useQueryClient();
+  const lastProjectSnapshotRef = useRef<string>('');
 
   // Get projects data to prefetch preview thumbnails
   const { data: projects = [] } = useProjects();
@@ -19,6 +20,14 @@ export function useGlobalThumbnailPrefetch() {
   useEffect(() => {
     if (projects.length === 0) {
       return; // No projects to prefetch yet
+    }
+
+    const projectSnapshot = projects
+      .map(project => `${project.id}:${(project.previewImages || []).join(',')}`)
+      .join('|');
+
+    if (projectSnapshot === lastProjectSnapshotRef.current) {
+      return; // No meaningful change since last prefetch
     }
 
     const itemsToPrefetch: Array<{ storagePath?: string }> = [];
@@ -38,6 +47,7 @@ export function useGlobalThumbnailPrefetch() {
         console.warn('Failed to prefetch project preview thumbnails globally:', error);
       });
     }
+    lastProjectSnapshotRef.current = projectSnapshot;
   }, [projects, prefetchThumbnails]);
 
   // Listen for cache invalidation events
