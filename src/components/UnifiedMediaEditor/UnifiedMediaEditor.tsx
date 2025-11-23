@@ -505,7 +505,7 @@ export function UnifiedMediaEditor({
           throw new Error('No video URL returned from Runway');
         }
 
-        showToast('Video generated! Uploading...', 'info');
+        showToast('Video generated! Saving...', 'info');
 
         const { storagePath } = await downloadAndUploadVideo(runwayVideoUrl, projectId);
         const uploadedVideoUrl = await signedUrls.getSignedUrl('generated_videos', storagePath);
