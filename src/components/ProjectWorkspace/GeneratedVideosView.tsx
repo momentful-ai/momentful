@@ -108,7 +108,11 @@ export function GeneratedVideosView({
               </div>
             ) : video.storage_path ? (
               <div className="w-full h-full relative">
-                <VideoPlayer videoUrl={video.storage_path} />
+                <VideoPlayer 
+                  videoUrl={video.storage_path} 
+                  isStoragePath={true}
+                  bucket="generated-videos"
+                />
                 {video.status === 'processing' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white" />
