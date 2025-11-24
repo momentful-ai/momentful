@@ -1,10 +1,21 @@
 
+import type { TimelineNode } from '../types/timeline';
+
 export const ACCEPTABLE_IMAGE_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif'
 ] as const;
+
+/**
+ * Map timeline node types to their corresponding storage buckets
+ */
+export const NODE_TYPE_TO_BUCKET: Record<TimelineNode['type'], string> = {
+  'media_asset': 'user-uploads',
+  'edited_image': 'edited-images',
+  'generated_video': 'generated-videos',
+} as const;
 
 // Aspect ratio options for image generation - mapped to Runway SDK ratios
 export const IMAGE_ASPECT_RATIOS = [

@@ -2,6 +2,7 @@ import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { MediaCard } from '../shared/MediaCard';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
+import { NODE_TYPE_TO_BUCKET } from '../../lib/media';
 
 interface TimelineNodeProps {
   node: TimelineNodeType;
@@ -18,7 +19,10 @@ export function TimelineNodeComponent({ node, viewMode, onEditImage, onDownload,
 
   const getAssetUrl = async (storagePath: string): Promise<string> => {
     try {
-      return await signedUrls.getSignedUrl('user-uploads', storagePath);
+      // Get the correct bucket based on node type
+      const bucket = NODE_TYPE_TO_BUCKET[node.type] || 'user-uploads';
+      
+      return await signedUrls.getSignedUrl(bucket, storagePath);
     } catch (error) {
       console.error('Failed to get signed URL for timeline node:', storagePath, error);
       throw error; // Don't fallback to public URLs - surface the error
