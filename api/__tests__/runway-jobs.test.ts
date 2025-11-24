@@ -13,6 +13,7 @@ interface RunwayTask {
 // Set environment variables before any imports
 process.env.RUNWAY_API_KEY = 'test-api-key';
 process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
 // Mock Supabase client creation

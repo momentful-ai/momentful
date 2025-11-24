@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
+// Set environment variables for API imports
+process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+
 // Mock Supabase client creation
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({

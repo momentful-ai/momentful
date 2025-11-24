@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Set environment variables before any imports
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+
 // Mock Runway SDK
 const mockRunwayClient = {
   tasks: {

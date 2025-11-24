@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { version, input } = req.body;
+    const { version, input, userId, projectId, prompt, lineageId, parentId } = req.body;
 
     if (!version || !input) {
       return res.status(400).json({
@@ -34,7 +34,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const processedInput = await convertStoragePathsToSignedUrls(input);
 
     const prediction = await createReplicatePrediction({ version, input: processedInput });
-    return res.status(201).json(prediction);
+
+    // Store metadata for later use when job completes
+    // We'll create the DB record when the job completes (edited_images doesn't have status field)
+    // Store prediction_id -> metadata mapping (we'll use a simple approach: pass it in status checks)
+    
+    return res.status(201).json({
+      ...prediction,
+      // Include metadata in response so client can pass it to status endpoint
+      metadata: userId && projectId && prompt ? {
+        userId,
+        projectId,
+        prompt,
+        lineageId,
+        parentId,
+      } : undefined,
+    });
   } catch (error) {
     // Better error handling - log the actual error for debugging
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

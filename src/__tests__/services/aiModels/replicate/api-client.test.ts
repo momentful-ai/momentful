@@ -159,7 +159,7 @@ describe('Replicate API Client', () => {
       const result = await getReplicatePredictionStatus('pred-123');
 
       expect(result).toEqual(mockPrediction);
-      expect(fetchMock).toHaveBeenCalledWith('/api/replicate/predictions/pred-123');
+      expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/api/replicate/predictions/pred-123');
     });
 
     it('handles API error responses', async () => {
@@ -179,6 +179,44 @@ describe('Replicate API Client', () => {
       });
 
       await expect(getReplicatePredictionStatus('pred-123')).rejects.toThrow('Failed to get prediction status');
+    });
+
+    it('passes metadata in query parameters for auto-upload', async () => {
+      const mockPrediction: ReplicatePrediction & { storagePath?: string; width?: number; height?: number; editedImageId?: string } = {
+        id: 'pred-123',
+        status: 'succeeded',
+        output: ['https://example.com/generated-image.png'],
+        created_at: '2025-01-01T00:00:00Z',
+        storagePath: 'user123/project456/edited-123.png',
+        width: 800,
+        height: 600,
+        editedImageId: 'edited-image-456',
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockPrediction),
+      });
+
+      const metadata = {
+        userId: 'user123',
+        projectId: 'project456',
+        prompt: 'Original prompt',
+        lineageId: 'lineage789',
+        parentId: 'parent123',
+      };
+
+      const result = await getReplicatePredictionStatus('pred-123', metadata);
+
+      expect(result).toEqual(mockPrediction);
+      const expectedUrl = new URL('/api/replicate/predictions/pred-123', 'http://localhost:3000');
+      expectedUrl.searchParams.set('userId', 'user123');
+      expectedUrl.searchParams.set('projectId', 'project456');
+      expectedUrl.searchParams.set('prompt', 'Original prompt');
+      expectedUrl.searchParams.set('lineageId', 'lineage789');
+      expectedUrl.searchParams.set('parentId', 'parent123');
+
+      expect(fetchMock).toHaveBeenCalledWith(expectedUrl.toString());
     });
   });
 
@@ -238,6 +276,38 @@ describe('Replicate API Client', () => {
 
       expect(result).toEqual(successPrediction);
       expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes metadata to status calls during polling', async () => {
+      const successPrediction: ReplicatePrediction & { storagePath?: string } = {
+        id: 'pred-123',
+        status: 'succeeded',
+        output: 'https://example.com/image.jpg',
+        created_at: '2025-01-01T00:00:00Z',
+        storagePath: 'user123/project456/edited-123.png',
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(successPrediction),
+      });
+
+      const metadata = {
+        userId: 'user123',
+        projectId: 'project456',
+        prompt: 'Original prompt',
+      };
+
+      const result = await pollReplicatePrediction('pred-123', undefined, 10, 100, metadata);
+
+      expect(result).toEqual(successPrediction);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // Check that the URL includes metadata parameters
+      const callUrl = fetchMock.mock.calls[0][0];
+      expect(callUrl).toContain('userId=user123');
+      expect(callUrl).toContain('projectId=project456');
+      expect(callUrl).toContain('prompt=Original+prompt');
     });
 
     it('throws error when prediction fails', async () => {
@@ -443,6 +513,31 @@ describe('Replicate API Client', () => {
         safety_tolerance: 3,
         prompt_upsampling: true,
       });
+    });
+
+    it('includes metadata when provided', async () => {
+      const mockResponse = { id: 'pred-456', status: 'starting' };
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      await createReplicateImageJob({
+        imageUrl: 'https://example.com/input.jpg',
+        prompt: 'Test prompt',
+        userId: 'user123',
+        projectId: 'project456',
+        lineageId: 'lineage789',
+        parentId: 'parent123',
+      });
+
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(callBody.input).toEqual({
+        prompt: 'Test prompt',
+        input_image: 'https://example.com/input.jpg',
+        aspect_ratio: 'match_input_image',
+      });
+      // Note: metadata is not included in the API call - it's handled during status polling
     });
   });
 

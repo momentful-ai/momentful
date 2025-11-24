@@ -55,6 +55,14 @@ export interface CreateJobRequest {
   promptImage?: string;
   model?: string;
   ratio?: string;
+  userId?: string;
+  projectId?: string;
+  name?: string;
+  aiModel?: string;
+  aspectRatio?: string;
+  cameraMovement?: string;
+  lineageId?: string;
+  sourceIds?: Array<{ type: string; id: string }>;
 }
 
 export interface CreateImageJobRequest {
@@ -78,6 +86,9 @@ export interface JobStatusResponse {
   failure?: string | null;
   failureCode?: string | null;
   createdAt?: string | null;
+  storagePath?: string;
+  videoId?: string;
+  uploadError?: string;
 }
 
 /**

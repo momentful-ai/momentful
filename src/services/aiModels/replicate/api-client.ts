@@ -97,9 +97,17 @@ export async function createReplicatePrediction(
  * Get the status of a prediction
  */
 export async function getReplicatePredictionStatus(
-  predictionId: string
-): Promise<ReplicatePrediction> {
-  const response = await fetch(`/api/replicate/predictions/${predictionId}`);
+  predictionId: string,
+  metadata?: { userId?: string; projectId?: string; prompt?: string; lineageId?: string; parentId?: string }
+): Promise<ReplicatePrediction & { storagePath?: string; width?: number; height?: number; editedImageId?: string }> {
+  const url = new URL(`/api/replicate/predictions/${predictionId}`, window.location.origin);
+  if (metadata?.userId) url.searchParams.set('userId', metadata.userId);
+  if (metadata?.projectId) url.searchParams.set('projectId', metadata.projectId);
+  if (metadata?.prompt) url.searchParams.set('prompt', metadata.prompt);
+  if (metadata?.lineageId) url.searchParams.set('lineageId', metadata.lineageId);
+  if (metadata?.parentId) url.searchParams.set('parentId', metadata.parentId);
+
+  const response = await fetch(url.toString());
 
   if (!response.ok) {
     let error;
@@ -125,11 +133,12 @@ export async function pollReplicatePrediction(
   predictionId: string,
   onProgress?: (prediction: ReplicatePrediction) => void,
   maxAttempts: number = 120, // 4 minutes for long-running models
-  intervalMs: number = 2000
-): Promise<ReplicatePrediction> {
+  intervalMs: number = 2000,
+  metadata?: { userId?: string; projectId?: string; prompt?: string; lineageId?: string; parentId?: string }
+): Promise<ReplicatePrediction & { storagePath?: string; width?: number; height?: number; editedImageId?: string }> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const prediction = await getReplicatePredictionStatus(predictionId);
+      const prediction = await getReplicatePredictionStatus(predictionId, metadata);
       onProgress?.(prediction);
 
       if (prediction.status === 'succeeded') {
@@ -180,6 +189,10 @@ export interface CreateReplicateImageJobRequest {
   outputFormat?: 'jpg' | 'png';
   safetyTolerance?: number; // 0-6, default 2
   promptUpsampling?: boolean;
+  userId?: string;
+  projectId?: string;
+  lineageId?: string;
+  parentId?: string;
 }
 
 /**
@@ -243,10 +256,19 @@ export async function createReplicateImageJob(
     input.prompt_upsampling = promptUpsampling;
   }
 
-  return createReplicatePrediction({
+  const prediction = await createReplicatePrediction({
     version: ReplicateModels.FLUX_PRO,
     input,
+    ...(request.userId && request.projectId && request.prompt ? {
+      userId: request.userId,
+      projectId: request.projectId,
+      prompt: request.prompt,
+      lineageId: request.lineageId,
+      parentId: request.parentId,
+    } : {}),
   });
+  
+  return prediction;
 }
 
 /**

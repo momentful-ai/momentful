@@ -19,7 +19,6 @@ import * as RunwayAPI from '../../services/aiModels/runway';
 import {
   createReplicateImageJob,
   pollReplicatePrediction,
-  extractImageUrl as extractReplicateImageUrl,
 } from '../../services/aiModels/replicate/api-client';
 import { UnifiedMediaEditorProps, UnifiedEditorState, MediaEditorMode } from './types';
 import { UnifiedLeftPanel } from './UnifiedLeftPanel';
@@ -236,88 +235,6 @@ export function UnifiedMediaEditor({
     }
   }, [state.mode, sourceEditedImage]);
 
-  const getImageDimensionsFromUrl = (url: string): Promise<{ width: number; height: number }> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        resolve({ width: img.width, height: img.height });
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  };
-
-  const downloadAndUploadImage = async (
-    imageUrl: string,
-    projectId: string
-  ): Promise<{ storagePath: string; width: number; height: number }> => {
-    if (!userId) {
-      throw new Error('User ID is required to upload images');
-    }
-
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download image: ${response.statusText}`);
-    }
-
-    const blob = await response.blob();
-    const timestamp = Date.now();
-    const fileName = `edited-${timestamp}.png`;
-    const storagePath = `${userId}/${projectId}/${fileName}`;
-
-    // Validate storage path
-    const pathValidation = validateStoragePath(userId, storagePath);
-    if (!pathValidation.valid) {
-      throw new Error(`Storage path validation failed: ${pathValidation.error}`);
-    }
-
-    const file = new File([blob], fileName, { type: 'image/png' });
-    try {
-      await database.storage.upload('user-uploads', storagePath, file);
-    } catch (error) {
-      const errorResult = handleStorageError(error, 'edited image upload');
-      throw new Error(errorResult.error);
-    }
-
-    const { width, height } = await getImageDimensionsFromUrl(imageUrl);
-
-    return { storagePath, width, height };
-  };
-
-  const downloadAndUploadVideo = async (
-    videoUrl: string,
-    projectId: string
-  ): Promise<{ storagePath: string }> => {
-    if (!userId) {
-      throw new Error('User ID is required to upload videos');
-    }
-
-    const response = await fetch(videoUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download video: ${response.statusText}`);
-    }
-
-    const blob = await response.blob();
-    const timestamp = Date.now();
-    const fileName = `generated-${timestamp}.mp4`;
-    const storagePath = `${userId}/${projectId}/${fileName}`;
-
-    // Validate storage path
-    const pathValidation = validateStoragePath(userId, storagePath);
-    if (!pathValidation.valid) {
-      throw new Error(`Storage path validation failed: ${pathValidation.error}`);
-    }
-
-    const file = new File([blob], fileName, { type: 'video/mp4' });
-    try {
-      await database.storage.upload('generated-videos', storagePath, file);
-    } catch (error) {
-      const errorResult = handleStorageError(error, 'generated video upload');
-      throw new Error(errorResult.error);
-    }
-
-    return { storagePath };
-  };
 
   const handleImageGenerate = async () => {
     if (!state.productName.trim() || !asset) return;
@@ -337,9 +254,22 @@ export function UnifiedMediaEditor({
 
       const { id: predictionId } = await createReplicateImageJob({
         imageUrl,
-        prompt: enhancedPrompt,
+        prompt: enhancedPrompt, // This is for the AI model
         aspectRatio: state.selectedRatio,
+        userId,
+        projectId,
+        lineageId: lineageId || undefined,
+        parentId: sourceEditedImage?.id,
       });
+
+      // Metadata for server-side upload and DB creation (uses original prompt, not enhanced)
+      const metadata = {
+        userId,
+        projectId,
+        prompt: state.productName, // Original prompt for DB record
+        lineageId: lineageId || undefined,
+        parentId: sourceEditedImage?.id,
+      };
 
       const result = await pollReplicatePrediction(
         predictionId,
@@ -347,46 +277,36 @@ export function UnifiedMediaEditor({
           if (prediction.status === 'processing' || prediction.status === 'starting') {
             showToast(`Generating... ${prediction.status}`, 'info');
           } else if (prediction.status === 'succeeded') {
-            showToast('Generation complete!', 'success');
+            showToast('Generation complete! Uploading...', 'info');
           }
         },
         120,
-        2000
+        2000,
+        metadata
       );
 
-      const generatedImageUrl = extractReplicateImageUrl(result);
-      if (!generatedImageUrl) {
-        throw new Error('Failed to extract image URL from Replicate response');
+      // Server has already uploaded and created DB record
+      if (!result.storagePath) {
+        throw new Error('Server did not return storage path');
       }
 
-      showToast('Image generated! Uploading...', 'info');
-
-      const { storagePath, width, height } = await downloadAndUploadImage(generatedImageUrl, projectId);
-      const uploadedImageUrl = await signedUrls.getSignedUrl('user-uploads', storagePath);
+      const uploadedImageUrl = await signedUrls.getSignedUrl('user-uploads', result.storagePath);
       setState(prev => ({ ...prev, editedImageUrl: uploadedImageUrl, showComparison: true }));
-      setEditedImageStoragePath(storagePath);
+      setEditedImageStoragePath(result.storagePath);
 
-      // Save to database
-      const createdImage = await database.editedImages.create({
-        project_id: projectId.trim(),
-        user_id: userId.trim(),
-        prompt: state.productName,
-        context: { productName: state.productName },
-        ai_model: 'flux-pro',
-        storage_path: storagePath,
-        width,
-        height,
-        lineage_id: lineageId || undefined,
-        ...(sourceEditedImage
-          ? { parent_id: sourceEditedImage.id }
-          : undefined
-        ),
-      });
+      // Fetch the created image from database
+      const createdImage = result.editedImageId 
+        ? await database.editedImages.list(projectId, userId).then(images => 
+            images.find(img => img.id === result.editedImageId)
+          )
+        : null;
 
       // Optimistic cache updates - update cache immediately without refetching
-      queryClient.setQueryData<EditedImage[]>(['edited-images', projectId, userId], (old = []) => [createdImage, ...old]);
-      if (createdImage.lineage_id) {
-        queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id, userId], (old = []) => [createdImage, ...old]);
+      if (createdImage) {
+        queryClient.setQueryData<EditedImage[]>(['edited-images', projectId, userId], (old = []) => [createdImage, ...old]);
+        if (createdImage.lineage_id) {
+          queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id, userId], (old = []) => [createdImage, ...old]);
+        }
       }
 
       // Invalidate related queries in background (only refetch if actively used)
@@ -405,7 +325,7 @@ export function UnifiedMediaEditor({
       // Dispatch custom event to trigger global thumbnail prefetch refresh
       window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
-      if (createdImage.lineage_id) {
+      if (createdImage?.lineage_id) {
         queryClient.invalidateQueries({
           queryKey: ['timeline', createdImage.lineage_id, userId],
           refetchType: 'active'
@@ -466,11 +386,41 @@ export function UnifiedMediaEditor({
 
       const enhancedPrompt = buildEnhancedVideoPrompt(state.prompt, state.cameraMovement);
       const runwayRatio = mapAspectRatioToRunway(state.aspectRatio);
+      
+      // Get lineage_id from preferred source
+      let lineage_id: string | undefined;
+      const preferredSource = state.selectedSources.find(s => s.type === 'edited_image') || state.selectedSources[0];
+      if (preferredSource) {
+        if (preferredSource.type === 'edited_image') {
+          const { data: sourceData } = await supabase
+            .from('edited_images')
+            .select('lineage_id')
+            .eq('id', preferredSource.id)
+            .single();
+          lineage_id = sourceData?.lineage_id;
+        } else {
+          const { data: sourceData } = await supabase
+            .from('media_assets')
+            .select('lineage_id')
+            .eq('id', preferredSource.id)
+            .single();
+          lineage_id = sourceData?.lineage_id;
+        }
+      }
+
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
         promptImage: imageUrl,
         promptText: enhancedPrompt || undefined,
         ratio: runwayRatio,
+        userId,
+        projectId,
+        name: state.prompt || 'Untitled Video',
+        aiModel: state.selectedModel,
+        aspectRatio: state.aspectRatio,
+        cameraMovement: state.cameraMovement,
+        lineageId: lineage_id,
+        sourceIds: state.selectedSources.map(s => ({ type: s.type, id: s.id })),
       };
 
       showToast('Starting video generation...', 'info');
@@ -486,7 +436,7 @@ export function UnifiedMediaEditor({
           } else if (status === 'PROCESSING') {
             showToast('Video generation in progress...', 'info');
           } else if (status === 'SUCCEEDED') {
-            showToast('Video generation completed!', 'success');
+            showToast('Video generation completed! Uploading...', 'info');
           } else if (status === 'FAILED') {
             showToast('Video generation failed!', 'error');
             setState(prev => ({ ...prev, videoError: true, isGenerating: false }));
@@ -494,77 +444,38 @@ export function UnifiedMediaEditor({
         }
       );
 
-      if (result.status === 'SUCCEEDED' && result.output) {
-        const runwayVideoUrl = typeof result.output === 'string'
-          ? result.output
-          : Array.isArray(result.output)
-            ? result.output[0]
-            : null;
-
-        if (!runwayVideoUrl) {
-          throw new Error('No video URL returned from Runway');
+      if (result.status === 'SUCCEEDED') {
+        // Check for upload errors first
+        if (result.uploadError) {
+          throw new Error(`Video upload failed: ${result.uploadError}`);
         }
 
-        showToast('Video generated! Saving...', 'info');
+        // Server has already uploaded and created DB record
+        if (!result.storagePath) {
+          throw new Error('Server did not return storage path');
+        }
 
-        const { storagePath } = await downloadAndUploadVideo(runwayVideoUrl, projectId);
-        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', storagePath);
-
+        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', result.storagePath);
         setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
-        let lineage_id: string | undefined;
-        const preferredSource = state.selectedSources.find(s => s.type === 'edited_image') || state.selectedSources[0];
-
-        if (preferredSource) {
-          if (preferredSource.type === 'edited_image') {
-            const { data: sourceData } = await supabase
-              .from('edited_images')
-              .select('lineage_id')
-              .eq('id', preferredSource.id)
-              .single();
-            lineage_id = sourceData?.lineage_id;
-          } else {
-            const { data: sourceData } = await supabase
-              .from('media_assets')
-              .select('lineage_id')
-              .eq('id', preferredSource.id)
-              .single();
-            lineage_id = sourceData?.lineage_id;
-          }
-        }
-
-        const createdVideo = await database.generatedVideos.create({
-          project_id: projectId.trim(),
-          user_id: userId.trim(),
-          name: state.prompt || 'Untitled Video',
-          ai_model: state.selectedModel,
-          aspect_ratio: state.aspectRatio,
-          camera_movement: state.cameraMovement,
-          runway_task_id: taskId,
-          storage_path: storagePath,
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          lineage_id,
-        });
-
-        await Promise.all(state.selectedSources.map(async (source, index) => {
-          await database.videoSources.create({
-            video_id: createdVideo.id,
-            source_type: source.type,
-            source_id: source.id,
-            sort_order: index,
-          }, userId);
-        }));
+        // Fetch the created video from database
+        const createdVideo = result.videoId
+          ? await database.generatedVideos.list(projectId, userId).then(videos =>
+              videos.find(v => v.id === result.videoId)
+            )
+          : null;
 
         // Manually cache the signed URL for the new video so it's available immediately
         // This prevents a double-fetch when the video appears in the list
         queryClient.setQueryData(
-          ['signed-url', 'generated_videos', storagePath],
+          ['signed-url', 'generated_videos', result.storagePath],
           uploadedVideoUrl
         );
 
         // Optimistic cache updates - update cache immediately without refetching
-        queryClient.setQueryData<GeneratedVideo[]>(['generated-videos', projectId, userId], (old = []) => [createdVideo, ...old]);
+        if (createdVideo) {
+          queryClient.setQueryData<GeneratedVideo[]>(['generated-videos', projectId, userId], (old = []) => [createdVideo, ...old]);
+        }
 
         // Invalidate related queries in background (only refetch if actively used)
         queryClient.invalidateQueries({
