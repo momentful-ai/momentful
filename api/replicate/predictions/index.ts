@@ -5,6 +5,7 @@ import {
   ReplicateModels,
 } from '../../shared/replicate.js';
 import { convertStoragePathsToSignedUrls } from '../../shared/external-signed-urls.js';
+import { supabase } from '../../shared/supabase.js';
 
 // Re-export for backward compatibility
 export { createReplicatePrediction, ReplicateModels };
@@ -19,6 +20,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({
         error: 'Missing required fields: version and input'
       });
+    }
+
+    // Check generation limit if userId is provided
+    if (userId) {
+      try {
+        const { data: limits, error: limitsError } = await supabase
+          .from('user_generation_limits')
+          .select('images_remaining')
+          .eq('user_id', userId)
+          .single();
+
+        // If no record exists, create one with defaults
+        let imagesRemaining = 10;
+        if (limitsError || !limits) {
+          const { data: newLimits } = await supabase
+            .from('user_generation_limits')
+            .insert({
+              user_id: userId,
+              images_remaining: 10,
+              videos_remaining: 5,
+              images_limit: 10,
+              videos_limit: 5,
+            })
+            .select()
+            .single();
+          imagesRemaining = newLimits?.images_remaining ?? 10;
+        } else {
+          imagesRemaining = limits.images_remaining;
+        }
+
+        if (imagesRemaining <= 0) {
+          return res.status(403).json({
+            error: 'Image generation limit reached',
+            message: `You’ve maxed out your image credits :(
+Message the Momentful crew at hello@momentful.ai to unlock more.`,
+          });
+        }
+
+        // Decrement the count before creating the prediction
+        const { error: decrementError } = await supabase
+          .from('user_generation_limits')
+          .update({ images_remaining: imagesRemaining - 1 })
+          .eq('user_id', userId);
+
+        if (decrementError) {
+          console.error('Failed to decrement image generation limit:', decrementError);
+          // Continue with generation even if decrement fails, but log the error
+        }
+      } catch (limitCheckError) {
+        console.error('Error during generation limit check:', limitCheckError);
+        // Continue with generation even if limit check fails
+      }
     }
 
     // Validate input based on model version

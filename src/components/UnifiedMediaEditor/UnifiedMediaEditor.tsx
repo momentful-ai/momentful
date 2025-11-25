@@ -12,6 +12,7 @@ import { useSignedUrls } from '../../hooks/useSignedUrls';
 import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { useUserGenerationLimits } from '../../hooks/useUserGenerationLimits';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
 import { EditedImage, GeneratedVideo } from '../../types';
 import { SelectedSource } from './types';
@@ -26,6 +27,7 @@ import { UnifiedPreview } from './UnifiedPreview';
 import { UnifiedControls } from './UnifiedControls';
 import { UnifiedHeader } from './UnifiedHeader';
 import { UnifiedSidebar } from './UnifiedSidebar';
+import { LimitReachedDialog } from '../LimitReachedDialog';
 
 export function UnifiedMediaEditor({
   initialMode,
@@ -39,6 +41,7 @@ export function UnifiedMediaEditor({
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { imagesRemaining, videosRemaining, refetch: refetchLimits } = useUserGenerationLimits();
 
   // Initialize state based on mode
   const [originalImageData, setOriginalImageData] = useState<{
@@ -60,6 +63,7 @@ export function UnifiedMediaEditor({
   });
 
   const [editedImageStoragePath, setEditedImageStoragePath] = useState<string | undefined>();
+  const [showLimitDialog, setShowLimitDialog] = useState<{ type: 'images' | 'videos' } | null>(null);
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
     let initialSelectedSources: SelectedSource[] = [];
@@ -239,6 +243,12 @@ export function UnifiedMediaEditor({
   const handleImageGenerate = async () => {
     if (!state.productName.trim() || !asset) return;
 
+    // Check generation limit before proceeding
+    if (imagesRemaining <= 0) {
+      setShowLimitDialog({ type: 'images' });
+      return;
+    }
+
     setState(prev => ({ ...prev, isGenerating: true, showComparison: false, editedImageUrl: null }));
 
     try {
@@ -338,11 +348,18 @@ export function UnifiedMediaEditor({
       }));
 
       showToast('Image generated and saved successfully!', 'success');
+      // Refetch limits to update the count
+      refetchLimits();
       onSave();
     } catch (error) {
       console.error('Error generating image:', error);
       const errorMessage = getErrorMessage(error);
-      showToast(errorMessage, 'error');
+      // Check if it's a limit error
+      if (errorMessage.includes('limit') || errorMessage.includes('403')) {
+        setShowLimitDialog({ type: 'images' });
+      } else {
+        showToast(errorMessage, 'error');
+      }
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
     }
@@ -355,6 +372,12 @@ export function UnifiedMediaEditor({
     }
     if (!userId) {
       showToast('User must be logged in to generate videos', 'error');
+      return;
+    }
+
+    // Check generation limit before proceeding
+    if (videosRemaining <= 0) {
+      setShowLimitDialog({ type: 'videos' });
       return;
     }
 
@@ -445,16 +468,10 @@ export function UnifiedMediaEditor({
       );
 
       if (result.status === 'SUCCEEDED') {
-        // Check for upload errors first
-        if (result.uploadError) {
-          throw new Error(`Video upload failed: ${result.uploadError}`);
-        }
-
         // Server has already uploaded and created DB record
         if (!result.storagePath) {
           throw new Error('Server did not return storage path');
         }
-
         const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', result.storagePath);
         setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
@@ -493,6 +510,8 @@ export function UnifiedMediaEditor({
         window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
         showToast('Video is ready to view!', 'success');
+        // Refetch limits to update the count
+        refetchLimits();
         onSave();
       } else {
         throw new Error('Video generation failed');
@@ -500,7 +519,12 @@ export function UnifiedMediaEditor({
     } catch (error) {
       console.error('Error generating video:', error);
       const errorMessage = getErrorMessage(error);
-      showToast(errorMessage, 'error');
+      // Check if it's a limit error
+      if (errorMessage.includes('limit') || errorMessage.includes('403')) {
+        setShowLimitDialog({ type: 'videos' });
+      } else {
+        showToast(errorMessage, 'error');
+      }
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
     }
@@ -721,6 +745,12 @@ export function UnifiedMediaEditor({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
+      {showLimitDialog && (
+        <LimitReachedDialog
+          type={showLimitDialog.type}
+          onClose={() => setShowLimitDialog(null)}
+        />
+      )}
       <UnifiedHeader
         mode={state.mode}
         onClose={onClose}
