@@ -37,6 +37,12 @@ export function Layout({ children }: LayoutProps) {
                   alt="momentful"
                   className="h-6 w-auto"
                 />
+                <h1
+                  className="text-lg sm:text-xl font-bold text-black dark:text-white tracking-[-0.03em] font-medium"
+                  style={{ fontFamily: '"M PLUS Rounded 1c", sans-serif' }}
+                >
+                  momentful
+                </h1>
               </a>
               {isBypassEnabled && (
                 <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-md font-medium border border-border">
