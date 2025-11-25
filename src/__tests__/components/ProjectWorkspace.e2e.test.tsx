@@ -118,8 +118,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     thumbnail_url: undefined,
     width: 512,
     height: 512,
-    version: 1,
-    parent_id: undefined,
     created_at: '2025-10-20T15:59:30.165+00:00',
   };
 
@@ -138,8 +136,6 @@ describe('ProjectWorkspace - End-to-End Video Generation Flow', () => {
     thumbnail_url: undefined,
     duration: 30,
     status: 'completed' as const,
-    version: 1,
-    parent_id: undefined,
     runway_task_id: 'runway-task-123',
     created_at: '2025-10-20T15:59:30.165+00:00',
     completed_at: '2025-10-20T15:59:30.166+00:00',

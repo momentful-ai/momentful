@@ -34,8 +34,7 @@ describe('Type Guard Functions', () => {
         thumbnail_url: 'thumb.jpg',
         width: 800,
         height: 600,
-        duration: 30,
-        lineage_id: 'lineage-1'
+        duration: 30
       };
 
       expect(isMediaAsset(mediaAssetWithOptionals)).toBe(true);
@@ -104,7 +103,6 @@ describe('Type Guard Functions', () => {
         storage_path: '/path/to/edited/image',
         width: 800,
         height: 600,
-        version: 1,
         created_at: '2024-01-01T00:00:00Z'
       };
 
@@ -122,11 +120,8 @@ describe('Type Guard Functions', () => {
         storage_path: '/path/to/edited/image',
         width: 800,
         height: 600,
-        version: 1,
         created_at: '2024-01-01T00:00:00Z',
         thumbnail_url: 'thumb.jpg',
-        parent_id: 'parent-1',
-        lineage_id: 'lineage-1',
         edited_url: 'signed-url'
       };
 
@@ -143,7 +138,6 @@ describe('Type Guard Functions', () => {
         storage_path: '/path/to/edited/image',
         width: 800,
         height: 600,
-        version: 1,
         created_at: '2024-01-01T00:00:00Z'
         // Missing prompt
       };
@@ -197,11 +191,8 @@ describe('Type Guard Functions', () => {
         storage_path: '/path/to/video',
         thumbnail_url: 'thumb.jpg',
         duration: 30,
-        version: 1,
-        parent_id: 'parent-1',
         runway_task_id: 'task-123',
-        completed_at: '2024-01-01T00:30:00Z',
-        lineage_id: 'lineage-1'
+        completed_at: '2024-01-01T00:30:00Z'
       };
 
       expect(isGeneratedVideo(videoWithOptionals)).toBe(true);
@@ -249,7 +240,6 @@ describe('Type Guard Functions', () => {
         storage_path: '/path/to/edited/image',
         width: 800,
         height: 600,
-        version: 1,
         created_at: '2024-01-01T00:00:00Z'
       };
 

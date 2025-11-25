@@ -40,8 +40,6 @@ const mockEditedImages: EditedImage[] = [
     edited_url: 'https://example.com/user-uploads/user-1/project-1/edited-1.png',
     width: 1920,
       height: 1080,
-      version: 1,
-      parent_id: undefined,
       created_at: '2025-10-20T15:59:30.165+00:00',
   },
 ];

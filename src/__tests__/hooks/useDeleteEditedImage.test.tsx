@@ -43,8 +43,6 @@ const mockEditedImages: EditedImage[] = [
     edited_url: 'https://example.com/image-1.png',
     width: 1920,
     height: 1080,
-    version: 1,
-    parent_id: undefined,
     created_at: '2025-01-01T00:00:00Z',
   },
   {
@@ -58,8 +56,6 @@ const mockEditedImages: EditedImage[] = [
     edited_url: 'https://example.com/image-2.png',
     width: 1920,
     height: 1080,
-    version: 1,
-    parent_id: undefined,
     created_at: '2025-01-02T00:00:00Z',
   },
 ];

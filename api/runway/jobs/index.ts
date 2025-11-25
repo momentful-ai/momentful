@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Extract metadata (for video jobs)
-    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, lineageId, sourceIds } = req.body;
+    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, sourceIds } = req.body;
 
     // Convert any storage paths to signed URLs for external provider access
     const processedData = await convertStoragePathsToSignedUrls(parsed.data);
@@ -58,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (videosRemaining <= 0) {
           return res.status(403).json({
             error: 'Video generation limit reached',
-            message: `You’ve maxed out your video credits :(
+            message: `You've maxed out your video credits :(
 Message the Momentful crew at hello@momentful.ai to unlock more.`,
           });
         }
@@ -121,7 +121,6 @@ Message the Momentful crew at hello@momentful.ai to unlock more.`,
               runway_task_id: task.id,
               storage_path: null, // Will be set when job completes
               status: 'processing',
-              lineage_id: lineageId || null,
             })
             .select()
             .single();

@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { version, input, userId, projectId, prompt, lineageId, parentId } = req.body;
+    const { version, input, userId, projectId, prompt } = req.body;
 
     if (!version || !input) {
       return res.status(400).json({
@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (imagesRemaining <= 0) {
           return res.status(403).json({
             error: 'Image generation limit reached',
-            message: `You’ve maxed out your image credits :(
+            message: `You've maxed out your image credits :(
 Message the Momentful crew at hello@momentful.ai to unlock more.`,
           });
         }
@@ -99,8 +99,6 @@ Message the Momentful crew at hello@momentful.ai to unlock more.`,
         userId,
         projectId,
         prompt,
-        lineageId,
-        parentId,
       } : undefined,
     });
   } catch (error) {

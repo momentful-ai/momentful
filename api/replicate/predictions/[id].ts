@@ -19,7 +19,7 @@ function extractImageUrlFromPrediction(prediction: { output?: string | string[] 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const { id, userId, projectId, prompt, lineageId, parentId } = req.query;
+  const { id, userId, projectId, prompt } = req.query;
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid prediction id' });
@@ -59,8 +59,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               storage_path: uploadResult.storagePath,
               width: uploadResult.width || 0,
               height: uploadResult.height || 0,
-              lineage_id: lineageId as string || null,
-              parent_id: parentId as string || null,
             })
             .select()
             .single();

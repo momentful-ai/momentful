@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MediaCard } from '../../../components/shared/MediaCard';
-import { MediaAsset, EditedImage, GeneratedVideo } from '../../../types';
-import { TimelineNode } from '../../../types/timeline';
+import { MediaAsset, EditedImage } from '../../../types';
 
 // Mock Supabase and database dependencies
 vi.mock('../../../lib/supabase', () => ({
@@ -66,22 +65,7 @@ const mockEditedImage: EditedImage = {
   storage_path: 'path/to/edited.jpg',
   width: 1920,
   height: 1080,
-  version: 1,
   created_at: '2025-01-01T01:00:00Z',
-};
-
-const mockGeneratedVideo: GeneratedVideo = {
-  id: 'video-1',
-  project_id: 'project-1',
-  user_id: 'user-1',
-  name: 'Test Video',
-  ai_model: 'runway-gen4',
-  aspect_ratio: '16:9',
-  storage_path: 'path/to/video.mp4',
-  thumbnail_url: 'https://example.com/video-thumb.jpg',
-  duration: 30,
-  status: 'completed',
-  created_at: '2025-01-01T02:00:00Z',
 };
 
 describe('MediaCard', () => {
@@ -173,64 +157,6 @@ describe('MediaCard', () => {
     });
   });
 
-  describe('TimelineNode rendering', () => {
-    it('renders media_asset TimelineNode with type label', () => {
-      const node: TimelineNode = {
-        type: 'media_asset',
-        data: mockMediaAsset,
-      };
-
-      render(
-        <MediaCard
-          item={node}
-          viewMode="timeline"
-          showTypeLabel={true}
-          getAssetUrl={mockGetAssetUrl}
-        />
-      );
-
-      expect(screen.getByText('Original')).toBeInTheDocument();
-      expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-    });
-
-    it('renders edited_image TimelineNode with type label', () => {
-      const node: TimelineNode = {
-        type: 'edited_image',
-        data: mockEditedImage,
-      };
-
-      render(
-        <MediaCard
-          item={node}
-          viewMode="timeline"
-          showTypeLabel={true}
-          getAssetUrl={mockGetAssetUrl}
-        />
-      );
-
-      expect(screen.getByText('Edited')).toBeInTheDocument();
-      expect(screen.getByAltText('Make it more vibrant')).toBeInTheDocument();
-    });
-
-    it('renders generated_video TimelineNode with type label', () => {
-      const node: TimelineNode = {
-        type: 'generated_video',
-        data: mockGeneratedVideo,
-      };
-
-      render(
-        <MediaCard
-          item={node}
-          viewMode="timeline"
-          showTypeLabel={true}
-          getAssetUrl={mockGetAssetUrl}
-        />
-      );
-
-      expect(screen.getByText('Video')).toBeInTheDocument();
-    });
-  });
-
   describe('Edit with AI functionality', () => {
     it('shows Edit with AI overlay for image MediaAsset on hover', () => {
       const handleEdit = vi.fn();
@@ -286,7 +212,7 @@ describe('MediaCard', () => {
       fireEvent.mouseEnter(card!);
       
       // The overlay should be visible, but clicking the overlay triggers the card click
-      // For testing, we can simulate clicking the edit button in timeline mode
+      // For testing, we can simulate clicking the edit button
     });
 
     it('calls onEditImage when Edit with AI is clicked for EditedImage', () => {
@@ -406,28 +332,6 @@ describe('MediaCard', () => {
       expect(screen.getByText('Edit with AI')).toBeInTheDocument();
     });
 
-    it('does not show edit overlay for non-editable items', () => {
-      const handleEdit = vi.fn();
-      const timelineNode: TimelineNode = {
-        type: 'generated_video',
-        data: mockGeneratedVideo,
-      };
-
-      render(
-        <MediaCard
-          item={timelineNode}
-          viewMode="grid"
-          onEditImage={handleEdit}
-          getAssetUrl={mockGetAssetUrl}
-        />
-      );
-
-      const card = screen.getByText('Test Video').closest('.group');
-      fireEvent.mouseEnter(card!);
-
-      expect(screen.queryByText('Edit with AI')).not.toBeInTheDocument();
-    });
-
     it('shows action buttons on hover for all view modes', () => {
       const handleEdit = vi.fn();
       const handleDownload = vi.fn();
@@ -468,4 +372,3 @@ describe('MediaCard', () => {
     });
   });
 });
-

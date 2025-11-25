@@ -146,9 +146,6 @@ describe('EditedImagesView', () => {
       edited_url: 'https://example.com/edited-1.png',
       width: 1920,
       height: 1080,
-      version: 1,
-      parent_id: undefined,
-      lineage_id: 'lineage-123',
       created_at: '2025-10-20T15:59:30.165+00:00',
     },
   ];
@@ -372,14 +369,9 @@ describe('EditedImagesView', () => {
     }, { timeout: 1000 });
   });
 
-  it('falls back gracefully when lineage_id is missing', async () => {
-    const editedImageWithoutLineage: EditedImage = {
-      ...mockEditedImages[0],
-      lineage_id: undefined,
-    };
-
+  it('renders edited images correctly', async () => {
     mockUseEditedImages.mockReturnValue({
-      data: [editedImageWithoutLineage],
+      data: mockEditedImages,
       isLoading: false,
       isError: false,
       error: null,
@@ -402,7 +394,7 @@ describe('EditedImagesView', () => {
     fireEvent.click(editButton);
 
     await waitFor(() => {
-      expect(onEditImage).toHaveBeenCalledWith(editedImageWithoutLineage, 'project-1');
+      expect(onEditImage).toHaveBeenCalledWith(mockEditedImages[0], 'project-1');
     }, { timeout: 1000 });
   });
 });

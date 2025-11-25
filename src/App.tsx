@@ -6,8 +6,6 @@ import { ProjectWorkspace } from './components/ProjectWorkspace/ProjectWorkspace
 import { UnifiedMediaEditor } from './components/UnifiedMediaEditor';
 import { ToastProvider } from './contexts/ToastProvider';
 import { Project, MediaAsset, EditedImage } from './types';
-import { database } from './lib/database';
-import { useUserId } from './hooks/useUserId';
 
 type View =
   | { type: 'dashboard' }
@@ -16,7 +14,6 @@ type View =
 
 function App() {
   const [view, setView] = useState<View>({ type: 'dashboard' });
-  const userId = useUserId();
 
   const handleSelectProject = useCallback((project: Project) => {
     setView({ type: 'project', project });
@@ -24,80 +21,34 @@ function App() {
 
   const handleBackToDashboard = useCallback(() => {
     setView({ type: 'dashboard' });
-  }, []); // No dependencies needed
+  }, []);
 
-  const handleEditImage = useCallback(async (asset: MediaAsset | EditedImage, projectId: string) => {
+  const handleEditImage = useCallback((asset: MediaAsset | EditedImage, projectId: string) => {
     if (view.type === 'project') {
-      // If it's an EditedImage, we need to fetch the source MediaAsset for the editor
-      // The editor needs the source asset for history, but we'll use the edited image as the source
-      if ('prompt' in asset && 'edited_url' in asset) {
-        // It's an EditedImage - we need to find the root media asset for the editor
-        try {
-          // Try to find the media asset in the same lineage (first by sort_order)
-          if (asset.lineage_id && userId) {
-            const mediaAssets = await database.mediaAssets.getByLineage(asset.lineage_id, userId);
-            const rootAsset = mediaAssets.sort((a, b) => a.sort_order - b.sort_order)[0];
-            setView({
-              type: 'unified-editor',
-              initialMode: 'image-edit',
-              asset: rootAsset,
-              projectId,
-              project: view.project,
-              sourceEditedImage: asset
-            });
-          } else {
-            // Fallback: create synthetic asset using the edited image's info
-            const syntheticAsset: MediaAsset = {
-              id: `synthetic-${asset.id}`,
-              project_id: asset.project_id,
-              user_id: asset.user_id,
-              file_name: `edited-${asset.id}.png`,
-              file_type: 'image',
-              file_size: 0,
-              storage_path: asset.storage_path,
-              thumbnail_url: asset.edited_url,
-              width: asset.width,
-              height: asset.height,
-              sort_order: 0,
-              created_at: asset.created_at,
-              lineage_id: asset.lineage_id,
-            };
-            setView({
-              type: 'unified-editor',
-              initialMode: 'image-edit',
-              asset: syntheticAsset,
-              projectId,
-              project: view.project,
-              sourceEditedImage: asset
-            });
-          }
-        } catch (error) {
-          console.error('Failed to fetch root asset:', error);
-          // Fallback: create synthetic asset
-          const syntheticAsset: MediaAsset = {
-            id: `synthetic-${asset.id}`,
-            project_id: asset.project_id,
-            user_id: asset.user_id,
-            file_name: `edited-${asset.id}.png`,
-            file_type: 'image',
-            file_size: 0,
-            storage_path: asset.storage_path,
-            thumbnail_url: asset.edited_url,
-            width: asset.width,
-            height: asset.height,
-            sort_order: 0,
-            created_at: asset.created_at,
-            lineage_id: asset.lineage_id,
-          };
-          setView({
-            type: 'unified-editor',
-            initialMode: 'image-edit',
-            asset: syntheticAsset,
-            projectId,
-            project: view.project,
-            sourceEditedImage: asset
-          });
-        }
+      // If it's an EditedImage, create a synthetic MediaAsset from its info
+      if ('prompt' in asset) {
+        const syntheticAsset: MediaAsset = {
+          id: `synthetic-${asset.id}`,
+          project_id: asset.project_id,
+          user_id: asset.user_id,
+          file_name: `edited-${asset.id}.png`,
+          file_type: 'image',
+          file_size: 0,
+          storage_path: asset.storage_path,
+          thumbnail_url: asset.edited_url,
+          width: asset.width,
+          height: asset.height,
+          sort_order: 0,
+          created_at: asset.created_at,
+        };
+        setView({
+          type: 'unified-editor',
+          initialMode: 'image-edit',
+          asset: syntheticAsset,
+          projectId,
+          project: view.project,
+          sourceEditedImage: asset
+        });
       } else {
         // It's a MediaAsset
         setView({
@@ -109,7 +60,7 @@ function App() {
         });
       }
     }
-  }, [view, userId]);
+  }, [view]);
 
   const handleNavigateToVideoGenerator = useCallback((projectId: string, imageId?: string) => {
     if (view.type === 'project') {
@@ -161,7 +112,7 @@ function App() {
               }}
               onSave={() => {
                 // Notify that save completed, but don't close the editor
-                // User stays in editor to see the new content in the timeline
+                // User stays in editor to see the new content
               }}
             />
           </Suspense>

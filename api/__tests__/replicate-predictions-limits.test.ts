@@ -106,7 +106,7 @@ describe('Replicate Predictions API - Generation Limits', () => {
       expect(mockStatus).toHaveBeenCalledWith(403);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Image generation limit reached',
-        message: `You’ve maxed out your image credits :(
+        message: `You've maxed out your image credits :(
 Message the Momentful crew at hello@momentful.ai to unlock more.`,
       });
     });

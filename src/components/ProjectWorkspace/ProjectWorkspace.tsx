@@ -1,16 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { ArrowLeft, Upload, Grid3x3, List, Video, Pencil, Check, X, Download } from 'lucide-react';
 import { Project, MediaAsset, EditedImage, GeneratedVideo } from '../../types';
-import { TimelineNode as TimelineNodeType } from '../../types/timeline';
 import { database } from '../../lib/database';
 import { MediaLibrary } from '../MediaLibrary/MediaLibrary';
 import { EditedImagesView } from './EditedImagesView';
 import { GeneratedVideosView } from './GeneratedVideosView';
-import { TimelineView } from './TimelineView';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { ConfirmDialog } from '../ConfirmDialog';
 import { mergeName } from '../../lib/utils';
 import { downloadBulkAsZip, downloadFileByStoragePath } from '../../lib/download';
 import { ACCEPTABLE_IMAGE_TYPES, isAcceptableImageFile } from '../../lib/media';
@@ -20,12 +17,9 @@ import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useEditedImages } from '../../hooks/useEditedImages';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
-import { useTimelinesByProject } from '../../hooks/useTimeline';
 import { useUploadMedia } from '../../hooks/useUploadMedia';
 import { useUserId } from '../../hooks/useUserId';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDeleteMediaAsset } from '../../hooks/useDeleteMediaAsset';
-import { useDeleteEditedImage } from '../../hooks/useDeleteEditedImage';
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedMediaLibrary = memo(MediaLibrary);
@@ -46,27 +40,21 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 
-// Import type guard functions
-import { isMediaAsset, isEditedImage, isGeneratedVideo } from '../../lib/type-guards';
-
 function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditImage, onGenerateVideo, defaultTab = 'media', onMounted }: ProjectWorkspaceProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(project.name);
   const [currentProject, setCurrentProject] = useState(project);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos' | 'timeline'>('media');
+  const [activeTab, setActiveTab] = useState<'media' | 'edited' | 'videos'>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [timelineItemToDelete, setTimelineItemToDelete] = useState<{ item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType; type: string } | null>(null);
   const { showToast } = useToast();
   const signedUrls = useSignedUrls();
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
   const queryClient = useQueryClient();
-  const deleteMediaAssetMutation = useDeleteMediaAsset();
-  const deleteEditedImageMutation = useDeleteEditedImage();
 
   // Use React Query hooks with lazy loading based on active tab
   // React Query shares cache between queries with the same key, so enabling all queries
@@ -75,7 +63,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const { data: mediaAssets = [] } = useMediaAssets(project.id, { enabled: activeTab === 'media' });
   const { data: editedImages = [] } = useEditedImages(project.id, { enabled: activeTab === 'edited' });
   const { data: generatedVideos = [] } = useGeneratedVideos(project.id, { enabled: activeTab === 'videos' });
-  const { data: lineages = [] } = useTimelinesByProject(project.id, { enabled: true });
 
   // Load counts for all tabs - these queries share cache with the active tab queries above
   // They'll use cached data immediately and won't refetch if data is fresh (staleTime: 5min)
@@ -137,7 +124,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     }
   }, [handleSaveName, handleCancelEdit]);
 
-  const handleTabClick = useCallback((tabId: 'media' | 'edited' | 'videos' | 'timeline') => {
+  const handleTabClick = useCallback((tabId: 'media' | 'edited' | 'videos') => {
     setActiveTab(tabId);
   }, []);
 
@@ -255,8 +242,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         }
         // Invalidate media assets query after video uploads
         await queryClient.invalidateQueries({ queryKey: ['media-assets', project.id, userId] });
-        // Invalidate timeline cache to refresh timeline with new video
-        await queryClient.invalidateQueries({ queryKey: ['timelines', project.id, userId] });
       }
 
       showToast(`Successfully uploaded ${validFiles.length} file(s)`, 'success');
@@ -297,118 +282,6 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
       showToast('Failed to download video. Please try again.', 'error');
     }
   }, [showToast]);
-
-  // Handle timeline item download
-  const handleTimelineDownload = useCallback(async (item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
-    try {
-      // Extract the actual item from TimelineNode if needed
-      let actualItem: MediaAsset | EditedImage | GeneratedVideo;
-      if ('type' in item && 'data' in item) {
-        actualItem = item.data;
-      } else {
-        actualItem = item;
-      }
-
-      if (isMediaAsset(actualItem)) {
-        // MediaAsset
-        await downloadFileByStoragePath(actualItem.storage_path, actualItem.file_name, 'user-uploads');
-        showToast(`Downloaded ${actualItem.file_name}`, 'success');
-      } else if (isEditedImage(actualItem)) {
-        // EditedImage
-        const filename = `edited-image-${actualItem.id}.png`;
-        await downloadFileByStoragePath(actualItem.storage_path, filename, 'user-uploads');
-        showToast(`Downloaded ${filename}`, 'success');
-      } else if (isGeneratedVideo(actualItem) && actualItem.storage_path) {
-        // GeneratedVideo
-        const filename = `${actualItem.name || `video-${actualItem.id}`}.mp4`;
-        await downloadFileByStoragePath(actualItem.storage_path, filename, 'generated-videos');
-        showToast(`Downloaded ${filename}`, 'success');
-      } else {
-        showToast('Item is not available for download', 'error');
-      }
-    } catch (error) {
-      console.error('Error downloading timeline item:', error);
-      showToast('Failed to download item. Please try again.', 'error');
-    }
-  }, [showToast]);
-
-  // Handle timeline item delete - set item to confirm deletion
-  const handleTimelineDelete = useCallback((item: MediaAsset | EditedImage | GeneratedVideo | TimelineNodeType) => {
-    // Extract the actual item from TimelineNode if needed
-    let actualItem: MediaAsset | EditedImage | GeneratedVideo;
-    let itemType: string;
-    if ('type' in item && 'data' in item) {
-      actualItem = item.data;
-      itemType = item.type;
-    } else {
-      actualItem = item;
-      if (isMediaAsset(actualItem)) {
-        itemType = 'media_asset';
-      } else if (isEditedImage(actualItem)) {
-        itemType = 'edited_image';
-      } else if (isGeneratedVideo(actualItem)) {
-        itemType = 'generated_video';
-      } else {
-        itemType = 'unknown';
-      }
-    }
-
-    setTimelineItemToDelete({ item: actualItem, type: itemType });
-  }, []);
-
-  const confirmTimelineDelete = useCallback(() => {
-    if (!timelineItemToDelete) return;
-
-    const { item, type } = timelineItemToDelete;
-
-    if (type === 'media_asset' && 'file_type' in item) {
-      // MediaAsset
-      deleteMediaAssetMutation.mutate(
-        {
-          assetId: item.id,
-          storagePath: item.storage_path,
-          projectId: project.id,
-        },
-        {
-          onSuccess: () => {
-            showToast('Asset deleted successfully', 'success');
-          },
-          onError: () => {
-            showToast('Failed to delete asset. Please try again.', 'error');
-          },
-        }
-      );
-    } else if (type === 'edited_image' && 'edited_url' in item) {
-      // EditedImage
-      deleteEditedImageMutation.mutate(
-        {
-          imageId: item.id,
-          storagePath: item.storage_path,
-          projectId: project.id,
-        },
-        {
-          onSuccess: () => {
-            showToast('Image deleted successfully', 'success');
-          },
-          onError: () => {
-            showToast('Failed to delete image. Please try again.', 'error');
-          },
-        }
-      );
-    } else {
-      showToast('Delete not supported for this item type', 'error');
-    }
-
-    setTimelineItemToDelete(null);
-  }, [timelineItemToDelete, project.id, deleteMediaAssetMutation, deleteEditedImageMutation, showToast]);
-
-  // Handle timeline edit image - same logic as EditedImagesView
-  const handleTimelineEditImage = useCallback((item: MediaAsset | EditedImage) => {
-    if (!onEditImage) return;
-
-    // Pass the item directly to onEditImage, same as EditedImagesView
-    onEditImage(item, project.id);
-  }, [onEditImage, project.id]);
 
   const handleDownloadAllMedia = useCallback(async () => {
     if (mediaAssets.length === 0) return;
@@ -528,8 +401,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     { id: 'media' as const, label: 'Media Library', count: tabCounts.media },
     { id: 'edited' as const, label: 'Edited Images', count: tabCounts.edited },
     { id: 'videos' as const, label: 'Generated Videos', count: tabCounts.videos },
-    { id: 'timeline' as const, label: 'Timeline', count: lineages.length },
-  ], [tabCounts, lineages.length]);
+  ], [tabCounts]);
 
   return (
     <div>
@@ -641,7 +513,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => handleTabClick(tab.id as 'media' | 'edited' | 'videos' | 'timeline')}
+                    onClick={() => handleTabClick(tab.id)}
                     className={mergeName(
                       'px-4 py-4 font-medium text-sm transition-all relative whitespace-nowrap',
                       activeTab === tab.id
@@ -720,59 +592,36 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         </div>
 
         <div className="p-6">
-              {activeTab === 'media' && (
-                <div key="media-tab" className="animate-fade-in">
-                  <MemoizedMediaLibrary
-                    projectId={project.id}
-                    onEditImage={onEditImage}
-                    viewMode={viewMode}
-                  />
-                </div>
-              )}
-              {activeTab === 'edited' && (
-                <div key="edited-tab" className="animate-fade-in">
-                  <MemoizedEditedImagesView
-                    projectId={project.id}
-                    viewMode={viewMode}
-                    onExport={handleExportImage}
-                    onEditImage={onEditImage}
-                  />
-                </div>
-              )}
-              {activeTab === 'videos' && (
-                <div key="videos-tab" className="animate-fade-in">
-                  <MemoizedGeneratedVideosView
-                    projectId={project.id}
-                    viewMode={viewMode}
-                    onExport={handleExportVideo}
-                  />
-                </div>
+          {activeTab === 'media' && (
+            <div key="media-tab" className="animate-fade-in">
+              <MemoizedMediaLibrary
+                projectId={project.id}
+                onEditImage={onEditImage}
+                viewMode={viewMode}
+              />
+            </div>
           )}
-          {activeTab === 'timeline' && (
-            <div key="timeline-tab" className="animate-fade-in">
-              <TimelineView
+          {activeTab === 'edited' && (
+            <div key="edited-tab" className="animate-fade-in">
+              <MemoizedEditedImagesView
                 projectId={project.id}
                 viewMode={viewMode}
-                onEditImage={handleTimelineEditImage}
-                onDownload={handleTimelineDownload}
-                onDelete={handleTimelineDelete}
+                onExport={handleExportImage}
+                onEditImage={onEditImage}
+              />
+            </div>
+          )}
+          {activeTab === 'videos' && (
+            <div key="videos-tab" className="animate-fade-in">
+              <MemoizedGeneratedVideosView
+                projectId={project.id}
+                viewMode={viewMode}
+                onExport={handleExportVideo}
               />
             </div>
           )}
         </div>
       </Card>
-
-      {timelineItemToDelete && (
-        <ConfirmDialog
-          title="Delete Item"
-          message="Are you sure you want to delete this item? This action cannot be undone."
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-          onConfirm={confirmTimelineDelete}
-          onCancel={() => setTimelineItemToDelete(null)}
-        />
-      )}
     </div>
   );
 }

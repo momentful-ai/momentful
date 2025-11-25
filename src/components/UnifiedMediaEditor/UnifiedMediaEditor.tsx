@@ -2,14 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
 import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt, mapAspectRatioToRunway } from '../../lib/media';
 import { getErrorMessage } from '../../lib/utils';
 import { videoModels } from '../../data/aiModels';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
-import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
+import { useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { useUserGenerationLimits } from '../../hooks/useUserGenerationLimits';
@@ -124,9 +123,6 @@ export function UnifiedMediaEditor({
   const { data: generatedVideos = [] } = useGeneratedVideos(projectId);
   const signedUrls = useSignedUrls();
 
-  // Determine lineage ID for editing history (image mode)
-  const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
-  const { data: editingHistory = [] } = useEditedImagesByLineage(lineageId);
 
 
   // Initialize selected image for video mode
@@ -268,8 +264,6 @@ export function UnifiedMediaEditor({
         aspectRatio: state.selectedRatio,
         userId,
         projectId,
-        lineageId: lineageId || undefined,
-        parentId: sourceEditedImage?.id,
       });
 
       // Metadata for server-side upload and DB creation (uses original prompt, not enhanced)
@@ -277,8 +271,6 @@ export function UnifiedMediaEditor({
         userId,
         projectId,
         prompt: state.productName, // Original prompt for DB record
-        lineageId: lineageId || undefined,
-        parentId: sourceEditedImage?.id,
       };
 
       const result = await pollReplicatePrediction(
@@ -314,9 +306,6 @@ export function UnifiedMediaEditor({
       // Optimistic cache updates - update cache immediately without refetching
       if (createdImage) {
         queryClient.setQueryData<EditedImage[]>(['edited-images', projectId, userId], (old = []) => [createdImage, ...old]);
-        if (createdImage.lineage_id) {
-          queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id, userId], (old = []) => [createdImage, ...old]);
-        }
       }
 
       // Invalidate related queries in background (only refetch if actively used)
@@ -335,16 +324,8 @@ export function UnifiedMediaEditor({
       // Dispatch custom event to trigger global thumbnail prefetch refresh
       window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
-      if (createdImage?.lineage_id) {
-        queryClient.invalidateQueries({
-          queryKey: ['timeline', createdImage.lineage_id, userId],
-          refetchType: 'active'
-        });
-      }
-
       setState(prev => ({
         ...prev,
-        // No need to update versions manually as we use editingHistory from hook
       }));
 
       showToast('Image generated and saved successfully!', 'success');
@@ -409,27 +390,6 @@ export function UnifiedMediaEditor({
 
       const enhancedPrompt = buildEnhancedVideoPrompt(state.prompt, state.cameraMovement);
       const runwayRatio = mapAspectRatioToRunway(state.aspectRatio);
-      
-      // Get lineage_id from preferred source
-      let lineage_id: string | undefined;
-      const preferredSource = state.selectedSources.find(s => s.type === 'edited_image') || state.selectedSources[0];
-      if (preferredSource) {
-        if (preferredSource.type === 'edited_image') {
-          const { data: sourceData } = await supabase
-            .from('edited_images')
-            .select('lineage_id')
-            .eq('id', preferredSource.id)
-            .single();
-          lineage_id = sourceData?.lineage_id;
-        } else {
-          const { data: sourceData } = await supabase
-            .from('media_assets')
-            .select('lineage_id')
-            .eq('id', preferredSource.id)
-            .single();
-          lineage_id = sourceData?.lineage_id;
-        }
-      }
 
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
@@ -442,7 +402,6 @@ export function UnifiedMediaEditor({
         aiModel: state.selectedModel,
         aspectRatio: state.aspectRatio,
         cameraMovement: state.cameraMovement,
-        lineageId: lineage_id,
         sourceIds: state.selectedSources.map(s => ({ type: s.type, id: s.id })),
       };
 
@@ -536,9 +495,9 @@ export function UnifiedMediaEditor({
 
       // When switching to video mode from image mode, pre-select the current result
       if (newMode === 'video-generate' && prev.mode === 'image-edit') {
-        if (prev.editedImageUrl && editingHistory.length > 0) {
+        if (prev.editedImageUrl && editedImages.length > 0) {
           // Use the most recent edited image
-          const latestImage = editingHistory[0];
+          const latestImage = editedImages[0];
           newSelectedSources = [{
             id: latestImage.id,
             type: 'edited_image',
@@ -569,7 +528,7 @@ export function UnifiedMediaEditor({
         isSelecting: false,
       };
     });
-  }, [asset, editingHistory]);
+  }, [asset, editedImages]);
 
   const handleFileDrop = async (files: File[]) => {
     if (!userId || !projectId) {
@@ -664,9 +623,7 @@ export function UnifiedMediaEditor({
       let fileName: string = '';
 
       if (source.type === 'edited_image') {
-        // Check both editedImages and editingHistory arrays
-        const editedImage = editedImages.find(img => img.id === source.id)
-          || editingHistory.find(img => img.id === source.id);
+        const editedImage = editedImages.find((img: EditedImage) => img.id === source.id);
         if (editedImage) {
           imageUrl = editedImage.edited_url || null;
           storagePath = editedImage.storage_path || null;
@@ -760,7 +717,7 @@ export function UnifiedMediaEditor({
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <UnifiedLeftPanel
           mode={state.mode}
-          editedImages={state.mode === 'image-edit' ? editingHistory : editedImages}
+          editedImages={editedImages}
           mediaAssets={mediaAssets}
           generatedVideos={generatedVideos}
           selectedSources={state.selectedSources}
@@ -845,7 +802,7 @@ export function UnifiedMediaEditor({
           mode={state.mode}
           // Image mode props
           selectedRatio={state.selectedRatio}
-          versions={editingHistory}
+          versions={editedImages}
           onRatioChange={(ratio) => setState(prev => ({ ...prev, selectedRatio: ratio }))}
           onVersionSelect={handleVersionSelect}
           // Video mode props

@@ -45,12 +45,9 @@ const mockGeneratedVideos: GeneratedVideo[] = [
     thumbnail_url: undefined,
     duration: undefined,
     status: 'completed',
-    version: 1,
-    parent_id: undefined,
     runway_task_id: undefined,
     created_at: '2025-01-01T00:00:00Z',
     completed_at: '2025-01-01T00:05:00Z',
-    lineage_id: undefined,
   },
   {
     id: 'video-2',
@@ -65,12 +62,9 @@ const mockGeneratedVideos: GeneratedVideo[] = [
     thumbnail_url: undefined,
     duration: undefined,
     status: 'completed',
-    version: 1,
-    parent_id: undefined,
     runway_task_id: undefined,
     created_at: '2025-01-02T00:00:00Z',
     completed_at: '2025-01-02T00:05:00Z',
-    lineage_id: undefined,
   },
   {
     id: 'video-3',
@@ -85,12 +79,9 @@ const mockGeneratedVideos: GeneratedVideo[] = [
     thumbnail_url: undefined,
     duration: undefined,
     status: 'processing',
-    version: 1,
-    parent_id: undefined,
     runway_task_id: undefined,
     created_at: '2025-01-03T00:00:00Z',
     completed_at: undefined,
-    lineage_id: undefined,
   },
 ];
 

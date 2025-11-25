@@ -98,14 +98,12 @@ export async function createReplicatePrediction(
  */
 export async function getReplicatePredictionStatus(
   predictionId: string,
-  metadata?: { userId?: string; projectId?: string; prompt?: string; lineageId?: string; parentId?: string }
+  metadata?: { userId?: string; projectId?: string; prompt?: string }
 ): Promise<ReplicatePrediction & { storagePath?: string; width?: number; height?: number; editedImageId?: string }> {
   const url = new URL(`/api/replicate/predictions/${predictionId}`, window.location.origin);
   if (metadata?.userId) url.searchParams.set('userId', metadata.userId);
   if (metadata?.projectId) url.searchParams.set('projectId', metadata.projectId);
   if (metadata?.prompt) url.searchParams.set('prompt', metadata.prompt);
-  if (metadata?.lineageId) url.searchParams.set('lineageId', metadata.lineageId);
-  if (metadata?.parentId) url.searchParams.set('parentId', metadata.parentId);
 
   const response = await fetch(url.toString());
 
@@ -134,7 +132,7 @@ export async function pollReplicatePrediction(
   onProgress?: (prediction: ReplicatePrediction) => void,
   maxAttempts: number = 120, // 4 minutes for long-running models
   intervalMs: number = 2000,
-  metadata?: { userId?: string; projectId?: string; prompt?: string; lineageId?: string; parentId?: string }
+  metadata?: { userId?: string; projectId?: string; prompt?: string }
 ): Promise<ReplicatePrediction & { storagePath?: string; width?: number; height?: number; editedImageId?: string }> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -191,8 +189,6 @@ export interface CreateReplicateImageJobRequest {
   promptUpsampling?: boolean;
   userId?: string;
   projectId?: string;
-  lineageId?: string;
-  parentId?: string;
 }
 
 /**
@@ -263,8 +259,6 @@ export async function createReplicateImageJob(
       userId: request.userId,
       projectId: request.projectId,
       prompt: request.prompt,
-      lineageId: request.lineageId,
-      parentId: request.parentId,
     } : {}),
   });
   

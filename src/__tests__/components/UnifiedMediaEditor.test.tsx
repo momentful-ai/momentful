@@ -9,7 +9,7 @@ import { EditedImage, MediaAsset } from '../../types';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useUserGenerationLimits } from '../../hooks/useUserGenerationLimits';
-import { useEditedImages, useEditedImagesByLineage } from '../../hooks/useEditedImages';
+import { useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
@@ -57,7 +57,6 @@ vi.mock('../../components/LimitReachedDialog', () => ({
 }));
 vi.mock('../../hooks/useEditedImages', () => ({
   useEditedImages: vi.fn(),
-  useEditedImagesByLineage: vi.fn(),
 }));
 vi.mock('../../hooks/useMediaAssets', () => ({ useMediaAssets: vi.fn() }));
 vi.mock('../../hooks/useGeneratedVideos', () => ({ useGeneratedVideos: vi.fn() }));
@@ -137,7 +136,6 @@ vi.mock('../../services/aiModels/runway', () => ({
 const mockUseUserId = vi.mocked(useUserId);
 const mockUseToast = vi.mocked(useToast);
 const mockUseEditedImages = vi.mocked(useEditedImages);
-const mockUseEditedImagesByLineage = vi.mocked(useEditedImagesByLineage);
 const mockUseMediaAssets = vi.mocked(useMediaAssets);
 const mockUseGeneratedVideos = vi.mocked(useGeneratedVideos);
 const mockUseSignedUrls = vi.mocked(useSignedUrls);
@@ -289,8 +287,6 @@ const setupMocks = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseEditedImages.mockReturnValue(createMockQueryResult(mockEditedImages) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult<EditedImage[]>([]) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseMediaAssets.mockReturnValue(createMockQueryResult<MediaAsset[]>(mockMediaAssets) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockUseGeneratedVideos.mockReturnValue(createMockQueryResult<any[]>([]) as any);
@@ -390,10 +386,9 @@ const waitForComponent = async (expectedText = 'Images') => {
   expect(document.querySelector('div.h-screen')).toBeInTheDocument();
 };
 
-// Test-level variables
+// Test-level variables - used in tests below
 let queryClient: QueryClient;
 let renderWithQueryClient: ReturnType<typeof createTestRenderer>;
-let mockEditedImages: EditedImage[];
 let mockMediaAssets: MediaAsset[];
 let mockShowToast: ReturnType<typeof vi.fn>;
 
@@ -417,7 +412,6 @@ describe('UnifiedMediaEditor', () => {
     renderWithQueryClient = createTestRenderer(queryClient);
 
     const mocks = setupMocks();
-    mockEditedImages = mocks.mockEditedImages;
     mockMediaAssets = mocks.mockMediaAssets;
     mockShowToast = mocks.mockShowToast;
   });
@@ -435,17 +429,12 @@ describe('UnifiedMediaEditor', () => {
         edited_url: 'https://example.com/edited-1.png',
         width: 1920,
         height: 1080,
-        version: 1,
-        parent_id: undefined,
-        lineage_id: 'lineage-123',
         created_at: '2025-01-15T10:00:00.000Z',
       };
 
       // Mock the hooks to return the edited image data
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockUseEditedImages.mockReturnValue(createMockQueryResult(mockEditedImages) as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult([mockEditedImage]) as any);
+      mockUseEditedImages.mockReturnValue(createMockQueryResult([mockEditedImage]) as any);
 
       renderComponent({
         initialMode: 'image-edit',
@@ -767,7 +756,6 @@ describe('UnifiedMediaEditor', () => {
         aiModel: 'runway-gen2',
         aspectRatio: '9:16',
         cameraMovement: 'dynamic',
-        lineageId: undefined,
       });
       expect(createRunwayJobCall.sourceIds).toBeDefined();
       if (createRunwayJobCall.sourceIds) {
@@ -972,25 +960,6 @@ describe('UnifiedMediaEditor', () => {
   });
 
   describe('State Management', () => {
-    it('loads editing history when sourceEditedImage has lineage', async () => {
-      const mockSourceEditedImage = createMockEditedImage({
-        id: 'source-edited-image',
-        lineage_id: 'test-lineage-id',
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockUseEditedImagesByLineage.mockReturnValue(createMockQueryResult([mockSourceEditedImage]) as any);
-
-      renderComponent({
-        initialMode: 'image-edit',
-        sourceEditedImage: mockSourceEditedImage
-      });
-
-      await waitFor(() => {
-        expect(mockUseEditedImagesByLineage).toHaveBeenCalledWith('test-lineage-id');
-      });
-    });
-
     it('pre-selects sourceEditedImage in image-edit mode', async () => {
       const mockSourceEditedImage = createMockEditedImage({
         id: 'source-edited-image',
