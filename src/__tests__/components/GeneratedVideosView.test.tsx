@@ -157,7 +157,7 @@ describe('GeneratedVideosView', () => {
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
     // Should show loading skeleton
-    expect(document.querySelector('[class*="animate-pulse"]')).toBeInTheDocument();
+    expect(document.querySelector('.ai-shimmer')).toBeInTheDocument();
   });
 
   it('renders empty state when no videos provided', () => {

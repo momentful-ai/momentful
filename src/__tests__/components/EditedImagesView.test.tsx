@@ -79,8 +79,8 @@ vi.mock('../../components/shared/MediaCard', () => ({
         <img src={item.edited_url} alt={item.prompt} />
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
           {onEditImage && (
-            <button 
-              onClick={() => onEditImage(item)} 
+            <button
+              onClick={() => onEditImage(item)}
               title="Edit with AI"
               data-testid={`edit-button-${item.id}`}
               className="absolute inset-0 w-full h-full flex items-center justify-center bg-black/60"
@@ -177,7 +177,7 @@ describe('EditedImagesView', () => {
     renderWithQueryClient(<EditedImagesView {...defaultProps} />);
 
     // Should show loading skeleton
-    expect(document.querySelector('[class*="animate-pulse"]')).toBeInTheDocument();
+    expect(document.querySelector('.ai-shimmer')).toBeInTheDocument();
   });
 
   it('renders empty state when no images provided', () => {
