@@ -655,7 +655,6 @@ describe('UnifiedMediaEditor', () => {
           aiModel: 'runway-gen2',
           aspectRatio: '9:16',
           cameraMovement: 'dynamic',
-          lineageId: undefined,
           sourceIds: [{ type: 'edited_image', id: 'edited-image-1' }],
         });
         expect(vi.mocked(RunwayAPI.pollJobStatus)).toHaveBeenCalled();
@@ -667,7 +666,6 @@ describe('UnifiedMediaEditor', () => {
 
     it.skip('invalidates caches when video generation completes successfully', async () => {
       const user = createUserEvent();
-      const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
       const { onSave } = renderComponent({ initialMode: 'video-generate' });
       await waitForComponent();
@@ -695,12 +693,6 @@ describe('UnifiedMediaEditor', () => {
 
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledTimes(1);
-      });
-
-      // Verify that timelines cache was invalidated
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['timelines', TEST_PROJECT_ID, TEST_USER_ID],
-        refetchType: 'active'
       });
 
       // Verify that custom event was dispatched for thumbnail prefetch refresh

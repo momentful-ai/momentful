@@ -314,10 +314,6 @@ export function UnifiedMediaEditor({
         queryKey: ['edited-images', projectId, userId],
         refetchType: 'active' // Only refetch if query is currently active
       });
-      queryClient.invalidateQueries({
-        queryKey: ['timelines', projectId, userId],
-        refetchType: 'active'
-      });
 
       // Invalidate thumbnail cache for new edited image
       queryClient.invalidateQueries({ queryKey: ['signed-url'] });
@@ -456,12 +452,6 @@ export function UnifiedMediaEditor({
         // Invalidate related queries in background (only refetch if actively used)
         queryClient.invalidateQueries({
           queryKey: ['generated-videos', projectId, userId],
-          refetchType: 'active'
-        });
-
-        // Invalidate timeline cache to refresh timeline with new video
-        queryClient.invalidateQueries({
-          queryKey: ['timelines', projectId, userId],
           refetchType: 'active'
         });
 
@@ -667,16 +657,6 @@ export function UnifiedMediaEditor({
     }
   };
 
-  const handleVersionSelect = (version: EditedImage) => {
-    const source: SelectedSource = {
-      id: version.id,
-      type: 'edited_image',
-      thumbnail: version.edited_url,
-      storagePath: version.storage_path,
-      name: version.prompt.substring(0, 30),
-    };
-    handleImageClick(source);
-  };
 
   const handleMouseUp = () => {
     setState(prev => ({ ...prev, isSelecting: false }));
@@ -802,9 +782,7 @@ export function UnifiedMediaEditor({
           mode={state.mode}
           // Image mode props
           selectedRatio={state.selectedRatio}
-          versions={editedImages}
           onRatioChange={(ratio) => setState(prev => ({ ...prev, selectedRatio: ratio }))}
-          onVersionSelect={handleVersionSelect}
           // Video mode props
           selectedModel={state.selectedModel}
           aspectRatio={state.aspectRatio}
