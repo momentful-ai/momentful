@@ -373,7 +373,7 @@ export function UnifiedMediaEditor({
       let imageUrl: string | null = null;
       if (imageSource.type === 'edited_image') {
         const editedImage = editedImages.find(img => img.id === imageSource.id);
-        imageUrl = editedImage?.edited_url || null;
+        imageUrl = editedImage?.edited_url || (editedImage?.storage_path ? await signedUrls.getSignedUrl('user-uploads', editedImage.storage_path) : null);
       } else if (imageSource.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === imageSource.id);
         imageUrl = mediaAsset ? await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path) : null;
