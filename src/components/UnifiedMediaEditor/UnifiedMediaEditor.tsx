@@ -297,10 +297,10 @@ export function UnifiedMediaEditor({
       setEditedImageStoragePath(result.storagePath);
 
       // Fetch the created image from database
-      const createdImage = result.editedImageId 
-        ? await database.editedImages.list(projectId, userId).then(images => 
-            images.find(img => img.id === result.editedImageId)
-          )
+      const createdImage = result.editedImageId
+        ? await database.editedImages.list(projectId, userId).then(images =>
+          images.find(img => img.id === result.editedImageId)
+        )
         : null;
 
       // Optimistic cache updates - update cache immediately without refetching
@@ -433,8 +433,8 @@ export function UnifiedMediaEditor({
         // Fetch the created video from database
         const createdVideo = result.videoId
           ? await database.generatedVideos.list(projectId, userId).then(videos =>
-              videos.find(v => v.id === result.videoId)
-            )
+            videos.find(v => v.id === result.videoId)
+          )
           : null;
 
         // Manually cache the signed URL for the new video so it's available immediately
@@ -482,11 +482,12 @@ export function UnifiedMediaEditor({
   const handleModeSwitch = useCallback((newMode: MediaEditorMode) => {
     setState(prev => {
       let newSelectedSources = prev.selectedSources;
+      let newSelectedImageForPreview = prev.selectedImageForPreview;
 
-      // When switching to video mode from image mode, pre-select the current result
+      // When switching to video mode from image mode
       if (newMode === 'video-generate' && prev.mode === 'image-edit') {
         if (prev.editedImageUrl && editedImages.length > 0) {
-          // Use the most recent edited image
+          // If we just generated an image, select it
           const latestImage = editedImages[0];
           newSelectedSources = [{
             id: latestImage.id,
@@ -495,8 +496,11 @@ export function UnifiedMediaEditor({
             storagePath: latestImage.storage_path,
             name: latestImage.prompt.substring(0, 30),
           }];
+        } else if (prev.selectedSources.length > 0) {
+          // If something was already selected (manual selection), we keep it
+          newSelectedSources = prev.selectedSources;
         } else if (asset) {
-          // Fallback to the original asset
+          // Only fallback to asset if nothing is selected
           newSelectedSources = [{
             id: asset.id,
             type: 'media_asset',
@@ -504,11 +508,52 @@ export function UnifiedMediaEditor({
           }];
         }
       }
+      // When switching to image mode from video mode
+      else if (newMode === 'image-edit' && prev.mode === 'video-generate') {
+        // Sync selectedImageForPreview with the currently selected source
+        if (prev.selectedSources.length > 0) {
+          const source = prev.selectedSources[0];
+
+          // We need to construct the preview object
+          // Try to find full object in lists first
+          let imageUrl = source.thumbnail || '';
+          let storagePath = source.storagePath;
+          let fileName = source.name;
+
+          if (source.type === 'edited_image') {
+            const editedImage = editedImages.find(img => img.id === source.id);
+            if (editedImage) {
+              imageUrl = editedImage.edited_url || '';
+              storagePath = editedImage.storage_path;
+              fileName = editedImage.prompt.substring(0, 30);
+            }
+          } else if (source.type === 'media_asset') {
+            const mediaAsset = mediaAssets.find(a => a.id === source.id);
+            if (mediaAsset) {
+              fileName = mediaAsset.file_name;
+              storagePath = mediaAsset.storage_path;
+              // Media assets might not have a direct URL if not signed yet, but UnifiedPreview handles storagePath
+            }
+          }
+
+          newSelectedImageForPreview = {
+            id: source.id,
+            url: imageUrl,
+            storagePath: storagePath,
+            fileName: fileName,
+            type: source.type,
+          };
+        } else {
+          // If nothing selected, clear preview
+          newSelectedImageForPreview = null;
+        }
+      }
 
       return {
         ...prev,
         mode: newMode,
         selectedSources: newSelectedSources,
+        selectedImageForPreview: newSelectedImageForPreview,
         // Reset mode-specific state
         isGenerating: false,
         showComparison: false,
@@ -518,7 +563,7 @@ export function UnifiedMediaEditor({
         isSelecting: false,
       };
     });
-  }, [asset, editedImages]);
+  }, [asset, editedImages, mediaAssets]);
 
   const handleFileDrop = async (files: File[]) => {
     if (!userId || !projectId) {
