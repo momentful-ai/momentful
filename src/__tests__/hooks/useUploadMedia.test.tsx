@@ -352,24 +352,6 @@ describe('useUploadMedia', () => {
     });
   });
 
-  it('invalidates timelines query on success', async () => {
-    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
-    const imageFile = createMockFile('test.jpg', 'image/jpeg');
-
-    const { result } = renderHook(() => useUploadMedia(), { wrapper });
-
-    await result.current.mutateAsync({
-      projectId: 'project-1',
-      files: [imageFile],
-    });
-
-    await waitFor(() => {
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ['timelines', 'project-1', 'user-1'],
-      });
-    });
-  });
-
   it('handles error in getImageDimensions gracefully', async () => {
     const file1 = createMockFile('test1.jpg', 'image/jpeg');
     const file2 = createMockFile('test2.png', 'image/png');

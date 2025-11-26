@@ -247,3 +247,74 @@
     z-index: -1;
   }
 }
+
+@layer base {
+  /* Extended shimmer travel distance for longer diagonal path */
+  @keyframes ai-shimmer {
+    0% {
+      transform: translateX(-50%) translateY(-50%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(200%) translateY(200%) rotate(45deg);
+    }
+  }
+
+   /* Glass-like shimmer with sharper highlights and layered reflections */
+   .ai-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 30%,
+      rgba(255, 255, 255, 0.05) 38%,
+      rgba(255, 255, 255, 0.25) 48%,
+      rgba(255, 255, 255, 0.5) 50%,
+      rgba(255, 255, 255, 0.25) 52%,
+      rgba(255, 255, 255, 0.05) 62%,
+      transparent 70%,
+      transparent 100%
+    );
+    animation: ai-shimmer 3s ease-in-out infinite;
+    will-change: transform;
+    filter: blur(1px);
+  }
+
+  .dark .ai-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 30%,
+      rgba(255, 255, 255, 0.03) 38%,
+      rgba(255, 255, 255, 0.12) 48%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.12) 52%,
+      rgba(255, 255, 255, 0.03) 62%,
+      transparent 70%,
+      transparent 100%
+    );
+    filter: blur(1px);
+  }
+
+  /* .ai-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 35%,
+      rgba(255, 255, 255, 0.15) 50%,
+      transparent 60%,
+      transparent 100%
+    );
+    animation: ai-shimmer 3s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .dark .ai-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 40%,
+      rgba(255, 255, 255, 0.08) 50%,
+      transparent 60%,
+      transparent 100%
+    );
+  } */
+}

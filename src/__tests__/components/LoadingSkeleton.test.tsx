@@ -8,7 +8,7 @@ describe('LoadingSkeleton', () => {
       render(<DashboardSkeleton />);
 
       // Check for skeleton elements
-      const skeletons = document.querySelectorAll('[class*="animate-pulse"]');
+      const skeletons = document.querySelectorAll('.ai-shimmer');
       expect(skeletons.length).toBeGreaterThan(0);
     });
 
@@ -34,7 +34,7 @@ describe('LoadingSkeleton', () => {
       render(<MediaLibrarySkeleton />);
 
       // Check for skeleton elements
-      const skeletons = document.querySelectorAll('[class*="animate-pulse"]');
+      const skeletons = document.querySelectorAll('.ai-shimmer');
       expect(skeletons.length).toBeGreaterThan(0);
     });
 

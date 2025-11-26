@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { TimelineNode, TimelineEdge } from '../types/timeline';
 
 export interface Project {
   id: string;
@@ -24,10 +23,7 @@ export interface EditedImage {
   edited_url: string;
   width: number;
   height: number;
-  version: number;
-  parent_id: string | null;
   created_at: string;
-  lineage_id: string | null;
 }
 
 export interface GeneratedVideo {
@@ -43,8 +39,6 @@ export interface GeneratedVideo {
   thumbnail_url: string | null;
   duration: number | null;
   status: 'processing' | 'completed' | 'failed';
-  version: number;
-  parent_id: string | null;
   runway_task_id: string | null;
   created_at: string;
   completed_at: string | null;
@@ -156,7 +150,6 @@ export const database = {
       height?: number;
       duration?: number;
       file_type?: 'image' | 'video';
-      lineage_id?: string;
     }) {
       // Validate required fields
       if (!asset.project_id || !asset.project_id.trim()) {
@@ -166,70 +159,14 @@ export const database = {
         throw new Error('user_id is required and cannot be empty');
       }
 
-      const lineageId = asset.lineage_id;
-
-      // Always create the media asset first so we have a stable root ID
-      const { data: insertedAsset, error: mediaAssetInsertError } = await supabase
+      const { data, error } = await supabase
         .from('media_assets')
-        .insert({
-          ...asset,
-          lineage_id: lineageId ?? null,
-        })
+        .insert(asset)
         .select()
         .single();
 
-      if (mediaAssetInsertError) {
-        throw mediaAssetInsertError;
-      }
-
-      // If a lineage_id was provided, we're done
-      if (lineageId) {
-        return insertedAsset;
-      }
-
-      // Create the lineage pointing to this newly created media asset
-      let createdLineage:
-        | Awaited<ReturnType<typeof database.lineages.create>>
-        | null = null;
-      try {
-        createdLineage = await database.lineages.create({
-          project_id: asset.project_id,
-          user_id: asset.user_id,
-          name: asset.file_name,
-        });
-      } catch (lineageError) {
-        console.error('Failed to create lineage:', lineageError);
-        // Clean up the previously created media asset to avoid orphans
-        try {
-          await supabase
-            .from('media_assets')
-            .delete()
-            .eq('id', insertedAsset.id)
-            .eq('user_id', asset.user_id);
-        } catch (cleanupError) {
-          console.error('Failed to cleanup media asset after lineage failure:', cleanupError);
-        }
-        throw new Error('Failed to create lineage for media asset');
-      }
-
-      // Update the media asset with the lineage_id
-      const { data: updatedAsset, error: mediaAssetUpdateError } = await supabase
-        .from('media_assets')
-        .update({ lineage_id: createdLineage.id })
-        .eq('id', insertedAsset.id)
-        .select()
-        .single();
-
-      if (mediaAssetUpdateError || !updatedAsset) {
-        console.error('Failed to update media asset with lineage_id:', mediaAssetUpdateError);
-        // Return the asset with the lineage_id applied locally as a fallback
-        return {
-          ...insertedAsset,
-          lineage_id: createdLineage.id,
-        };
-      }
-
-      return updatedAsset;
+      if (error) throw error;
+      return data;
     },
 
     async delete(assetId: string, userId: string) {
@@ -240,18 +177,6 @@ export const database = {
         .eq('user_id', userId);
 
       if (error) throw error;
-    },
-
-    async getByLineage(lineageId: string, userId: string) {
-      const { data, error } = await supabase
-        .from('media_assets')
-        .select('*')
-        .eq('lineage_id', lineageId)
-        .eq('user_id', userId)
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-      return data || [];
     },
   },
 
@@ -268,19 +193,6 @@ export const database = {
       return data || [];
     },
 
-
-    async listByLineage(lineageId: string, userId: string) {
-      const { data, error } = await supabase
-        .from('edited_images')
-        .select('*')
-        .eq('lineage_id', lineageId)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    },
-
     async create(image: {
       project_id: string;
       user_id: string;
@@ -290,8 +202,6 @@ export const database = {
       storage_path: string;
       width: number;
       height: number;
-      parent_id?: string;
-      lineage_id?: string;
     }) {
       // Validate required fields
       if (!image.project_id || !image.project_id.trim()) {
@@ -350,7 +260,6 @@ export const database = {
       storage_path?: string;
       status?: 'processing' | 'completed' | 'failed';
       completed_at?: string;
-      lineage_id?: string; // Optional, if not provided, will be set by trigger
     }) {
       // Validate required fields
       if (!video.project_id || !video.project_id.trim()) {
@@ -488,160 +397,6 @@ export const database = {
         .eq('id', sourceId);
 
       if (error) throw error;
-    },
-  },
-
-  lineages: {
-    async create(lineage: {
-      project_id: string;
-      user_id: string;
-      name?: string;
-      metadata?: Record<string, unknown>;
-      id?: string; // Optional custom ID
-    }) {
-      const insertData: {
-        project_id: string;
-        user_id: string;
-        name?: string;
-        metadata: Record<string, unknown>;
-        id?: string;
-      } = {
-        project_id: lineage.project_id,
-        user_id: lineage.user_id,
-        name: lineage.name,
-        metadata: lineage.metadata || {},
-      };
-
-      if (lineage.id) {
-        insertData.id = lineage.id;
-      }
-
-      const { data, error } = await supabase
-        .from('lineages')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-
-    async update(lineageId: string, userId: string, updates: {
-      name?: string;
-      metadata?: Record<string, unknown>;
-    }) {
-      const { data, error } = await supabase
-        .from('lineages')
-        .update(updates)
-        .eq('id', lineageId)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-
-    async getByProject(projectId: string, userId: string) {
-      const { data, error } = await supabase
-        .from('lineages')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    },
-
-    async getById(lineageId: string, userId: string) {
-      const { data, error } = await supabase
-        .from('lineages')
-        .select('*')
-        .eq('id', lineageId)
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-
-
-    async getTimelineData(lineageId: string, userId: string) {
-
-      // Fetch all media_assets with this lineage_id
-      const { data: mediaAssetsData, error: maError } = await supabase
-        .from('media_assets')
-        .select('*')
-        .eq('lineage_id', lineageId)
-        .eq('user_id', userId);
-
-      if (maError) throw maError;
-
-      // Fetch all edited_images with this lineage_id
-      const { data: editedImagesData, error: eiError } = await supabase
-        .from('edited_images')
-        .select('*')
-        .eq('lineage_id', lineageId)
-        .eq('user_id', userId);
-
-      if (eiError) throw eiError;
-
-      // Fetch all generated_videos with this lineage_id
-      const { data: generatedVideosData, error: gvError } = await supabase
-        .from('generated_videos')
-        .select('*')
-        .eq('lineage_id', lineageId)
-        .eq('user_id', userId);
-
-      if (gvError) throw gvError;
-
-      // Transform to TimelineNode format with computed URLs
-      const nodes: TimelineNode[] = [
-        ...mediaAssetsData.map(data => ({
-          type: 'media_asset' as const,
-          data,
-        } as TimelineNode)),
-        ...editedImagesData.map(data => ({
-          type: 'edited_image' as const,
-          data,
-        } as TimelineNode)),
-        ...generatedVideosData.map(data => ({
-          type: 'generated_video' as const,
-          data,
-        } as TimelineNode)),
-      ];
-
-      // Build edges
-      const edges: TimelineEdge[] = [];
-
-      // Edges from edited_images to their parents
-      for (const ei of editedImagesData) {
-        if (ei.parent_id) {
-          // Connect to parent edited image
-          edges.push({ from: ei.parent_id, to: ei.id });
-        }
-        // Root-level edited images (no parent) don't connect to anything
-      }
-
-      // Edges from video_sources to generated_videos
-      for (const gv of generatedVideosData) {
-        const { data: sources, error: vsError } = await supabase
-          .from('video_sources')
-          .select('source_id')
-          .eq('video_id', gv.id);
-
-        if (vsError) throw vsError;
-
-        for (const source of sources) {
-          edges.push({ from: source.source_id, to: gv.id });
-        }
-      }
-
-      // Sort nodes by created_at
-      nodes.sort((a, b) => new Date(a.data.created_at).getTime() - new Date(b.data.created_at).getTime());
-
-      return { nodes, edges };
     },
   },
 

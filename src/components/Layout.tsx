@@ -3,6 +3,7 @@ import { LogOut, User, Moon, Sun } from "lucide-react";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useBypassContext } from "../hooks/useBypassContext";
 import { useTheme } from "../hooks/useTheme";
+import { useUserGenerationLimits } from "../hooks/useUserGenerationLimits";
 import { Button } from "./ui/button";
 import { DevToolbar } from "./DevToolbar";
 
@@ -21,6 +22,7 @@ export function Layout({ children }: LayoutProps) {
   const displayUser = isBypassEnabled ? null : user;
   const displaySignOut = isBypassEnabled ? () => {} : signOut;
   const { theme, setTheme } = useTheme();
+  const { imagesRemaining, videosRemaining, isLoading: limitsLoading } = useUserGenerationLimits();
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
@@ -75,10 +77,17 @@ export function Layout({ children }: LayoutProps) {
                   <>
                     <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
                       <User className="w-5 h-5 text-muted-foreground" />
-                      <span className="max-w-[150px] truncate text-sm text-muted-foreground">
-                        {displayUser.firstName ||
-                          displayUser.emailAddresses[0]?.emailAddress}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="max-w-[150px] truncate text-sm text-muted-foreground">
+                          {displayUser.firstName ||
+                            displayUser.emailAddresses[0]?.emailAddress}
+                        </span>
+                        {!limitsLoading && (
+                          <span className="text-xs text-muted-foreground/70">
+                            {imagesRemaining} images, {videosRemaining} videos
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <Button
                       variant="ghost"

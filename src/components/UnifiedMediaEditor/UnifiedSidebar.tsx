@@ -1,11 +1,9 @@
 import { motion } from 'framer-motion';
-import { Crop, History, Sparkles } from 'lucide-react';
+import { Crop, Sparkles } from 'lucide-react';
 import { MediaEditorMode } from './types';
-import { EditedImage } from '../../types';
 import { ResizableSidebar } from '../shared/ResizableSidebar';
 import { IMAGE_ASPECT_RATIOS, VIDEO_ASPECT_RATIOS, VIDEO_CAMERA_MOVEMENTS } from '../../lib/media';
 import { videoModels } from '../../data/aiModels';
-import { imageModels } from '../../data/aiModels';
 import { AIModel } from '../../types';
 
 interface UnifiedSidebarProps {
@@ -13,9 +11,7 @@ interface UnifiedSidebarProps {
 
   // Image mode props
   selectedRatio?: string;
-  versions?: EditedImage[];
   onRatioChange?: (ratio: string) => void;
-  onVersionSelect?: (version: EditedImage) => void;
 
   // Video mode props
   selectedModel?: string;
@@ -58,49 +54,6 @@ function ImageEditorAspectRatioSelector({
             <div className="text-xs text-muted-foreground">
               {ratio.description}
             </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function VersionHistory({
-  versions,
-  onVersionSelect
-}: {
-  versions: EditedImage[];
-  onVersionSelect?: (version: EditedImage) => void;
-}) {
-  if (versions.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="p-6">
-      <div className="flex items-center gap-2 mb-3">
-        <History className="w-4 h-4 text-muted-foreground" />
-        <h4 className="text-sm font-medium text-foreground">Version History</h4>
-      </div>
-      <div className="space-y-2">
-        {versions.map((version, index) => (
-          <button
-            key={version.id}
-            onClick={() => onVersionSelect?.(version)}
-            className="w-full text-left bg-muted rounded-lg p-3 text-xs animate-slide-up hover:bg-muted/70 transition-colors border border-transparent hover:border-primary/20"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-medium text-foreground">
-                Version {versions.length - index}
-              </span>
-              <span className="text-muted-foreground">
-                {new Date(version.created_at).toLocaleTimeString()}
-              </span>
-            </div>
-            <p className="text-muted-foreground mb-1 line-clamp-2">{version.prompt}</p>
-            <p className="text-muted-foreground/70">
-              Model: {imageModels.find((m) => m.id === version.ai_model)?.name || version.ai_model}
-            </p>
           </button>
         ))}
       </div>
@@ -226,9 +179,7 @@ function CameraMovementSelector({
 export function UnifiedSidebar({
   mode,
   selectedRatio,
-  versions,
   onRatioChange,
-  onVersionSelect,
   selectedModel,
   aspectRatio,
   cameraMovement,
@@ -246,16 +197,10 @@ export function UnifiedSidebar({
     >
       <ResizableSidebar defaultWidth={320} minWidth={250} maxWidth={600} side="right">
         {mode === 'image-edit' ? (
-          <>
-            <ImageEditorAspectRatioSelector
-              selectedRatio={selectedRatio || '1:1'}
-              onRatioChange={onRatioChange || (() => { })}
-            />
-            <VersionHistory
-              versions={versions || []}
-              onVersionSelect={onVersionSelect}
-            />
-          </>
+          <ImageEditorAspectRatioSelector
+            selectedRatio={selectedRatio || '1:1'}
+            onRatioChange={onRatioChange || (() => { })}
+          />
         ) : (
           <>
             <AIModelSelector

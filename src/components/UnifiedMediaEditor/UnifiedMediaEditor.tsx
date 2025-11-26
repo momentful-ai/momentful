@@ -2,16 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
 import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt, mapAspectRatioToRunway } from '../../lib/media';
 import { getErrorMessage } from '../../lib/utils';
 import { videoModels } from '../../data/aiModels';
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
-import { useEditedImagesByLineage, useEditedImages } from '../../hooks/useEditedImages';
+import { useEditedImages } from '../../hooks/useEditedImages';
 import { useMediaAssets } from '../../hooks/useMediaAssets';
 import { useGeneratedVideos } from '../../hooks/useGeneratedVideos';
+import { useUserGenerationLimits } from '../../hooks/useUserGenerationLimits';
 import { handleStorageError, validateStoragePath } from '../../lib/storage-utils';
 import { EditedImage, GeneratedVideo } from '../../types';
 import { SelectedSource } from './types';
@@ -26,6 +26,7 @@ import { UnifiedPreview } from './UnifiedPreview';
 import { UnifiedControls } from './UnifiedControls';
 import { UnifiedHeader } from './UnifiedHeader';
 import { UnifiedSidebar } from './UnifiedSidebar';
+import { LimitReachedDialog } from '../LimitReachedDialog';
 
 export function UnifiedMediaEditor({
   initialMode,
@@ -39,6 +40,7 @@ export function UnifiedMediaEditor({
   const userId = useUserId();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { imagesRemaining, videosRemaining, refetch: refetchLimits } = useUserGenerationLimits();
 
   // Initialize state based on mode
   const [originalImageData, setOriginalImageData] = useState<{
@@ -60,6 +62,7 @@ export function UnifiedMediaEditor({
   });
 
   const [editedImageStoragePath, setEditedImageStoragePath] = useState<string | undefined>();
+  const [showLimitDialog, setShowLimitDialog] = useState<{ type: 'images' | 'videos' } | null>(null);
 
   const [state, setState] = useState<UnifiedEditorState>(() => {
     let initialSelectedSources: SelectedSource[] = [];
@@ -120,9 +123,6 @@ export function UnifiedMediaEditor({
   const { data: generatedVideos = [] } = useGeneratedVideos(projectId);
   const signedUrls = useSignedUrls();
 
-  // Determine lineage ID for editing history (image mode)
-  const lineageId = sourceEditedImage?.lineage_id || asset?.lineage_id || null;
-  const { data: editingHistory = [] } = useEditedImagesByLineage(lineageId);
 
 
   // Initialize selected image for video mode
@@ -239,6 +239,12 @@ export function UnifiedMediaEditor({
   const handleImageGenerate = async () => {
     if (!state.productName.trim() || !asset) return;
 
+    // Check generation limit before proceeding
+    if (imagesRemaining <= 0) {
+      setShowLimitDialog({ type: 'images' });
+      return;
+    }
+
     setState(prev => ({ ...prev, isGenerating: true, showComparison: false, editedImageUrl: null }));
 
     try {
@@ -258,8 +264,6 @@ export function UnifiedMediaEditor({
         aspectRatio: state.selectedRatio,
         userId,
         projectId,
-        lineageId: lineageId || undefined,
-        parentId: sourceEditedImage?.id,
       });
 
       // Metadata for server-side upload and DB creation (uses original prompt, not enhanced)
@@ -267,8 +271,6 @@ export function UnifiedMediaEditor({
         userId,
         projectId,
         prompt: state.productName, // Original prompt for DB record
-        lineageId: lineageId || undefined,
-        parentId: sourceEditedImage?.id,
       };
 
       const result = await pollReplicatePrediction(
@@ -295,18 +297,15 @@ export function UnifiedMediaEditor({
       setEditedImageStoragePath(result.storagePath);
 
       // Fetch the created image from database
-      const createdImage = result.editedImageId 
-        ? await database.editedImages.list(projectId, userId).then(images => 
-            images.find(img => img.id === result.editedImageId)
-          )
+      const createdImage = result.editedImageId
+        ? await database.editedImages.list(projectId, userId).then(images =>
+          images.find(img => img.id === result.editedImageId)
+        )
         : null;
 
       // Optimistic cache updates - update cache immediately without refetching
       if (createdImage) {
         queryClient.setQueryData<EditedImage[]>(['edited-images', projectId, userId], (old = []) => [createdImage, ...old]);
-        if (createdImage.lineage_id) {
-          queryClient.setQueryData<EditedImage[]>(['edited-images', 'lineage', createdImage.lineage_id, userId], (old = []) => [createdImage, ...old]);
-        }
       }
 
       // Invalidate related queries in background (only refetch if actively used)
@@ -315,34 +314,29 @@ export function UnifiedMediaEditor({
         queryKey: ['edited-images', projectId, userId],
         refetchType: 'active' // Only refetch if query is currently active
       });
-      queryClient.invalidateQueries({
-        queryKey: ['timelines', projectId, userId],
-        refetchType: 'active'
-      });
 
       // Invalidate thumbnail cache for new edited image
       queryClient.invalidateQueries({ queryKey: ['signed-url'] });
       // Dispatch custom event to trigger global thumbnail prefetch refresh
       window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
-      if (createdImage?.lineage_id) {
-        queryClient.invalidateQueries({
-          queryKey: ['timeline', createdImage.lineage_id, userId],
-          refetchType: 'active'
-        });
-      }
-
       setState(prev => ({
         ...prev,
-        // No need to update versions manually as we use editingHistory from hook
       }));
 
       showToast('Image generated and saved successfully!', 'success');
+      // Refetch limits to update the count
+      refetchLimits();
       onSave();
     } catch (error) {
       console.error('Error generating image:', error);
       const errorMessage = getErrorMessage(error);
-      showToast(errorMessage, 'error');
+      // Check if it's a limit error
+      if (errorMessage.includes('limit') || errorMessage.includes('403')) {
+        setShowLimitDialog({ type: 'images' });
+      } else {
+        showToast(errorMessage, 'error');
+      }
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
     }
@@ -355,6 +349,12 @@ export function UnifiedMediaEditor({
     }
     if (!userId) {
       showToast('User must be logged in to generate videos', 'error');
+      return;
+    }
+
+    // Check generation limit before proceeding
+    if (videosRemaining <= 0) {
+      setShowLimitDialog({ type: 'videos' });
       return;
     }
 
@@ -386,27 +386,6 @@ export function UnifiedMediaEditor({
 
       const enhancedPrompt = buildEnhancedVideoPrompt(state.prompt, state.cameraMovement);
       const runwayRatio = mapAspectRatioToRunway(state.aspectRatio);
-      
-      // Get lineage_id from preferred source
-      let lineage_id: string | undefined;
-      const preferredSource = state.selectedSources.find(s => s.type === 'edited_image') || state.selectedSources[0];
-      if (preferredSource) {
-        if (preferredSource.type === 'edited_image') {
-          const { data: sourceData } = await supabase
-            .from('edited_images')
-            .select('lineage_id')
-            .eq('id', preferredSource.id)
-            .single();
-          lineage_id = sourceData?.lineage_id;
-        } else {
-          const { data: sourceData } = await supabase
-            .from('media_assets')
-            .select('lineage_id')
-            .eq('id', preferredSource.id)
-            .single();
-          lineage_id = sourceData?.lineage_id;
-        }
-      }
 
       const requestData: RunwayAPI.CreateJobRequest = {
         mode: 'image-to-video',
@@ -419,7 +398,6 @@ export function UnifiedMediaEditor({
         aiModel: state.selectedModel,
         aspectRatio: state.aspectRatio,
         cameraMovement: state.cameraMovement,
-        lineageId: lineage_id,
         sourceIds: state.selectedSources.map(s => ({ type: s.type, id: s.id })),
       };
 
@@ -445,24 +423,18 @@ export function UnifiedMediaEditor({
       );
 
       if (result.status === 'SUCCEEDED') {
-        // Check for upload errors first
-        if (result.uploadError) {
-          throw new Error(`Video upload failed: ${result.uploadError}`);
-        }
-
         // Server has already uploaded and created DB record
         if (!result.storagePath) {
           throw new Error('Server did not return storage path');
         }
-
         const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', result.storagePath);
         setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
         // Fetch the created video from database
         const createdVideo = result.videoId
           ? await database.generatedVideos.list(projectId, userId).then(videos =>
-              videos.find(v => v.id === result.videoId)
-            )
+            videos.find(v => v.id === result.videoId)
+          )
           : null;
 
         // Manually cache the signed URL for the new video so it's available immediately
@@ -483,16 +455,12 @@ export function UnifiedMediaEditor({
           refetchType: 'active'
         });
 
-        // Invalidate timeline cache to refresh timeline with new video
-        queryClient.invalidateQueries({
-          queryKey: ['timelines', projectId, userId],
-          refetchType: 'active'
-        });
-
         // Dispatch custom event to trigger global thumbnail prefetch refresh
         window.dispatchEvent(new CustomEvent('thumbnail-cache-invalidated'));
 
         showToast('Video is ready to view!', 'success');
+        // Refetch limits to update the count
+        refetchLimits();
         onSave();
       } else {
         throw new Error('Video generation failed');
@@ -500,7 +468,12 @@ export function UnifiedMediaEditor({
     } catch (error) {
       console.error('Error generating video:', error);
       const errorMessage = getErrorMessage(error);
-      showToast(errorMessage, 'error');
+      // Check if it's a limit error
+      if (errorMessage.includes('limit') || errorMessage.includes('403')) {
+        setShowLimitDialog({ type: 'videos' });
+      } else {
+        showToast(errorMessage, 'error');
+      }
     } finally {
       setState(prev => ({ ...prev, isGenerating: false }));
     }
@@ -509,12 +482,13 @@ export function UnifiedMediaEditor({
   const handleModeSwitch = useCallback((newMode: MediaEditorMode) => {
     setState(prev => {
       let newSelectedSources = prev.selectedSources;
+      let newSelectedImageForPreview = prev.selectedImageForPreview;
 
-      // When switching to video mode from image mode, pre-select the current result
+      // When switching to video mode from image mode
       if (newMode === 'video-generate' && prev.mode === 'image-edit') {
-        if (prev.editedImageUrl && editingHistory.length > 0) {
-          // Use the most recent edited image
-          const latestImage = editingHistory[0];
+        if (prev.editedImageUrl && editedImages.length > 0) {
+          // If we just generated an image, select it
+          const latestImage = editedImages[0];
           newSelectedSources = [{
             id: latestImage.id,
             type: 'edited_image',
@@ -522,8 +496,11 @@ export function UnifiedMediaEditor({
             storagePath: latestImage.storage_path,
             name: latestImage.prompt.substring(0, 30),
           }];
+        } else if (prev.selectedSources.length > 0) {
+          // If something was already selected (manual selection), we keep it
+          newSelectedSources = prev.selectedSources;
         } else if (asset) {
-          // Fallback to the original asset
+          // Only fallback to asset if nothing is selected
           newSelectedSources = [{
             id: asset.id,
             type: 'media_asset',
@@ -531,11 +508,52 @@ export function UnifiedMediaEditor({
           }];
         }
       }
+      // When switching to image mode from video mode
+      else if (newMode === 'image-edit' && prev.mode === 'video-generate') {
+        // Sync selectedImageForPreview with the currently selected source
+        if (prev.selectedSources.length > 0) {
+          const source = prev.selectedSources[0];
+
+          // We need to construct the preview object
+          // Try to find full object in lists first
+          let imageUrl = source.thumbnail || '';
+          let storagePath = source.storagePath;
+          let fileName = source.name;
+
+          if (source.type === 'edited_image') {
+            const editedImage = editedImages.find(img => img.id === source.id);
+            if (editedImage) {
+              imageUrl = editedImage.edited_url || '';
+              storagePath = editedImage.storage_path;
+              fileName = editedImage.prompt.substring(0, 30);
+            }
+          } else if (source.type === 'media_asset') {
+            const mediaAsset = mediaAssets.find(a => a.id === source.id);
+            if (mediaAsset) {
+              fileName = mediaAsset.file_name;
+              storagePath = mediaAsset.storage_path;
+              // Media assets might not have a direct URL if not signed yet, but UnifiedPreview handles storagePath
+            }
+          }
+
+          newSelectedImageForPreview = {
+            id: source.id,
+            url: imageUrl,
+            storagePath: storagePath,
+            fileName: fileName,
+            type: source.type,
+          };
+        } else {
+          // If nothing selected, clear preview
+          newSelectedImageForPreview = null;
+        }
+      }
 
       return {
         ...prev,
         mode: newMode,
         selectedSources: newSelectedSources,
+        selectedImageForPreview: newSelectedImageForPreview,
         // Reset mode-specific state
         isGenerating: false,
         showComparison: false,
@@ -545,7 +563,7 @@ export function UnifiedMediaEditor({
         isSelecting: false,
       };
     });
-  }, [asset, editingHistory]);
+  }, [asset, editedImages, mediaAssets]);
 
   const handleFileDrop = async (files: File[]) => {
     if (!userId || !projectId) {
@@ -640,9 +658,7 @@ export function UnifiedMediaEditor({
       let fileName: string = '';
 
       if (source.type === 'edited_image') {
-        // Check both editedImages and editingHistory arrays
-        const editedImage = editedImages.find(img => img.id === source.id)
-          || editingHistory.find(img => img.id === source.id);
+        const editedImage = editedImages.find((img: EditedImage) => img.id === source.id);
         if (editedImage) {
           imageUrl = editedImage.edited_url || null;
           storagePath = editedImage.storage_path || null;
@@ -686,16 +702,6 @@ export function UnifiedMediaEditor({
     }
   };
 
-  const handleVersionSelect = (version: EditedImage) => {
-    const source: SelectedSource = {
-      id: version.id,
-      type: 'edited_image',
-      thumbnail: version.edited_url,
-      storagePath: version.storage_path,
-      name: version.prompt.substring(0, 30),
-    };
-    handleImageClick(source);
-  };
 
   const handleMouseUp = () => {
     setState(prev => ({ ...prev, isSelecting: false }));
@@ -721,6 +727,12 @@ export function UnifiedMediaEditor({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
+      {showLimitDialog && (
+        <LimitReachedDialog
+          type={showLimitDialog.type}
+          onClose={() => setShowLimitDialog(null)}
+        />
+      )}
       <UnifiedHeader
         mode={state.mode}
         onClose={onClose}
@@ -730,7 +742,7 @@ export function UnifiedMediaEditor({
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <UnifiedLeftPanel
           mode={state.mode}
-          editedImages={state.mode === 'image-edit' ? editingHistory : editedImages}
+          editedImages={editedImages}
           mediaAssets={mediaAssets}
           generatedVideos={generatedVideos}
           selectedSources={state.selectedSources}
@@ -815,9 +827,7 @@ export function UnifiedMediaEditor({
           mode={state.mode}
           // Image mode props
           selectedRatio={state.selectedRatio}
-          versions={editingHistory}
           onRatioChange={(ratio) => setState(prev => ({ ...prev, selectedRatio: ratio }))}
-          onVersionSelect={handleVersionSelect}
           // Video mode props
           selectedModel={state.selectedModel}
           aspectRatio={state.aspectRatio}

@@ -34,8 +34,6 @@ const mockGeneratedVideos: GeneratedVideo[] = [
     thumbnail_url: undefined,
     duration: 30,
     status: 'completed',
-    version: 1,
-    parent_id: undefined,
     runway_task_id: 'task-123',
     created_at: '2025-10-20T15:59:30.165+00:00',
     completed_at: '2025-10-20T15:59:30.166+00:00',

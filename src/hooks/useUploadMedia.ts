@@ -85,10 +85,6 @@ export function useUploadMedia() {
       queryClient.invalidateQueries({
         queryKey: ['projects', userId],
       });
-      // Invalidate timeline cache to refresh timeline with new images
-      queryClient.invalidateQueries({
-        queryKey: ['timelines', projectId, userId],
-      });
       // Invalidate thumbnail cache for new uploads
       queryClient.invalidateQueries({ queryKey: ['signed-url'] });
       // Dispatch custom event to trigger global thumbnail prefetch refresh

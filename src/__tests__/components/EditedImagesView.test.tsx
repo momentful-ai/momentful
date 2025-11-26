@@ -79,8 +79,8 @@ vi.mock('../../components/shared/MediaCard', () => ({
         <img src={item.edited_url} alt={item.prompt} />
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
           {onEditImage && (
-            <button 
-              onClick={() => onEditImage(item)} 
+            <button
+              onClick={() => onEditImage(item)}
               title="Edit with AI"
               data-testid={`edit-button-${item.id}`}
               className="absolute inset-0 w-full h-full flex items-center justify-center bg-black/60"
@@ -146,9 +146,6 @@ describe('EditedImagesView', () => {
       edited_url: 'https://example.com/edited-1.png',
       width: 1920,
       height: 1080,
-      version: 1,
-      parent_id: undefined,
-      lineage_id: 'lineage-123',
       created_at: '2025-10-20T15:59:30.165+00:00',
     },
   ];
@@ -180,7 +177,7 @@ describe('EditedImagesView', () => {
     renderWithQueryClient(<EditedImagesView {...defaultProps} />);
 
     // Should show loading skeleton
-    expect(document.querySelector('[class*="animate-pulse"]')).toBeInTheDocument();
+    expect(document.querySelector('.ai-shimmer')).toBeInTheDocument();
   });
 
   it('renders empty state when no images provided', () => {
@@ -372,14 +369,9 @@ describe('EditedImagesView', () => {
     }, { timeout: 1000 });
   });
 
-  it('falls back gracefully when lineage_id is missing', async () => {
-    const editedImageWithoutLineage: EditedImage = {
-      ...mockEditedImages[0],
-      lineage_id: undefined,
-    };
-
+  it('renders edited images correctly', async () => {
     mockUseEditedImages.mockReturnValue({
-      data: [editedImageWithoutLineage],
+      data: mockEditedImages,
       isLoading: false,
       isError: false,
       error: null,
@@ -402,7 +394,7 @@ describe('EditedImagesView', () => {
     fireEvent.click(editButton);
 
     await waitFor(() => {
-      expect(onEditImage).toHaveBeenCalledWith(editedImageWithoutLineage, 'project-1');
+      expect(onEditImage).toHaveBeenCalledWith(mockEditedImages[0], 'project-1');
     }, { timeout: 1000 });
   });
 });

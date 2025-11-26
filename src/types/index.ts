@@ -23,7 +23,6 @@ export interface MediaAsset {
   duration?: number;
   sort_order: number;
   created_at: string;
-  lineage_id?: string;
 }
 
 export interface EditedImage {
@@ -37,10 +36,7 @@ export interface EditedImage {
   thumbnail_url?: string;
   width: number;
   height: number;
-  version: number;
-  parent_id?: string;
   created_at: string;
-  lineage_id?: string;
   edited_url?: string; // Optional - generated on demand for signed URLs
 }
 
@@ -57,12 +53,9 @@ export interface GeneratedVideo {
   thumbnail_url?: string;
   duration?: number;
   status: 'processing' | 'completed' | 'failed';
-  version?: number;
-  parent_id?: string;
   runway_task_id?: string;
   created_at: string;
   completed_at?: string;
-  lineage_id?: string;
 }
 
 export interface VideoSource {
@@ -108,15 +101,5 @@ export interface PublishLog {
   metadata: Record<string, unknown>;
   status: 'scheduled' | 'published' | 'failed';
   published_at?: string;
-  created_at: string;
-}
-
-// Add Lineage interface
-export interface Lineage {
-  id: string;
-  project_id: string;
-  user_id: string;
-  name?: string;
-  metadata: Record<string, unknown>;
   created_at: string;
 }

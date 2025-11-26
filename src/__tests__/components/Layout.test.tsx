@@ -24,11 +24,17 @@ vi.mock('../../hooks/useTheme', () => ({
   })),
 }));
 
+vi.mock('../../hooks/useUserGenerationLimits', () => ({
+  useUserGenerationLimits: vi.fn(),
+}));
+
 // Import to access mocks
 import { useBypassContext } from '../../hooks/useBypassContext';
 import { useTheme } from '../../hooks/useTheme';
+import { useUserGenerationLimits } from '../../hooks/useUserGenerationLimits';
 const mockUseBypassContext = vi.mocked(useBypassContext);
 const mockUseTheme = vi.mocked(useTheme);
+const mockUseUserGenerationLimits = vi.mocked(useUserGenerationLimits);
 
 // Mock DevToolbar
 vi.mock('../../components/DevToolbar', () => ({
@@ -42,6 +48,15 @@ describe('Layout', () => {
     mockUseTheme.mockReturnValue({
       theme: 'light',
       setTheme: vi.fn(),
+    });
+    mockUseUserGenerationLimits.mockReturnValue({
+      imagesRemaining: 8,
+      videosRemaining: 3,
+      imagesLimit: 10,
+      videosLimit: 5,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
     });
   });
 
@@ -284,6 +299,128 @@ describe('Layout', () => {
     );
 
     expect(screen.queryByText('Sign Out')).not.toBeInTheDocument();
+  });
+
+  describe('Generation Limits Display', () => {
+    it('displays generation counts next to user name when not in bypass mode', () => {
+      mockUseUser.mockReturnValue({
+        user: {
+          firstName: 'John',
+          emailAddresses: [{ emailAddress: 'john@example.com' }]
+        },
+        isLoaded: true,
+      });
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      expect(screen.getByText('John')).toBeInTheDocument();
+      expect(screen.getByText('8 images, 3 videos')).toBeInTheDocument();
+    });
+
+    it('displays generation counts with email when no firstName', () => {
+      mockUseUser.mockReturnValue({
+        user: {
+          firstName: null,
+          emailAddresses: [{ emailAddress: 'john@example.com' }]
+        },
+        isLoaded: true,
+      });
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+      expect(screen.getByText('8 images, 3 videos')).toBeInTheDocument();
+    });
+
+    it('does not display counts during loading', () => {
+      mockUseUserGenerationLimits.mockReturnValue({
+        imagesRemaining: 8,
+        videosRemaining: 3,
+        imagesLimit: 10,
+        videosLimit: 5,
+        isLoading: true,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      mockUseUser.mockReturnValue({
+        user: {
+          firstName: 'John',
+          emailAddresses: [{ emailAddress: 'john@example.com' }]
+        },
+        isLoaded: true,
+      });
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      expect(screen.getByText('John')).toBeInTheDocument();
+      expect(screen.queryByText('8 images, 3 videos')).not.toBeInTheDocument();
+    });
+
+    it('does not display counts in bypass mode', () => {
+      mockUseBypassContext.mockReturnValue(true);
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      expect(screen.queryByText('8 images, 3 videos')).not.toBeInTheDocument();
+    });
+
+    it('applies correct styling to user info section', () => {
+      mockUseUser.mockReturnValue({
+        user: {
+          firstName: 'John',
+          emailAddresses: [{ emailAddress: 'john@example.com' }]
+        },
+        isLoaded: true,
+      });
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      const userSection = screen.getByText('8 images, 3 videos').closest('.bg-muted\\/50');
+      expect(userSection).toHaveClass('bg-muted/50');
+    });
+
+    it('shows user name and counts in separate flex columns', () => {
+      mockUseUser.mockReturnValue({
+        user: {
+          firstName: 'John',
+          emailAddresses: [{ emailAddress: 'john@example.com' }]
+        },
+        isLoaded: true,
+      });
+
+      render(
+        <Layout>
+          Content
+        </Layout>
+      );
+
+      const userDiv = screen.getByText('John').parentElement;
+      expect(userDiv).toHaveClass('flex flex-col');
+
+      const countsDiv = screen.getByText('8 images, 3 videos');
+      expect(countsDiv).toHaveClass('text-xs text-muted-foreground/70');
+    });
   });
 });
 

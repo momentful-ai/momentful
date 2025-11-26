@@ -202,8 +202,6 @@ describe('Replicate API Client', () => {
         userId: 'user123',
         projectId: 'project456',
         prompt: 'Original prompt',
-        lineageId: 'lineage789',
-        parentId: 'parent123',
       };
 
       const result = await getReplicatePredictionStatus('pred-123', metadata);
@@ -213,8 +211,6 @@ describe('Replicate API Client', () => {
       expectedUrl.searchParams.set('userId', 'user123');
       expectedUrl.searchParams.set('projectId', 'project456');
       expectedUrl.searchParams.set('prompt', 'Original prompt');
-      expectedUrl.searchParams.set('lineageId', 'lineage789');
-      expectedUrl.searchParams.set('parentId', 'parent123');
 
       expect(fetchMock).toHaveBeenCalledWith(expectedUrl.toString());
     });
@@ -527,8 +523,6 @@ describe('Replicate API Client', () => {
         prompt: 'Test prompt',
         userId: 'user123',
         projectId: 'project456',
-        lineageId: 'lineage789',
-        parentId: 'parent123',
       });
 
       const callBody = JSON.parse(fetchMock.mock.calls[0][1].body);

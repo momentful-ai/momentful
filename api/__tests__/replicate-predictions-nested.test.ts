@@ -151,8 +151,6 @@ describe('Replicate Predictions Nested Routes', () => {
         userId: 'user123',
         projectId: 'project456',
         prompt: 'Original prompt text',
-        lineageId: 'lineage789',
-        parentId: 'parent123',
       };
 
       await indexHandler(mockReq as VercelRequest, mockRes as VercelResponse);
@@ -165,8 +163,6 @@ describe('Replicate Predictions Nested Routes', () => {
           userId: 'user123',
           projectId: 'project456',
           prompt: 'Original prompt text',
-          lineageId: 'lineage789',
-          parentId: 'parent123',
         },
       });
     });
@@ -336,8 +332,6 @@ describe('Replicate Predictions Nested Routes', () => {
         userId: 'user123',
         projectId: 'project456',
         prompt: 'Original prompt',
-        lineageId: 'lineage789',
-        parentId: 'parent123',
       };
 
       await idHandler(mockReq as VercelRequest, mockRes as VercelResponse);

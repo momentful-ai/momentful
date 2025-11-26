@@ -22,10 +22,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Extract metadata (for video jobs)
-    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, lineageId, sourceIds } = req.body;
+    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, sourceIds } = req.body;
 
     // Convert any storage paths to signed URLs for external provider access
     const processedData = await convertStoragePathsToSignedUrls(parsed.data);
+
+    // Check generation limit for video generation (only for image-to-video mode)
+    if (userId && processedData.mode === 'image-to-video') {
+      try {
+        const { data: limits, error: limitsError } = await supabase
+          .from('user_generation_limits')
+          .select('videos_remaining')
+          .eq('user_id', userId)
+          .single();
+
+        // If no record exists, create one with defaults
+        let videosRemaining = 5;
+        if (limitsError || !limits) {
+          const { data: newLimits } = await supabase
+            .from('user_generation_limits')
+            .insert({
+              user_id: userId,
+              images_remaining: 10,
+              videos_remaining: 5,
+              images_limit: 10,
+              videos_limit: 5,
+            })
+            .select()
+            .single();
+          videosRemaining = newLimits?.videos_remaining ?? 5;
+        } else {
+          videosRemaining = limits.videos_remaining;
+        }
+
+        if (videosRemaining <= 0) {
+          return res.status(403).json({
+            error: 'Video generation limit reached',
+            message: `You've maxed out your video credits :(
+Message the Momentful crew at hello@momentful.ai to unlock more.`,
+          });
+        }
+
+        // Decrement the count before creating the job
+        const { error: decrementError } = await supabase
+          .from('user_generation_limits')
+          .update({ videos_remaining: videosRemaining - 1 })
+          .eq('user_id', userId);
+
+        if (decrementError) {
+          console.error('Failed to decrement video generation limit:', decrementError);
+          // Continue with generation even if decrement fails, but log the error
+        }
+      } catch (limitCheckError) {
+        console.error('Error during generation limit check:', limitCheckError);
+        // Continue with generation even if limit check fails
+      }
+    }
 
     let task;
 
@@ -69,7 +121,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               runway_task_id: task.id,
               storage_path: null, // Will be set when job completes
               status: 'processing',
-              lineage_id: lineageId || null,
             })
             .select()
             .single();

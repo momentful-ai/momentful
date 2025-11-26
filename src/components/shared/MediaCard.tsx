@@ -5,14 +5,13 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { mergeName, formatFileSize, formatDuration, formatDate } from '../../lib/utils';
 import { MediaAsset, EditedImage } from '../../types';
-import { TimelineNode } from '../../types/timeline';
 import { VideoPlayer } from '../VideoPlayer';
 
-export type MediaCardItem = MediaAsset | EditedImage | TimelineNode;
+export type MediaCardItem = MediaAsset | EditedImage;
 
 interface MediaCardProps {
   item: MediaCardItem;
-  viewMode: 'grid' | 'list' | 'timeline';
+  viewMode: 'grid' | 'list';
   isSelected?: boolean;
   onClick?: () => void;
   onEditImage?: (item: MediaAsset | EditedImage) => void;
@@ -22,12 +21,8 @@ interface MediaCardProps {
   showTypeLabel?: boolean;
 }
 
-function isTimelineNode(item: MediaCardItem): item is TimelineNode {
-  return typeof item === 'object' && 'type' in item && 'data' in item;
-}
-
 function isMediaAsset(item: MediaCardItem): item is MediaAsset {
-  return !isTimelineNode(item) && 'file_type' in item;
+  return 'file_type' in item;
 }
 
 
@@ -60,50 +55,7 @@ export function MediaCard({
   let editTarget: MediaAsset | EditedImage | undefined;
   let storagePath: string | undefined;
 
-  if (isTimelineNode(item)) {
-    const { type, data } = item;
-
-    if (type === 'media_asset') {
-      storagePath = data.thumbnail_url ? undefined : data.storage_path;
-      altText = data.file_name;
-      isImage = data.file_type === 'image';
-      duration = data.duration;
-      fileName = data.file_name;
-      fileSize = data.file_size;
-      width = data.width;
-      height = data.height;
-      createdAt = data.created_at;
-      typeLabel = showTypeLabel ? 'Original' : undefined;
-      editTarget = data;
-    } else if (type === 'edited_image') {
-      // Use pre-computed edited_url if available, otherwise set storagePath for signed URL loading
-      if (data.edited_url) {
-        // thumbnailUrl will be set in useEffect
-      } else {
-        storagePath = data.storage_path;
-      }
-      altText = data.prompt;
-      isImage = true;
-      fileName = undefined;
-      fileSize = undefined;
-      width = data.width;
-      height = data.height;
-      prompt = data.prompt;
-      aiModel = data.ai_model;
-      createdAt = data.created_at;
-      typeLabel = showTypeLabel ? 'Edited' : undefined;
-      editTarget = data;
-    } else {
-      // generated_video
-      storagePath = data.thumbnail_url ? undefined : data.storage_path;
-      altText = data.name || 'Video';
-      isImage = false;
-      duration = data.duration;
-      fileName = data.name;
-      createdAt = data.created_at;
-      typeLabel = showTypeLabel ? 'Video' : undefined;
-    }
-  } else if (isMediaAsset(item)) {
+  if (isMediaAsset(item)) {
     storagePath = item.thumbnail_url ? undefined : item.storage_path;
     altText = item.file_name;
     isImage = item.file_type === 'image';
@@ -113,6 +65,7 @@ export function MediaCard({
     width = item.width;
     height = item.height;
     createdAt = item.created_at;
+    typeLabel = showTypeLabel ? 'Original' : undefined;
     editTarget = item;
   } else {
     // EditedImage
@@ -130,28 +83,14 @@ export function MediaCard({
     prompt = item.prompt;
     aiModel = item.ai_model;
     createdAt = item.created_at;
+    typeLabel = showTypeLabel ? 'Edited' : undefined;
     editTarget = item;
   }
 
   // Load signed URL if needed
   useEffect(() => {
     // Handle pre-computed URLs first
-    if (isTimelineNode(item)) {
-      const { type, data } = item;
-      if (type === 'media_asset' && data.thumbnail_url) {
-        setThumbnailUrl(data.thumbnail_url);
-        setIsUrlLoading(false);
-        return;
-      } else if (type === 'edited_image' && data.edited_url) {
-        setThumbnailUrl(data.edited_url);
-        setIsUrlLoading(false);
-        return;
-      } else if (type === 'generated_video' && data.thumbnail_url) {
-        setThumbnailUrl(data.thumbnail_url);
-        setIsUrlLoading(false);
-        return;
-      }
-    } else if (isMediaAsset(item) && item.thumbnail_url) {
+    if (isMediaAsset(item) && item.thumbnail_url) {
       setThumbnailUrl(item.thumbnail_url);
       setIsUrlLoading(false);
       return;
@@ -209,9 +148,7 @@ export function MediaCard({
 
       <div className={imageContainerClassName}>
         {isImage ? (
-          <div className={`w-full h-full flex items-center justify-center ${
-            viewMode !== 'timeline' ? 'cursor-pointer hover:scale-110 transition-transform duration-300' : ''
-          }`}>
+          <div className="w-full h-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform duration-300">
             {isUrlLoading ? (
               <div className="flex items-center justify-center w-full h-full">
                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -241,7 +178,7 @@ export function MediaCard({
                 Failed to load video
               </div>
             )}
-            {duration && viewMode !== 'timeline' && !isUrlLoading && (
+            {duration && !isUrlLoading && (
               <Badge className="absolute bottom-2 right-2 gap-1 shadow-lg z-10">
                 <Clock className="w-3 h-3" />
                 {formatDuration(duration)}
@@ -346,4 +283,3 @@ export function MediaCard({
     </Card>
   );
 }
-
