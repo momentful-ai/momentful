@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MediaThumbnail } from '../../../components/shared/MediaThumbnail';
 import { useSignedUrls } from '../../../hooks/useSignedUrls';
+import { ExpiredUrlError } from '../../../lib/storage-utils';
 
 // Mock useSignedUrls hook
 vi.mock('../../../hooks/useSignedUrls', () => ({
@@ -36,6 +37,7 @@ vi.mocked(useSignedUrls).mockReturnValue({
   prefetchThumbnails: vi.fn(),
   clearCache: vi.fn(),
   getSignedUrl: vi.fn(),
+  getSignedUrlWithRetry: vi.fn(),
   preloadSignedUrls: vi.fn(),
   useOptimisticSignedUrl: vi.fn(),
   useMediaUrlPrefetch: vi.fn(),
@@ -255,5 +257,70 @@ vi.mocked(useSignedUrls).mockReturnValue({
 
     expect(mockUseSignedUrl).toHaveBeenCalledTimes(1);
     expect(mockUseSignedUrl).toHaveBeenCalledWith('user-uploads', testPath);
+  });
+
+  it('shows loading spinner when retrying expired URL', async () => {
+    const testPath = 'user-1/project-1/image.jpg';
+    const testAlt = 'Test image';
+
+    const expiredError = new ExpiredUrlError('user-uploads', testPath);
+
+    mockUseSignedUrl.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: expiredError,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MediaThumbnail storagePath={testPath} alt={testAlt} />,
+      { wrapper: createWrapper() }
+    );
+
+    // Should show loading spinner when retrying expired URL
+    const spinner = screen.getByTestId('spinner');
+    expect(spinner).toBeInTheDocument();
+  });
+
+  it('renders image when data is available', async () => {
+    const testPath = 'user-1/project-1/image.jpg';
+    const testAlt = 'Test image';
+
+    mockUseSignedUrl.mockReturnValue({
+      data: 'https://example.com/image.jpg',
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MediaThumbnail storagePath={testPath} alt={testAlt} />,
+      { wrapper: createWrapper() }
+    );
+
+    const img = screen.getByAltText(testAlt);
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'https://example.com/image.jpg');
+  });
+
+  it('shows fallback when no image data and not loading', async () => {
+    const testPath = 'user-1/project-1/image.jpg';
+    const testAlt = 'Test image';
+
+    mockUseSignedUrl.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: new Error('Some error'),
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MediaThumbnail storagePath={testPath} alt={testAlt} />,
+      { wrapper: createWrapper() }
+    );
+
+    // Should show Film icon as fallback
+    const filmIcon = document.querySelector('svg');
+    expect(filmIcon).toBeInTheDocument();
   });
 });

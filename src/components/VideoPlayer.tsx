@@ -11,6 +11,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, AlertCircl
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 import { useSignedUrls } from "../hooks/useSignedUrls"
+import { ExpiredUrlError } from "../lib/storage-utils"
 
 interface VideoPlayerProps {
   videoUrl: string
@@ -89,6 +90,18 @@ export function VideoPlayer({
     }
 
   }, [actualVideoUrl])
+
+  // Auto-retry on expired URLs
+  useEffect(() => {
+    if (isStoragePath &&
+      signedUrlQuery.error instanceof ExpiredUrlError) {
+      // Auto-refetch after a short delay for expired URLs
+      const timer = setTimeout(() => {
+        signedUrlQuery.refetch();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isStoragePath, signedUrlQuery]);
 
   // Reset internal aspect ratio when external aspect ratio changes
   useEffect(() => {
@@ -400,7 +413,10 @@ export function VideoPlayer({
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
 
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div
+            className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent"
+            data-testid="loading-spinner"
+          />
 
         </div>
 
@@ -422,7 +438,11 @@ export function VideoPlayer({
 
             <p className="text-white/70 mb-6">
               {videoError ||
-               (signedUrlQuery.error instanceof Error ? signedUrlQuery.error.message : 'Failed to load video URL')}
+                (signedUrlQuery.error instanceof ExpiredUrlError
+                  ? 'Refreshing...'
+                  : signedUrlQuery.error instanceof Error
+                    ? signedUrlQuery.error.message
+                    : 'Failed to load video URL')}
             </p>
 
             <Button
@@ -479,11 +499,9 @@ export function VideoPlayer({
 
         <div
 
-          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent px-4 pt-3 pb-2 transition-all duration-300 ${
+          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent px-4 pt-3 pb-2 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
 
-            showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-
-          }`}
+            }`}
 
           onClick={(e) => e.stopPropagation()}
 
@@ -537,11 +555,9 @@ export function VideoPlayer({
 
                   <div
 
-                    className={`overflow-hidden transition-all duration-300 ${
+                    className={`overflow-hidden transition-all duration-300 ${showVolumeSlider ? "w-20 opacity-100" : "w-0 opacity-0"
 
-                      showVolumeSlider ? "w-20 opacity-100" : "w-0 opacity-0"
-
-                    }`}
+                      }`}
 
                   >
 

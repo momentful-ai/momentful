@@ -27,12 +27,12 @@ export function EditedImagesView({
   const { showToast } = useToast();
   const [imageToDelete, setImageToDelete] = useState<{ id: string; storagePath: string } | null>(null);
   const deleteMutation = useDeleteEditedImage();
-  const signedUrls = useSignedUrls();
+  const { getSignedUrlWithRetry } = useSignedUrls();
 
-  // Create getAssetUrl function using the useSignedUrls hook
+  // Create getAssetUrl function using the retry wrapper
   const getAssetUrl = useCallback(async (storagePath: string): Promise<string> => {
-    return await signedUrls.getSignedUrl('user-uploads', storagePath);
-  }, [signedUrls]);
+    return await getSignedUrlWithRetry('user-uploads', storagePath);
+  }, [getSignedUrlWithRetry]);
 
   const confirmDeleteImage = () => {
     if (!imageToDelete) return;

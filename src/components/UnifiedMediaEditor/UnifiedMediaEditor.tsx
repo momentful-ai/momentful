@@ -121,9 +121,7 @@ export function UnifiedMediaEditor({
   const { data: editedImages = [] } = useEditedImages(projectId);
   const { data: mediaAssets = [] } = useMediaAssets(projectId);
   const { data: generatedVideos = [] } = useGeneratedVideos(projectId);
-  const signedUrls = useSignedUrls();
-
-
+  const { getSignedUrlWithRetry } = useSignedUrls();
 
   // Initialize selected image for video mode
   useEffect(() => {
@@ -186,7 +184,7 @@ export function UnifiedMediaEditor({
           }));
         } else if (asset) {
           try {
-            const assetUrl = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
+            const assetUrl = await getSignedUrlWithRetry('user-uploads', asset.storage_path);
             const source: SelectedSource = {
               id: asset.id,
               type: 'media_asset',
@@ -213,7 +211,7 @@ export function UnifiedMediaEditor({
     };
 
     initializeSelectedImage();
-  }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, signedUrls]);
+  }, [state.mode, state.selectedImageForPreview, sourceEditedImage, asset, getSignedUrlWithRetry]);
 
   // Reset state when switching modes
   useEffect(() => {
@@ -253,7 +251,7 @@ export function UnifiedMediaEditor({
         return;
       }
 
-      const imageUrl = sourceEditedImage?.edited_url || (await signedUrls.getSignedUrl('user-uploads', asset.storage_path));
+      const imageUrl = sourceEditedImage?.edited_url || (await getSignedUrlWithRetry('user-uploads', asset.storage_path));
       const enhancedPrompt = buildEnhancedImagePrompt(state.productName);
 
       showToast('Starting image generation...', 'info');
@@ -292,7 +290,7 @@ export function UnifiedMediaEditor({
         throw new Error('Server did not return storage path');
       }
 
-      const uploadedImageUrl = await signedUrls.getSignedUrl('user-uploads', result.storagePath);
+      const uploadedImageUrl = await getSignedUrlWithRetry('user-uploads', result.storagePath);
       setState(prev => ({ ...prev, editedImageUrl: uploadedImageUrl, showComparison: true }));
       setEditedImageStoragePath(result.storagePath);
 
@@ -373,10 +371,10 @@ export function UnifiedMediaEditor({
       let imageUrl: string | null = null;
       if (imageSource.type === 'edited_image') {
         const editedImage = editedImages.find(img => img.id === imageSource.id);
-        imageUrl = editedImage?.edited_url || (editedImage?.storage_path ? await signedUrls.getSignedUrl('user-uploads', editedImage.storage_path) : null);
+        imageUrl = editedImage?.edited_url || (editedImage?.storage_path ? await getSignedUrlWithRetry('user-uploads', editedImage.storage_path) : null);
       } else if (imageSource.type === 'media_asset') {
         const mediaAsset = mediaAssets.find(asset => asset.id === imageSource.id);
-        imageUrl = mediaAsset ? await signedUrls.getSignedUrl('user-uploads', mediaAsset.storage_path) : null;
+        imageUrl = mediaAsset ? await getSignedUrlWithRetry('user-uploads', mediaAsset.storage_path) : null;
       }
 
       if (!imageUrl) {
@@ -428,7 +426,7 @@ export function UnifiedMediaEditor({
         if (!result.storagePath) {
           throw new Error('Server did not return storage path');
         }
-        const uploadedVideoUrl = await signedUrls.getSignedUrl('generated-videos', result.storagePath);
+        const uploadedVideoUrl = await getSignedUrlWithRetry('generated-videos', result.storagePath);
         setState(prev => ({ ...prev, generatedVideoUrl: uploadedVideoUrl }));
 
         // Fetch the created video from database

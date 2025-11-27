@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Film } from 'lucide-react';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
+import { ExpiredUrlError } from '../../lib/storage-utils';
 
 export interface MediaThumbnailProps {
   // Direct URL (for edited images, external URLs)
@@ -32,6 +33,15 @@ export function MediaThumbnail({
   // Always call the hook at the top level to follow rules of hooks
   const signedUrlQuery = useSignedUrl(bucket, storagePath || '');
 
+  // Auto-retry on expired URLs (silent recovery)
+  useEffect(() => {
+    if (storagePath &&
+        signedUrlQuery.error instanceof ExpiredUrlError) {
+      // Auto-refetch immediately for thumbnails (silent recovery)
+      signedUrlQuery.refetch();
+    }
+  }, [storagePath, signedUrlQuery]);
+
   // Handle pre-computed URLs first (edited images, external URLs)
   if (src) {
     return (
@@ -48,7 +58,9 @@ export function MediaThumbnail({
 
   // Handle storage paths that need signed URLs
   if (storagePath) {
-    if (signedUrlQuery.isLoading) {
+    // Show loading state while fetching or retrying expired URLs
+    if (signedUrlQuery.isLoading ||
+        (signedUrlQuery.error instanceof ExpiredUrlError)) {
       return (
         <div className="flex items-center justify-center w-full h-full">
           <div

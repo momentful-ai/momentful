@@ -35,6 +35,7 @@ interface BulkDownloadItem {
 
 /**
  * Downloads a file by storage path, resolving signed URLs as needed
+ * Includes retry logic for expired URLs
  * @param storagePath - The storage path of the file to download
  * @param filename - The filename to use for the downloaded file
  * @param bucket - The storage bucket (defaults to 'user-uploads')
@@ -51,9 +52,30 @@ export async function downloadFileByStoragePath(
       return;
     }
 
-    // For storage paths, get a signed URL first
-    const signedUrl = await database.storage.getSignedUrl(bucket, storagePath);
-    await downloadFile(signedUrl, filename);
+    // For storage paths, get signed URL with retry logic for expired URLs
+    let signedUrl = await database.storage.getSignedUrl(bucket, storagePath);
+
+    // Try to download - check for expired URL (403/401)
+    const response = await fetch(signedUrl);
+
+    if (response.status === 403 || response.status === 401) {
+      // URL expired, get fresh one and retry download
+      signedUrl = await database.storage.getSignedUrl(bucket, storagePath);
+      await downloadFile(signedUrl, filename);
+    } else if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.statusText}`);
+    } else {
+      // Success - proceed with download
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    }
   } catch (error) {
     console.error('Error downloading file by storage path:', error);
     throw error;

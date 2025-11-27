@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { VideoPlayer } from '../../components/VideoPlayer';
+import { ExpiredUrlError } from '../../lib/storage-utils';
 
 // Mock Radix UI components to avoid testing incompatibilities
 vi.mock('../../components/ui/slider', () => ({
@@ -39,13 +40,10 @@ const mockVideoElement = {
 };
 
 // Mock useSignedUrls hook
+const mockUseSignedUrl = vi.fn();
 vi.mock('../../hooks/useSignedUrls', () => ({
   useSignedUrls: vi.fn(() => ({
-    useSignedUrl: vi.fn(() => ({
-      data: 'https://signed.example.com/video.mp4',
-      isLoading: false,
-      error: null,
-    })),
+    useSignedUrl: mockUseSignedUrl,
   })),
 }));
 
@@ -60,6 +58,12 @@ const renderWithVideoMock = (component: React.ReactElement) => {
 describe('VideoPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseSignedUrl.mockReturnValue({
+      data: 'https://signed.example.com/video.mp4',
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -138,6 +142,49 @@ describe('VideoPlayer', () => {
       const controls = document.querySelector('.absolute.bottom-0');
       expect(controls).toBeInTheDocument();
       expect(controls).toHaveClass('bg-gradient-to-t', 'from-black');
+    });
+
+    it('shows loading state when signed URL is loading', () => {
+      mockUseSignedUrl.mockReturnValue({
+        data: 'https://example.com/video.mp4', // Provide a URL so component renders
+        isLoading: true,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderWithVideoMock(<VideoPlayer videoUrl="storage-path" isStoragePath />);
+      const spinner = screen.getByTestId('loading-spinner');
+      expect(spinner).toBeInTheDocument();
+    });
+
+    it('displays error message for ExpiredUrlError', () => {
+      const expiredError = new ExpiredUrlError('user-uploads', 'storage-path');
+
+      mockUseSignedUrl.mockReturnValue({
+        data: 'https://example.com/video.mp4', // Provide a URL so component renders
+        isLoading: false,
+        error: expiredError,
+        refetch: vi.fn(),
+      });
+
+      renderWithVideoMock(<VideoPlayer videoUrl="storage-path" isStoragePath />);
+
+      expect(screen.getByText('Unable to Play Video')).toBeInTheDocument();
+      expect(screen.getByText('Refreshing...')).toBeInTheDocument();
+    });
+
+    it('displays error message for other errors', () => {
+      mockUseSignedUrl.mockReturnValue({
+        data: 'https://example.com/video.mp4', // Provide a URL so component renders
+        isLoading: false,
+        error: new Error('Network error'),
+        refetch: vi.fn(),
+      });
+
+      renderWithVideoMock(<VideoPlayer videoUrl="storage-path" isStoragePath />);
+
+      expect(screen.getByText('Unable to Play Video')).toBeInTheDocument();
+      expect(screen.getByText('Network error')).toBeInTheDocument();
     });
   });
 });

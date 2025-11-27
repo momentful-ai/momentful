@@ -51,7 +51,8 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { showToast } = useToast();
-  const signedUrls = useSignedUrls();
+  const { getSignedUrlWithRetry } = useSignedUrls();
+
   const userId = useUserId();
   const uploadMutation = useUploadMedia();
   const queryClient = useQueryClient();
@@ -289,7 +290,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     setIsDownloadingAll(true);
     try {
       const items = await Promise.all(mediaAssets.map(async (asset) => ({
-        url: await signedUrls.getSignedUrl('user-uploads', asset.storage_path),
+        url: await getSignedUrlWithRetry('user-uploads', asset.storage_path),
         filename: asset.file_name,
       })));
 
@@ -304,7 +305,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     } finally {
       setIsDownloadingAll(false);
     }
-  }, [mediaAssets, signedUrls, currentProject.name, showToast]);
+  }, [mediaAssets, getSignedUrlWithRetry, currentProject.name, showToast]);
 
   const handleDownloadAllEdited = useCallback(async () => {
     if (editedImages.length === 0) return;
@@ -312,7 +313,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     setIsDownloadingAll(true);
     try {
       const items = await Promise.all(editedImages.map(async (image) => ({
-        url: await database.storage.getSignedUrl('user-uploads', image.storage_path),
+        url: await getSignedUrlWithRetry('user-uploads', image.storage_path),
         filename: `edited-${image.id}.png`,
       })));
 
@@ -327,7 +328,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     } finally {
       setIsDownloadingAll(false);
     }
-  }, [editedImages, currentProject.name, showToast]);
+  }, [editedImages, getSignedUrlWithRetry, currentProject.name, showToast]);
 
   const handleDownloadAllVideos = useCallback(async () => {
     const completedVideos = generatedVideos.filter((video) => video.status === 'completed' && video.storage_path);
@@ -344,7 +345,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
         if (video.storage_path!.startsWith('http')) {
           url = video.storage_path!;
         } else {
-          url = await database.storage.getSignedUrl('generated-videos', video.storage_path!);
+          url = await getSignedUrlWithRetry('generated-videos', video.storage_path!);
         }
         return {
           url,
@@ -363,7 +364,7 @@ function ProjectWorkspaceComponent({ project, onBack, onUpdateProject, onEditIma
     } finally {
       setIsDownloadingAll(false);
     }
-  }, [generatedVideos, currentProject.name, showToast]);
+  }, [generatedVideos, getSignedUrlWithRetry, currentProject.name, showToast]);
 
   const getCurrentTabDownloadHandler = useCallback(() => {
     switch (activeTab) {

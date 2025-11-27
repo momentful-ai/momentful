@@ -45,6 +45,7 @@ describe('useGlobalThumbnailPrefetch', () => {
       clearCache: mockClearCache,
       useSignedUrl: vi.fn(),
       getSignedUrl: vi.fn(),
+      getSignedUrlWithRetry: vi.fn(),
       preloadSignedUrls: vi.fn(),
       useOptimisticSignedUrl: vi.fn(),
       useMediaUrlPrefetch: vi.fn(),

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getSignedUrl, fetchSignedUrl, clearSignedUrlCache, SIGNED_URL_CONFIG } from '../../lib/storage-utils';
+import { getSignedUrl, fetchSignedUrl, clearSignedUrlCache, SIGNED_URL_CONFIG, ExpiredUrlError } from '../../lib/storage-utils';
 
 // Mock Supabase client
 const mockCreateSignedUrl = vi.fn();
@@ -87,6 +87,133 @@ describe('storage-utils signed URLs', () => {
         success: false,
         error: 'No signed URL returned',
       });
+    });
+
+    it('should detect expired URL from 403 error and retry', async () => {
+      // First call returns 403 (expired)
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: null,
+        error: { message: '403 Forbidden - URL expired' },
+      });
+      // Second call succeeds
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: { signedUrl: 'https://signed-url.example.com/file.jpg' },
+        error: null,
+      });
+
+      const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
+
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        success: true,
+        signedUrl: 'https://signed-url.example.com/file.jpg',
+      });
+    });
+
+    it('should detect expired URL from 401 error and retry', async () => {
+      // First call returns 401 (unauthorized/expired)
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: null,
+        error: { message: '401 Unauthorized - token expired' },
+      });
+      // Second call succeeds
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: { signedUrl: 'https://signed-url.example.com/file.jpg' },
+        error: null,
+      });
+
+      const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
+
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        success: true,
+        signedUrl: 'https://signed-url.example.com/file.jpg',
+      });
+    });
+
+    it('should detect expired URL from "expired" message and retry', async () => {
+      // First call returns expired message
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'The signed URL has expired' },
+      });
+      // Second call succeeds
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: { signedUrl: 'https://signed-url.example.com/file.jpg' },
+        error: null,
+      });
+
+      const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
+
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        success: true,
+        signedUrl: 'https://signed-url.example.com/file.jpg',
+      });
+    });
+
+    it('should throw ExpiredUrlError after max retries', async () => {
+      // All calls return 403 (expired)
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: '403 Forbidden - URL expired' },
+      });
+
+      await expect(fetchSignedUrl('user-uploads', 'user123/file.jpg')).rejects.toThrow(ExpiredUrlError);
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(4); // Initial + 3 retries
+    });
+
+    it('should not retry on non-expired errors', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: 'Bucket not found' },
+      });
+
+      const result = await fetchSignedUrl('user-uploads', 'user123/file.jpg');
+
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(1); // No retry
+      expect(result).toEqual({
+        success: false,
+        error: 'Bucket not found',
+      });
+    });
+
+    it('should implement exponential backoff for retries', async () => {
+      vi.useFakeTimers();
+
+      // Mock setTimeout to track delays
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+
+      // First call returns 403 (expired)
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: null,
+        error: { message: '403 Forbidden - URL expired' },
+      });
+      // Second call also returns 403
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: null,
+        error: { message: '403 Forbidden - URL expired' },
+      });
+      // Third call succeeds
+      mockCreateSignedUrl.mockResolvedValueOnce({
+        data: { signedUrl: 'https://signed-url.example.com/file.jpg' },
+        error: null,
+      });
+
+      const promise = fetchSignedUrl('user-uploads', 'user123/file.jpg');
+
+      // Advance timers for retries
+      await vi.advanceTimersByTimeAsync(1000); // 1s delay
+      await vi.advanceTimersByTimeAsync(2000); // 2s delay
+
+      const result = await promise;
+
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
+      expect(result.success).toBe(true);
+
+      vi.useRealTimers();
+      setTimeoutSpy.mockRestore();
     });
   });
 

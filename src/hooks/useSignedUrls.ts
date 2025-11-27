@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { database } from '../lib/database';
 import { clearSignedUrlCache } from '../lib/storage-utils';
+// Note: ExpiredUrlError is used in string comparisons, not direct imports
 
 /**
  * Hook for managing signed URLs for immutable media using React Query
@@ -59,13 +60,23 @@ export function useSignedUrls() {
       refetchOnWindowFocus: false, // Media URLs don't need focus refetching
       refetchOnReconnect: false, // Media URLs don't need reconnect refetching
       retry: (failureCount, error) => {
-        // Don't retry on auth errors
-        if (error instanceof Error && (error.message.includes('403') || error.message.includes('401'))) {
-          return false;
+        // Don't retry on auth errors unless it's an expired URL
+        if (error instanceof Error) {
+          // If it's an ExpiredUrlError, retry up to 3 times
+          if (error.name === 'ExpiredUrlError') {
+            return failureCount < 3;
+          }
+          // Don't retry on other auth errors
+          if (error.message.includes('403') || error.message.includes('401')) {
+            return false;
+          }
         }
-        return failureCount < 1; // Only retry once for media URLs
+        return failureCount < 1; // Only retry once for other errors
       },
-      retryDelay: 1000, // Quick retry
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff: 1s, 2s, 4s
+        return Math.min(1000 * Math.pow(2, attemptIndex), 4000);
+      },
       // Enable background refetching for seamless experience
       refetchInterval: (query) => {
         // Background refresh when URL becomes stale
@@ -357,6 +368,36 @@ export function useSignedUrls() {
     }
   }, [preloadSignedUrlsAsync, MEDIA_URL_CONFIG.prefetchExpiry]);
 
+  /**
+   * Get a signed URL with retry logic for expired URLs
+   * Implements exponential backoff and cache clearing
+   */
+  const getSignedUrlWithRetry = useCallback(async (
+    bucket: string,
+    path: string,
+    maxRetries: number = 3
+  ): Promise<string> => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await getSignedUrl(bucket, path);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'ExpiredUrlError') {
+          if (attempt < maxRetries - 1) {
+            // Wait with exponential backoff before retrying
+            await new Promise(resolve =>
+              setTimeout(resolve, 1000 * Math.pow(2, attempt))
+            );
+            // Clear cache and retry
+            clearCache();
+            continue;
+          }
+        }
+        throw error; // Re-throw if not expired or max retries exceeded
+      }
+    }
+    throw new Error('Max retries exceeded');
+  }, [getSignedUrl, clearCache]);
+
   return {
     // React Query hooks (recommended)
     useSignedUrl,
@@ -366,6 +407,7 @@ export function useSignedUrls() {
 
     // Utility functions (for backward compatibility)
     getSignedUrl, // Simple async function
+    getSignedUrlWithRetry, // Async function with retry logic
     preloadSignedUrls: preloadSignedUrlsAsync,
     prefetchThumbnails, // New: prefetch thumbnails for media items
     clearCache,

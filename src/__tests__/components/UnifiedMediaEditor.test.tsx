@@ -68,6 +68,7 @@ vi.mock('../../hooks/useSignedUrls', () => ({
       error: null,
     })),
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
+    getSignedUrlWithRetry: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
     prefetchThumbnails: vi.fn(),
     clearCache: vi.fn(),
@@ -268,6 +269,7 @@ const setupMocks = () => {
   mockUseToast.mockReturnValue({ showToast: mockShowToast });
   mockUseSignedUrls.mockReturnValue({
     getSignedUrl: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
+    getSignedUrlWithRetry: vi.fn((bucket: string, path: string) => Promise.resolve(`https://signed.example.com/${bucket}/${path}`)),
     preloadSignedUrls: vi.fn(),
     prefetchThumbnails: vi.fn(),
     clearCache: vi.fn(),
@@ -494,6 +496,7 @@ describe('UnifiedMediaEditor', () => {
 
       mockUseSignedUrls.mockReturnValue({
         getSignedUrl: mockGetSignedUrl,
+        getSignedUrlWithRetry: mockGetSignedUrl,
         preloadSignedUrls: vi.fn(),
         prefetchThumbnails: vi.fn(),
         clearCache: vi.fn(),

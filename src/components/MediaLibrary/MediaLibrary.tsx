@@ -26,7 +26,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
   const { data: assets = [], isLoading, error } = useMediaAssets(projectId);
   const uploadMutation = useUploadMedia();
   const deleteMutation = useDeleteMediaAsset();
-  const signedUrls = useSignedUrls();
+  const { getSignedUrlWithRetry } = useSignedUrls();
 
   const handleFileUpload = (files: File[]) => {
     uploadMutation.mutate(
@@ -62,7 +62,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
 
   const handleDownload = async (asset: MediaAsset) => {
     try {
-      const url = await signedUrls.getSignedUrl('user-uploads', asset.storage_path);
+      const url = await getSignedUrlWithRetry('user-uploads', asset.storage_path);
       await downloadFile(url, asset.file_name);
       showToast(`Downloaded ${asset.file_name}`, 'success');
     } catch (error) {
@@ -100,7 +100,7 @@ export function MediaLibrary({ projectId, onEditImage, viewMode = 'grid' }: Medi
           setAssetToDelete({ id: assetId, path: storagePath });
         }}
         onDownload={handleDownload}
-        getAssetUrl={(storagePath) => signedUrls.getSignedUrl('user-uploads', storagePath)}
+        getAssetUrl={(storagePath) => getSignedUrlWithRetry('user-uploads', storagePath)}
       />
 
       {assetToDelete && (

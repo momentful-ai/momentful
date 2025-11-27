@@ -10,7 +10,7 @@ export function handleStorageError(error: unknown, operation: string): { success
   const errorObj = error as Record<string, unknown> | undefined;
   const errorMessage = (typeof errorObj?.message === 'string') ? errorObj.message : 'Unknown storage error';
   const statusCode = (typeof errorObj?.statusCode === 'number') ? errorObj.statusCode :
-                     (typeof errorObj?.status === 'number') ? errorObj.status : undefined;
+    (typeof errorObj?.status === 'number') ? errorObj.status : undefined;
 
   console.error(`Storage ${operation} error:`, {
     message: errorMessage,
@@ -168,14 +168,33 @@ const RETRY_COOLDOWN = 60000; // 1 minute cooldown after max retries
  * Fetch a signed URL using Supabase client directly
  * This uses the authenticated Supabase client instead of calling an API endpoint
  */
-export async function fetchSignedUrl(bucket: string, path: string, expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+/**
+ * Custom error for expired signed URLs
+ */
+export class ExpiredUrlError extends Error {
+  constructor(bucket: string, path: string) {
+    super(`Signed URL expired for ${bucket}/${path}`);
+    this.name = 'ExpiredUrlError';
+  }
+}
+
+/**
+ * Fetch a signed URL using Supabase client directly
+ * This uses the authenticated Supabase client instead of calling an API endpoint
+ */
+export async function fetchSignedUrl(
+  bucket: string,
+  path: string,
+  expiresIn: number = SIGNED_URL_CONFIG.defaultExpiry,
+  retryCount: number = 0
+): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
   const cacheKey = getSignedUrlCacheKey(bucket, path);
-  
-  // Check if we've exceeded retry limit for this path
+
+  // Check if we've exceeded retry limit for this path (global failure tracking)
   const failureInfo = failedRequests.get(cacheKey);
   if (failureInfo) {
     const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
-    
+
     // If we've exceeded max retries and cooldown hasn't passed, reject immediately
     if (failureInfo.count >= MAX_RETRIES && timeSinceLastAttempt < RETRY_COOLDOWN) {
       return {
@@ -183,7 +202,7 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
         error: 'Too many failed attempts. Please try again later.',
       };
     }
-    
+
     // Reset counter if cooldown has passed
     if (timeSinceLastAttempt >= RETRY_COOLDOWN) {
       failedRequests.delete(cacheKey);
@@ -193,20 +212,41 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
   try {
     // Import Supabase client dynamically to avoid circular dependencies
     const { supabase } = await import('./supabase');
-    
+
     // Use Supabase client directly - it already has authentication via Clerk token provider
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(path, expiresIn);
 
     if (error) {
-      // Track failed requests
+      // Check for expired URL errors (401/403)
+      const isExpiredUrl = error.message?.includes('403') ||
+        error.message?.includes('401') ||
+        error.message?.toLowerCase().includes('expired') ||
+        error.message?.toLowerCase().includes('unauthorized');
+
+      if (isExpiredUrl) {
+        // Clear cache for this specific URL
+        signedUrlCache.delete(cacheKey);
+
+        // Retry with exponential backoff
+        if (retryCount < MAX_RETRIES) {
+          const delay = calculateRetryDelay(retryCount + 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchSignedUrl(bucket, path, expiresIn, retryCount + 1);
+        }
+
+        // Max retries exceeded
+        throw new ExpiredUrlError(bucket, path);
+      }
+
+      // Track failed requests for non-expired errors
       const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
       failedRequests.set(cacheKey, {
         count: currentFailureInfo.count + 1,
         lastAttempt: Date.now(),
       });
-      
+
       return {
         success: false,
         error: error.message || 'Failed to generate signed URL',
@@ -220,7 +260,7 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
         count: currentFailureInfo.count + 1,
         lastAttempt: Date.now(),
       });
-      
+
       return {
         success: false,
         error: 'No signed URL returned',
@@ -242,13 +282,17 @@ export async function fetchSignedUrl(bucket: string, path: string, expiresIn: nu
       signedUrl: data.signedUrl,
     };
   } catch (error) {
+    if (error instanceof ExpiredUrlError) {
+      throw error; // Re-throw to surface to React Query
+    }
+
     // Track failed requests
     const currentFailureInfo = failedRequests.get(cacheKey) || { count: 0, lastAttempt: 0 };
     failedRequests.set(cacheKey, {
       count: currentFailureInfo.count + 1,
       lastAttempt: Date.now(),
     });
-    
+
     console.error('Error fetching signed URL:', error);
     return {
       success: false,
