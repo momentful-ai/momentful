@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Extract metadata (for video jobs)
-    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, sourceIds } = req.body;
+    const { userId, projectId, name, aiModel, aspectRatio, cameraMovement, duration, sourceIds } = req.body;
 
     // Convert any storage paths to signed URLs for external provider access
     const processedData = await convertStoragePathsToSignedUrls(parsed.data);
@@ -104,6 +104,7 @@ Message the Momentful crew at hello@momentful.ai to unlock more.`,
         promptImage: processedData.promptImage,
         model: processedData.model,
         ratio: processedData.ratio,
+        duration: processedData.duration,
       });
 
       // For video jobs, create DB record with status='processing'
@@ -118,6 +119,7 @@ Message the Momentful crew at hello@momentful.ai to unlock more.`,
               ai_model: aiModel,
               aspect_ratio: aspectRatio,
               camera_movement: cameraMovement || null,
+              duration: duration || null,
               runway_task_id: task.id,
               storage_path: null, // Will be set when job completes
               status: 'processing',
@@ -145,7 +147,7 @@ Message the Momentful crew at hello@momentful.ai to unlock more.`,
         }
       }
     }
-    
+
     return res.status(200).json({ taskId: task.id, status: 'processing' });
   } catch (error) {
     console.error('Error creating Runway task:', error);

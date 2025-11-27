@@ -54,7 +54,7 @@ export const supportedImageRatios = new Set<RunwayML.TextToImageCreateParams['ra
 ]);
 
 export const defaultImageRatio: RunwayML.TextToImageCreateParams['ratio'] = '1280:720';
-export const defaultVideoModel = RunwayModels.GEN4_TURBO;
+export const defaultVideoModel = RunwayModels.VEO_3_1_FAST;
 export const defaultVideoRatio: RunwayML.ImageToVideoCreateParams['ratio'] = '1280:720';
 export const defaultVideoDuration = 4;
 
@@ -67,6 +67,7 @@ export async function createVideoTask(input: {
   promptImage?: string;
   model?: string;
   ratio?: string;
+  duration?: number;
 }) {
   // Check if API key is available
   if (!apiKey) {
@@ -80,7 +81,7 @@ export async function createVideoTask(input: {
       promptImage: input.promptImage,
       promptText: input.promptText,
       ratio: (input.ratio as RunwayML.ImageToVideoCreateParams['ratio']) || defaultVideoRatio,
-      duration: defaultVideoDuration,
+      duration: (input.duration as RunwayML.ImageToVideoCreateParams['duration']) || defaultVideoDuration,
     });
   }
 
