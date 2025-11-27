@@ -112,24 +112,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
         >
           <a
             href="/"
-            className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-3 no-underline font-bold text-2xl z-10 transition-transform duration-300 hover:scale-105"
-            style={{
-              color: isDarkTheme ? "#f9fafb" : "#1f2937",
-            }}
+            className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-3 no-underline transition-transform duration-300 hover:scale-105 hover:opacity-80"
           >
-            <div
-              className="flex items-center justify-center text-white"
-              style={{
-                width: "32px",
-                height: "32px",
-                background: "linear-gradient(135deg, #6366f1, #ec4899)",
-                borderRadius: "8px",
-                fontSize: "1.2rem",
-              }}
+            <img src="/logo-text.png" alt="momentful" className="h-8 w-auto" />
+            <h1
+              className={`text-xl sm:text-2xl font-bold tracking-[-0.03em] ${
+                isDarkTheme ? "text-white" : "text-black"
+              }`}
+              style={{ fontFamily: '"M PLUS Rounded 1c", sans-serif' }}
             >
-              ✨
-            </div>
-            <span>momentful</span>
+              momentful
+            </h1>
           </a>
           <Button
             variant="ghost"
