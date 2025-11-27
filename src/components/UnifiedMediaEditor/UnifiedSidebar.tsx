@@ -1,10 +1,9 @@
 import { motion } from 'framer-motion';
-import { Crop, Sparkles } from 'lucide-react';
+import { Crop, Clock } from 'lucide-react';
 import { MediaEditorMode } from './types';
 import { ResizableSidebar } from '../shared/ResizableSidebar';
 import { IMAGE_ASPECT_RATIOS, VIDEO_ASPECT_RATIOS, VIDEO_CAMERA_MOVEMENTS } from '../../lib/media';
-import { videoModels } from '../../data/aiModels';
-import { AIModel } from '../../types';
+
 
 interface UnifiedSidebarProps {
   mode: MediaEditorMode;
@@ -14,10 +13,11 @@ interface UnifiedSidebarProps {
   onRatioChange?: (ratio: string) => void;
 
   // Video mode props
-  selectedModel?: string;
+  // Video mode props
+  duration?: number;
   aspectRatio?: '16:9' | '9:16' | '1:1' | '4:5';
   cameraMovement?: string;
-  onModelChange?: (model: string) => void;
+  onDurationChange?: (duration: number) => void;
   onAspectRatioChange?: (ratio: '16:9' | '9:16' | '1:1' | '4:5') => void;
   onCameraMovementChange?: (movement: string) => void;
 }
@@ -44,8 +44,8 @@ function ImageEditorAspectRatioSelector({
             key={ratio.id}
             onClick={() => onRatioChange(ratio.id)}
             className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${selectedRatio === ratio.id
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-border/70'
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:border-border/70'
               }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
@@ -61,47 +61,35 @@ function ImageEditorAspectRatioSelector({
   );
 }
 
-function AIModelSelector({
-  models,
-  selectedModel,
-  description = 'Choose the best AI model for your needs',
-  onModelChange,
+function DurationSelector({
+  duration,
+  onDurationChange,
 }: {
-  models: AIModel[];
-  selectedModel: string;
-  description?: string;
-  onModelChange: (modelId: string) => void;
+  duration: number;
+  onDurationChange: (duration: number) => void;
 }) {
+  const durations = [4, 6, 8];
   return (
     <div className="p-6 border-b border-border">
       <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-5 h-5 text-primary" />
-        <h3 className="font-semibold text-foreground">AI Model</h3>
+        <Clock className="w-5 h-5 text-primary" />
+        <h3 className="font-semibold text-foreground">Duration</h3>
       </div>
-      <p className="text-sm text-muted-foreground mb-4">{description}</p>
-
-      <div className="space-y-1.5">
-        {models.map((model) => (
+      <p className="text-sm text-muted-foreground mb-4">
+        Choose the duration for your video
+      </p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {durations.map((d) => (
           <button
-            key={model.id}
-            onClick={() => onModelChange(model.id)}
-            className={`w-full text-left p-2.5 rounded-lg border transition-all hover:scale-[1.02] ${selectedModel === model.id
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-border/70'
+            key={d}
+            onClick={() => onDurationChange(d)}
+            className={`p-2.5 rounded-lg border text-center transition-all hover:scale-[1.02] ${duration === d
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:border-border/70'
               }`}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-foreground text-sm mb-0.5">
-                  {model.name}
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">{model.description}</p>
-              </div>
-              {selectedModel === model.id && (
-                <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <div className="w-1.5 h-1.5 bg-primary-foreground rounded-full" />
-                </div>
-              )}
+            <div className="font-medium text-foreground text-sm">
+              {d}s
             </div>
           </button>
         ))}
@@ -126,8 +114,8 @@ function VideoAspectRatioSelector({
             key={ratio.id}
             onClick={() => onAspectRatioChange(ratio.id as '16:9' | '9:16' | '1:1' | '4:5')}
             className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${aspectRatio === ratio.id
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-border/70'
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:border-border/70'
               }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
@@ -159,8 +147,8 @@ function CameraMovementSelector({
             key={camera.id}
             onClick={() => onCameraMovementChange(camera.id)}
             className={`p-2.5 rounded-lg border text-left transition-all hover:scale-[1.02] ${cameraMovement === camera.id
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-border/70'
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:border-border/70'
               }`}
           >
             <div className="font-medium text-foreground text-sm mb-0.5">
@@ -180,10 +168,10 @@ export function UnifiedSidebar({
   mode,
   selectedRatio,
   onRatioChange,
-  selectedModel,
+  duration,
   aspectRatio,
   cameraMovement,
-  onModelChange,
+  onDurationChange,
   onAspectRatioChange,
   onCameraMovementChange,
 }: UnifiedSidebarProps) {
@@ -203,11 +191,9 @@ export function UnifiedSidebar({
           />
         ) : (
           <>
-            <AIModelSelector
-              models={videoModels}
-              selectedModel={selectedModel || 'gen-3-alpha-turbo'}
-              description="Choose the best AI model for your video"
-              onModelChange={onModelChange || (() => { })}
+            <DurationSelector
+              duration={duration || 4}
+              onDurationChange={onDurationChange || (() => { })}
             />
             <VideoAspectRatioSelector
               aspectRatio={aspectRatio || '9:16'}

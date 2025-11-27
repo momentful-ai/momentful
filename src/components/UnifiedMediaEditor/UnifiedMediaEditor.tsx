@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { database } from '../../lib/database';
 import { IMAGE_ASPECT_RATIOS, buildEnhancedImagePrompt, buildEnhancedVideoPrompt, mapAspectRatioToRunway } from '../../lib/media';
 import { getErrorMessage } from '../../lib/utils';
-import { videoModels } from '../../data/aiModels';
+
 import { useUserId } from '../../hooks/useUserId';
 import { useToast } from '../../hooks/useToast';
 import { useSignedUrls } from '../../hooks/useSignedUrls';
@@ -105,7 +105,7 @@ export function UnifiedMediaEditor({
       prompt: '',
       cameraMovement: 'dynamic',
       aspectRatio: '9:16' as const,
-      selectedModel: videoModels[0].id,
+      duration: 4,
       generatedVideoUrl: null,
       videoError: false,
       isSelecting: false,
@@ -395,9 +395,10 @@ export function UnifiedMediaEditor({
         userId,
         projectId,
         name: state.prompt || 'Untitled Video',
-        aiModel: state.selectedModel,
+        aiModel: 'gen-3-alpha-turbo',
         aspectRatio: state.aspectRatio,
         cameraMovement: state.cameraMovement,
+        duration: state.duration,
         sourceIds: state.selectedSources.map(s => ({ type: s.type, id: s.id })),
       };
 
@@ -829,10 +830,11 @@ export function UnifiedMediaEditor({
           selectedRatio={state.selectedRatio}
           onRatioChange={(ratio) => setState(prev => ({ ...prev, selectedRatio: ratio }))}
           // Video mode props
-          selectedModel={state.selectedModel}
+          // Video mode props
+          duration={state.duration}
           aspectRatio={state.aspectRatio}
           cameraMovement={state.cameraMovement}
-          onModelChange={(model) => setState(prev => ({ ...prev, selectedModel: model }))}
+          onDurationChange={(duration) => setState(prev => ({ ...prev, duration }))}
           onAspectRatioChange={(ratio) => setState(prev => ({ ...prev, aspectRatio: ratio }))}
           onCameraMovementChange={(movement) => setState(prev => ({ ...prev, cameraMovement: movement }))}
         />

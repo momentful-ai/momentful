@@ -61,6 +61,7 @@ export interface CreateJobRequest {
   aiModel?: string;
   aspectRatio?: string;
   cameraMovement?: string;
+  duration?: number;
   sourceIds?: Array<{ type: string; id: string }>;
 }
 

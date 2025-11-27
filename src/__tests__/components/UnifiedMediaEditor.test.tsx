@@ -850,9 +850,10 @@ describe('UnifiedMediaEditor', () => {
         userId: TEST_USER_ID,
         projectId: TEST_PROJECT_ID,
         name: 'Test video prompt',
-        aiModel: 'runway-gen2',
+        aiModel: 'gen-3-alpha-turbo',
         aspectRatio: '9:16',
         cameraMovement: 'dynamic',
+        duration: 4,
       });
       expect(createRunwayJobCall.sourceIds).toBeDefined();
       if (createRunwayJobCall.sourceIds) {

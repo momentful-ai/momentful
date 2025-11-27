@@ -9,6 +9,7 @@ export const createJobSchema = z
     promptImage: z.string().url().optional(),
     model: z.string().optional(),
     ratio: z.string().optional(),
+    duration: z.number().optional(),
   })
   .refine(
     (data) => {

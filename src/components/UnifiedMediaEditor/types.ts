@@ -44,7 +44,7 @@ export interface UnifiedEditorState {
   prompt: string;
   cameraMovement: string;
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
-  selectedModel: string;
+  duration: number;
   generatedVideoUrl: string | null;
   videoError: boolean;
   isSelecting: boolean;
