@@ -22,7 +22,11 @@ export function Layout({ children }: LayoutProps) {
   const displayUser = isBypassEnabled ? null : user;
   const displaySignOut = isBypassEnabled ? () => {} : signOut;
   const { theme, setTheme } = useTheme();
-  const { imagesRemaining, videosRemaining, isLoading: limitsLoading } = useUserGenerationLimits();
+  const {
+    imagesRemaining,
+    videosRemaining,
+    isLoading: limitsLoading,
+  } = useUserGenerationLimits();
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
