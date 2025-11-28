@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Crop, Clock } from 'lucide-react';
+import { Crop, Clock, Camera } from 'lucide-react';
 import { MediaEditorMode } from './types';
 import { ResizableSidebar } from '../shared/ResizableSidebar';
 import { IMAGE_ASPECT_RATIOS, VIDEO_ASPECT_RATIOS, VIDEO_CAMERA_MOVEMENTS } from '../../lib/media';
@@ -35,9 +35,6 @@ function ImageEditorAspectRatioSelector({
         <Crop className="w-5 h-5 text-primary" />
         <h3 className="font-semibold text-foreground">Aspect Ratio</h3>
       </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        Choose the output aspect ratio for your edited image
-      </p>
       <div className="grid grid-cols-2 gap-1.5">
         {IMAGE_ASPECT_RATIOS.map((ratio) => (
           <button
@@ -75,9 +72,6 @@ function DurationSelector({
         <Clock className="w-5 h-5 text-primary" />
         <h3 className="font-semibold text-foreground">Duration</h3>
       </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        Choose the duration for your video
-      </p>
       <div className="grid grid-cols-3 gap-1.5">
         {durations.map((d) => (
           <button
@@ -107,7 +101,10 @@ function VideoAspectRatioSelector({
 }) {
   return (
     <div className="p-6 border-b border-border">
-      <h3 className="font-semibold text-foreground mb-4">Aspect Ratio</h3>
+      <div className="flex items-center gap-2 mb-2">
+        <Crop className="w-5 h-5 text-primary" />
+        <h3 className="font-semibold text-foreground">Aspect Ratio</h3>
+      </div>
       <div className="grid grid-cols-2 gap-1.5">
         {VIDEO_ASPECT_RATIOS.map((ratio) => (
           <button
@@ -140,7 +137,10 @@ function CameraMovementSelector({
 }) {
   return (
     <div className="p-6">
-      <h3 className="font-semibold text-foreground mb-4">Camera Movement</h3>
+      <div className="flex items-center gap-2 mb-2">
+        <Camera className="w-5 h-5 text-primary" />
+      <h3 className="font-semibold text-foreground">Camera Movement</h3>
+      </div>
       <div className="grid grid-cols-2 gap-1.5">
         {VIDEO_CAMERA_MOVEMENTS.map((camera) => (
           <button
