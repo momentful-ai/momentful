@@ -5,6 +5,7 @@ import { MediaAsset, EditedImage, GeneratedVideo } from '../../types';
 import { SelectedSource, MediaEditorMode } from './types';
 import { useDropzone } from 'react-dropzone';
 import { MediaThumbnail } from '../shared/MediaThumbnail';
+import { VideoThumbnail } from '../shared/VideoThumbnail';
 
 
 interface MediaSourceItem {
@@ -25,6 +26,7 @@ interface MediaSourceGridProps {
   getSource: (item: MediaSourceItem) => SelectedSource;
   emptyMessage: string;
   emptyHint: string;
+  contentType: 'images' | 'videos';
 }
 
 function MediaSourceGrid({
@@ -37,6 +39,7 @@ function MediaSourceGrid({
   getSource,
   emptyMessage,
   emptyHint,
+  contentType,
 }: MediaSourceGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -54,14 +57,26 @@ function MediaSourceGrid({
               }`}
           >
             <div className="w-full h-full flex items-center justify-center">
-              <MediaThumbnail
-                src={item.thumbnail}
-                storagePath={item.storagePath}
-                alt={source.name}
-                className="max-w-full max-h-full object-contain pointer-events-none"
-              />
+              {contentType === 'videos' ? (
+                <VideoThumbnail
+                  src={item.thumbnail}
+                  storagePath={item.storagePath}
+                  alt={source.name}
+                  width={120}
+                  height={120}
+                  selected={!!isSelected}
+                  className="max-w-full max-h-full"
+                />
+              ) : (
+                <MediaThumbnail
+                  src={item.thumbnail}
+                  storagePath={item.storagePath}
+                  alt={source.name}
+                  className="max-w-full max-h-full object-contain pointer-events-none"
+                />
+              )}
             </div>
-            {isSelected && (
+            {isSelected && contentType !== 'videos' && (
               <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                 <Check className="w-3 h-3 text-primary-foreground" />
               </div>
@@ -261,6 +276,7 @@ export function UnifiedLeftPanel({
             })}
             emptyMessage="No images found"
             emptyHint="Upload images or generate edits to get started"
+            contentType="images"
           />
         ) : (
           <MediaSourceGrid
@@ -279,6 +295,7 @@ export function UnifiedLeftPanel({
             })}
             emptyMessage="No videos found"
             emptyHint="Upload videos or generate videos to get started"
+            contentType="videos"
           />
         )}
 

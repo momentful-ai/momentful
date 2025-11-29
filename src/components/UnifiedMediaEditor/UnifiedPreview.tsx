@@ -201,7 +201,7 @@ function VideoPreview({
       {/* Stacked Source Images - Vertically centered */}
       {selectedSources.length > 0 && (
         <div className="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-10">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Source Images</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Source Images/Videos</h3>
           <div className="relative" style={{ width: '160px', height: `${160 + (selectedSources.length - 1) * 12}px` }}>
             {selectedSources.map((source, index) => (
               <div
