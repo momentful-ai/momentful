@@ -395,7 +395,6 @@ export function UnifiedMediaEditor({
         userId,
         projectId,
         name: state.prompt || 'Untitled Video',
-        aiModel: 'gen-3-alpha-turbo',
         aspectRatio: state.aspectRatio,
         cameraMovement: state.cameraMovement,
         duration: state.duration,

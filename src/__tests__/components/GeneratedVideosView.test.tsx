@@ -261,10 +261,7 @@ describe('GeneratedVideosView', () => {
 
     renderWithQueryClient(<GeneratedVideosView {...defaultProps} />);
 
-    // Check for AI model and creation date
-    expect(screen.getByText('runway-gen2')).toBeInTheDocument();
-
-    // The date should be formatted as "Oct 20, 2025" based on the test output
+    // Check for creation date
     expect(screen.getByText('Oct 20, 2025')).toBeInTheDocument();
   });
 

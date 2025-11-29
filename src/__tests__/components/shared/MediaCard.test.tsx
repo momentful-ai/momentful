@@ -143,7 +143,7 @@ describe('MediaCard', () => {
       expect(screen.getByText('Make it more vibrant')).toBeInTheDocument();
     });
 
-    it('shows prompt and AI model for EditedImage', () => {
+    it('shows prompt and resolution for EditedImage', () => {
       render(
         <MediaCard
           item={mockEditedImage}
@@ -153,7 +153,7 @@ describe('MediaCard', () => {
       );
 
       expect(screen.getByText('Make it more vibrant')).toBeInTheDocument();
-      expect(screen.getByText('dalle-3')).toBeInTheDocument();
+      expect(screen.getByText('1920 × 1080')).toBeInTheDocument();
     });
   });
 
