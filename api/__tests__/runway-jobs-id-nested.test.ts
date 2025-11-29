@@ -29,6 +29,67 @@ vi.mock('dotenv', () => ({
 // Set environment variable
 process.env.RUNWAY_API_KEY = 'test-api-key';
 
+// Mock Supabase client for storage operations
+const mockSupabaseFrom = vi.fn();
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    storage: {
+      from: mockSupabaseFrom,
+    },
+  })),
+}));
+
+// Mock the shared supabase module
+const mockUpdateResult = { data: null, error: null };
+const mockUpdateQuery = {
+  eq: vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn(() => Promise.resolve(mockUpdateResult))
+    }))
+  }))
+};
+
+const mockSupabaseUpdateFn = vi.fn(() => mockUpdateQuery);
+
+const mockSelectResult = { data: null, error: null };
+const mockSelectQuery = {
+  eq: vi.fn(() => ({
+    eq: vi.fn(() => ({
+      single: vi.fn(() => Promise.resolve(mockSelectResult))
+    }))
+  }))
+};
+
+vi.mock('../shared/supabase', () => ({
+  supabase: {
+    storage: {
+      from: mockSupabaseFrom,
+    },
+    from: vi.fn((table) => {
+      if (table === 'generated_videos') {
+        return {
+          select: vi.fn(() => mockSelectQuery),
+          update: mockSupabaseUpdateFn,
+        };
+      }
+      return {};
+    }),
+  },
+}));
+
+// Mock thumbnail generation
+const mockGenerateAndUploadThumbnail = vi.fn();
+vi.mock('../shared/thumbnail', () => ({
+  generateAndUploadThumbnail: mockGenerateAndUploadThumbnail,
+}));
+
+// Mock storage upload
+const mockUploadFromExternalUrl = vi.fn();
+vi.mock('../shared/storage', () => ({
+  uploadFromExternalUrl: mockUploadFromExternalUrl,
+}));
+
 describe('Runway Jobs API [id] (nested)', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
@@ -256,6 +317,212 @@ describe('Runway Jobs API [id] (nested)', () => {
 
       expect(mockRes.json).toHaveBeenCalledWith({
         error: 'Custom error message',
+      });
+    });
+  });
+
+  describe('Video Completion with Thumbnail Generation', () => {
+    beforeEach(() => {
+      // Setup default mocks
+      mockGenerateAndUploadThumbnail.mockResolvedValue('user123/project456/thumbnail-video789.jpg');
+      mockUploadFromExternalUrl.mockResolvedValue({
+        storagePath: 'user123/project456/generated-video789.mp4'
+      });
+
+      // Setup database mocks - single() returns data for video lookup
+      mockSelectResult.data = {
+        id: 'video-789',
+        user_id: 'user123',
+        project_id: 'project456',
+        status: 'processing'
+      };
+      mockSelectResult.error = null;
+
+      mockSupabaseFrom.mockReturnValue({
+        upload: vi.fn().mockResolvedValue({
+          data: { path: 'user123/project456/thumbnail-video789.jpg' },
+          error: null
+        })
+      });
+    });
+
+    it('successfully uploads video and generates thumbnail when task completes', async () => {
+      const mockTask = {
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+      };
+      mockRunwayClient.tasks.retrieve.mockResolvedValue(mockTask);
+
+      mockReq.query = { id: 'task-123' };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      expect(mockRunwayClient.tasks.retrieve).toHaveBeenCalledWith('task-123');
+
+      // Verify video upload was called
+      expect(mockUploadFromExternalUrl).toHaveBeenCalledWith(
+        'generated-videos',
+        'https://example.com/video.mp4',
+        'user123',
+        'project456',
+        'video'
+      );
+
+      // Verify thumbnail generation was called
+      expect(mockGenerateAndUploadThumbnail).toHaveBeenCalledWith(
+        'https://example.com/video.mp4',
+        'user123',
+        'project456',
+        'video-789'
+      );
+
+      // Verify database update includes thumbnail URL
+      expect(mockSupabaseUpdateFn).toHaveBeenCalledWith({
+        storage_path: 'user123/project456/generated-video789.mp4',
+        thumbnail_url: 'user123/project456/thumbnail-video789.jpg',
+        status: 'completed',
+        completed_at: expect.any(String),
+      });
+
+      // Verify response includes thumbnail path
+      expect(mockRes.json).toHaveBeenCalledWith({
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+        storagePath: 'user123/project456/generated-video789.mp4',
+        thumbnailPath: 'user123/project456/thumbnail-video789.jpg',
+        videoId: 'video-789',
+      });
+    });
+
+    it('continues without thumbnail if thumbnail generation fails', async () => {
+      const mockTask = {
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+      };
+      mockRunwayClient.tasks.retrieve.mockResolvedValue(mockTask);
+
+      // Simulate thumbnail generation failure
+      mockGenerateAndUploadThumbnail.mockRejectedValue(new Error('Thumbnail generation failed'));
+
+      mockReq.query = { id: 'task-123' };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      // Verify video upload still succeeded
+      expect(mockUploadFromExternalUrl).toHaveBeenCalled();
+      expect(mockGenerateAndUploadThumbnail).toHaveBeenCalled();
+
+      // Verify database update has null thumbnail_url
+      expect(mockSupabaseUpdateFn).toHaveBeenCalledWith({
+        storage_path: 'user123/project456/generated-video789.mp4',
+        thumbnail_url: null,
+        status: 'completed',
+        completed_at: expect.any(String),
+      });
+
+      // Verify response still includes video data but no thumbnail path
+      expect(mockRes.json).toHaveBeenCalledWith({
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+        storagePath: 'user123/project456/generated-video789.mp4',
+        thumbnailPath: null,
+        videoId: 'video-789',
+      });
+    });
+
+    it('handles video record not found gracefully', async () => {
+      const mockTask = {
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+      };
+      mockRunwayClient.tasks.retrieve.mockResolvedValue(mockTask);
+
+      // Simulate no video record found
+      mockSelectResult.data = null;
+      mockSelectResult.error = { message: 'Not found' };
+
+      mockReq.query = { id: 'task-123' };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      // Should not attempt video upload or thumbnail generation
+      expect(mockUploadFromExternalUrl).not.toHaveBeenCalled();
+      expect(mockGenerateAndUploadThumbnail).not.toHaveBeenCalled();
+
+      // Should return normal task response without storage data
+      expect(mockRes.json).toHaveBeenCalledWith({
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+      });
+    });
+
+    it('handles video upload failure by not generating thumbnail', async () => {
+      const mockTask = {
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+      };
+      mockRunwayClient.tasks.retrieve.mockResolvedValue(mockTask);
+
+      // Simulate video upload failure
+      mockUploadFromExternalUrl.mockRejectedValue(new Error('Upload failed'));
+
+      mockReq.query = { id: 'task-123' };
+
+      await handler(mockReq as VercelRequest, mockRes as VercelResponse);
+
+      // Should not attempt thumbnail generation if video upload fails
+      expect(mockGenerateAndUploadThumbnail).not.toHaveBeenCalled();
+
+      // Should update status to failed
+      expect(mockSupabaseUpdateFn).toHaveBeenCalledWith({
+        status: 'failed'
+      });
+
+      // Should return task with upload error
+      expect(mockRes.json).toHaveBeenCalledWith({
+        id: 'task-123',
+        status: 'SUCCEEDED',
+        output: 'https://example.com/video.mp4',
+        progress: 100,
+        failure: null,
+        failureCode: null,
+        createdAt: '2025-01-01T00:00:00Z',
+        uploadError: 'Upload failed',
       });
     });
   });

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getRunwayTask } from '../../shared/runway.js';
 import { extractErrorMessage, getStatusCodeFromError } from '../../shared/utils.js';
 import { uploadFromExternalUrl } from '../../shared/storage.js';
+import { generateAndUploadThumbnail } from '../../shared/thumbnail.js';
 import { supabase } from '../../shared/supabase.js';
 
 // Re-export for backward compatibility
@@ -46,11 +47,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               'video'
             );
 
-            // Update video record with storage path and status
+            // Generate and upload thumbnail
+            let thumbnailStoragePath: string | null = null;
+            try {
+              thumbnailStoragePath = await generateAndUploadThumbnail(
+                videoUrl,
+                videoRecord.user_id,
+                videoRecord.project_id,
+                videoRecord.id
+              );
+            } catch (thumbnailError) {
+              console.error('Failed to generate thumbnail, continuing without it:', thumbnailError);
+              // Continue without thumbnail - don't fail the entire video upload
+            }
+
+            // Update video record with storage path, thumbnail URL, and status
             const { error: updateError } = await supabase
               .from('generated_videos')
               .update({
                 storage_path: uploadResult.storagePath,
+                thumbnail_url: thumbnailStoragePath,
                 status: 'completed',
                 completed_at: new Date().toISOString(),
               })
@@ -69,6 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               failureCode: task.failureCode ?? null,
               createdAt: task.createdAt ?? null,
               storagePath: uploadResult.storagePath,
+              thumbnailPath: thumbnailStoragePath,
               videoId: videoRecord.id,
             });
           } catch (uploadError) {
