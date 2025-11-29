@@ -30,26 +30,32 @@ vi.mock('../../lib/database', () => ({
   },
 }));
 
-// Mock Supabase and database dependencies
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    storage: {
-      from: vi.fn(() => ({
-        getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://example.com/mock-url' } })),
-      })),
-    },
-  },
+// Mock useGridConfig
+vi.mock('../../hooks/useGridConfig', () => ({
+  useGridConfig: vi.fn(() => ({
+    columns: 2,
+    rows: 1,
+    rowHeight: 300,
+  })),
 }));
 
-vi.mock('../../lib/database', () => ({
-  database: {
-    mediaAssets: {
-      getById: vi.fn(),
-    },
-    storage: {
-      getPublicUrl: vi.fn(() => 'https://example.com/mock-url'),
-    },
-  },
+// Mock the virtualizer hook
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn((options: Record<string, unknown>) => {
+    if (options.count === 0) {
+      return {
+        getVirtualItems: () => [],
+        getTotalSize: () => 0,
+      };
+    }
+        return {
+            getVirtualItems: () => [
+                { index: 0, start: 0, size: 300, measureElement: vi.fn() },
+                { index: 1, start: 300, size: 300, measureElement: vi.fn() },
+            ],
+            getTotalSize: () => 600,
+        };
+  }),
 }));
 
 // Mock the useEditedImages hook
@@ -69,8 +75,8 @@ mockSupabase();
 vi.mock('../../components/shared/MediaCard', () => ({
   MediaCard: ({ item, onDownload, onDelete, onEditImage, viewMode }: {
     item: EditedImage;
-    onDownload?: () => void;
-    onDelete?: () => void;
+    onDownload?: (item: EditedImage) => void;
+    onDelete?: (item: EditedImage) => void;
     onEditImage?: (item: EditedImage | MediaAsset) => void;
     viewMode?: 'grid' | 'list';
   }) => (
@@ -90,8 +96,8 @@ vi.mock('../../components/shared/MediaCard', () => ({
           )}
         </div>
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100">
-          {onDownload && <button onClick={onDownload} title="Download">Download</button>}
-          {onDelete && <button onClick={onDelete} title="Delete">Delete</button>}
+          {onDownload && <button onClick={() => onDownload(item)} title="Download">Download</button>}
+          {onDelete && <button onClick={() => onDelete(item)} title="Delete">Delete</button>}
         </div>
       </div>
       <div>

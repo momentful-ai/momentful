@@ -123,12 +123,12 @@ export function MediaCard({
   const cardClassName = mergeName(
     'group relative overflow-hidden transition-all animate-slide-up cursor-pointer hover-lift hover-glow',
     isSelected ? 'ring-2 ring-primary shadow-xl' : 'hover:ring-2 hover:ring-primary/50',
-    viewMode === 'list' ? 'flex flex-row' : 'flex flex-col',
+    viewMode === 'list' ? 'flex flex-row shadow-sm' : 'flex flex-col',
   );
 
   const imageContainerClassName = mergeName(
     'overflow-hidden relative',
-    viewMode === 'grid' ? 'w-full aspect-square' : 'w-32 h-32 flex-shrink-0'
+    viewMode === 'grid' ? 'w-full aspect-square' : 'w-20 h-20 flex-shrink-0'
   );
 
   return (
@@ -238,17 +238,21 @@ export function MediaCard({
       </div>
 
       {/* Metadata section */}
-      <div className={mergeName('p-3 w-full', viewMode === 'list' && 'flex-1 flex flex-col justify-center')}>
+      <div className={mergeName('p-3 w-full', viewMode === 'list' && 'flex-1 flex flex-col')}>
         {prompt ? (
-          <>
-            <p className="text-sm font-medium mb-2 line-clamp-2" title={prompt}>
+          <div className="flex flex-col justify-between h-full">
+            <p className={mergeName("text-sm font-medium mb-2", viewMode === 'grid' ? 'line-clamp-1' : 'line-clamp-2')} title={prompt}>
               {prompt}
             </p>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              {width && height && <span>{width} × {height}</span>}
+            {width && height && (
+                <Badge variant="secondary" className="text-xs">
+                  {width} × {height}
+                </Badge>
+              )}
               <span>{formatDate(createdAt)}</span>
             </div>
-          </>
+          </div>
         ) : (
           <>
             <p className="text-sm font-medium truncate mb-1" title={fileName}>
@@ -264,9 +268,9 @@ export function MediaCard({
                 </Badge>
               )}
               {width && height && (
-                <span className="text-xs text-muted-foreground">
+                <Badge variant="secondary" className="text-xs">
                   {width} × {height}
-                </span>
+                </Badge>
               )}
               {duration !== undefined && duration > 0 && (
                 <Badge variant="secondary" className="text-xs">

@@ -13,6 +13,15 @@ Object.defineProperty(window, 'ResizeObserver', {
   })),
 });
 
+// Mock useGridConfig
+vi.mock('../../../hooks/useGridConfig', () => ({
+  useGridConfig: vi.fn(() => ({
+    columns: 2,
+    rows: 1,
+    rowHeight: 300,
+  })),
+}));
+
 // Mock the virtualizer hook
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: vi.fn((options: Record<string, unknown>) => {
@@ -22,13 +31,13 @@ vi.mock('@tanstack/react-virtual', () => ({
         getTotalSize: () => 0,
       };
     }
-    return {
-      getVirtualItems: () => [
-        { index: 0, start: 0, size: 200, measureElement: vi.fn() },
-        { index: 1, start: 200, size: 200, measureElement: vi.fn() },
-      ],
-      getTotalSize: () => 400,
-    };
+        return {
+            getVirtualItems: () => [
+                { index: 0, start: 0, size: 300, measureElement: vi.fn() },
+                { index: 1, start: 300, size: 300, measureElement: vi.fn() },
+            ],
+            getTotalSize: () => 600,
+        };
   }),
 }));
 

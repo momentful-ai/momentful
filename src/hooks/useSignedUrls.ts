@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { database } from '../lib/database';
 import { clearSignedUrlCache } from '../lib/storage-utils';
+import { isDemoMode, isDevAssetPath } from '../lib/demo-mode';
 
 /**
  * Hook for managing signed URLs for immutable media using React Query
  * Optimized for media files that never change once uploaded
+ * In demo mode, returns local paths directly without Supabase calls
  */
 export function useSignedUrls() {
   const queryClient = useQueryClient();
@@ -34,6 +36,11 @@ export function useSignedUrls() {
     expiresIn?: number;
     isPrefetch?: boolean;
   }) => {
+    // In demo mode, return local dev asset paths directly without Supabase calls
+    if (isDemoMode() && isDevAssetPath(path)) {
+      return path; // Vite serves this from public/
+    }
+
     // Use optimized expiry for media (within server limits)
     const actualExpiresIn = Math.min(
       expiresIn || (isPrefetch ? MEDIA_URL_CONFIG.prefetchExpiry : MEDIA_URL_CONFIG.defaultExpiry),
@@ -297,6 +304,11 @@ export function useSignedUrls() {
 
   // Provide a simple async function for backward compatibility
   const getSignedUrl = useCallback(async (bucket: string, path: string, expiresIn?: number): Promise<string> => {
+    // In demo mode, return local dev asset paths immediately without caching or Supabase calls
+    if (isDemoMode() && isDevAssetPath(path)) {
+      return path; // Vite serves this from public/
+    }
+
     const queryKey = ['signed-url', bucket, path];
     const expiresInSeconds = Math.min(expiresIn || MEDIA_URL_CONFIG.defaultExpiry, MEDIA_URL_CONFIG.maxExpiry);
 

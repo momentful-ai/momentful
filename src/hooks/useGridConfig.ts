@@ -20,6 +20,13 @@ export function useGridConfig(
     if (!parent) return;
 
     const containerWidth = parent.clientWidth;
+
+    // If container has no width yet, try again later
+    if (containerWidth === 0) {
+      setTimeout(calculateConfig, 100);
+      return;
+    }
+
     const availableWidth = containerWidth - gap; // Account for right padding
 
     // Calculate how many cards fit per row
@@ -28,8 +35,8 @@ export function useGridConfig(
     // Calculate rows needed
     const rows = Math.ceil(assetCount / columns);
 
-    // Estimate row height (cards are aspect-square, so height = width)
-    const rowHeight = cardWidth;
+    // Estimate row height (cards are aspect-square, so base height = width, increased by 50%)
+    const rowHeight = cardWidth * 1.3;
 
     setConfig({ columns, rows, rowHeight });
   }, [parentRef, assetCount, cardWidth, gap]);

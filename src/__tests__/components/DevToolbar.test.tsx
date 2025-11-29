@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DevToolbar } from '../../components/DevToolbar';
 import { isLocalhost, getLocalOverride } from '../../lib/local-mode';
 
@@ -19,6 +20,22 @@ Object.defineProperty(window, 'location', {
   writable: true,
 });
 
+// Helper function to render with QueryClient
+const renderWithQueryClient = (component: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {component}
+    </QueryClientProvider>
+  );
+};
+
 describe('DevToolbar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -29,7 +46,7 @@ describe('DevToolbar', () => {
   it('does not render when not on localhost', () => {
     vi.mocked(isLocalhost).mockReturnValue(false);
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     expect(screen.queryByText('Dev')).not.toBeInTheDocument();
   });
@@ -37,7 +54,7 @@ describe('DevToolbar', () => {
   it('renders collapsed button when on localhost', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     expect(screen.getByText('Dev')).toBeInTheDocument();
     expect(screen.queryByText('Development Toolbar')).not.toBeInTheDocument();
@@ -48,7 +65,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockReturnValue(undefined);
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     const devButton = screen.getByText('Dev');
     await user.click(devButton);
@@ -63,7 +80,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockReturnValue(undefined);
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     // Open toolbar
     const devButton = screen.getByText('Dev');
@@ -91,7 +108,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockReturnValue('bypass');
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     // Toolbar should be rendered (we can't easily check which button is active without opening it)
     expect(screen.getByText('Dev')).toBeInTheDocument();
@@ -105,7 +122,7 @@ describe('DevToolbar', () => {
       return undefined;
     });
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     expect(screen.getByText('Dev')).toBeInTheDocument();
   });
@@ -115,7 +132,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockReturnValue('clerk');
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     // Open toolbar
     const devButton = screen.getByText('Dev');
@@ -139,7 +156,7 @@ describe('DevToolbar', () => {
     vi.mocked(isLocalhost).mockReturnValue(true);
     vi.mocked(getLocalOverride).mockReturnValue('hosted');
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     // Open toolbar
     const devButton = screen.getByText('Dev');
@@ -167,7 +184,7 @@ describe('DevToolbar', () => {
       return undefined;
     });
 
-    render(<DevToolbar />);
+    renderWithQueryClient(<DevToolbar />);
 
     // Open toolbar
     const devButton = screen.getByText('Dev');

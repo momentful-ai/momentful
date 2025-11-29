@@ -64,11 +64,15 @@ export function VideoPlayer({
 
   const { useSignedUrl } = useSignedUrls()
 
-  // Use React Query to get signed URL if videoUrl is a storage path
+  // Check if this is a local dev asset path - if so, use it directly
+  const isLocalDevPath = videoUrl.startsWith('/dev-assets/')
+  const shouldFetchSignedUrl = isStoragePath && !isLocalDevPath
+
+  // Use React Query to get signed URL if videoUrl is a storage path (and not a local dev path)
   const signedUrlQuery = useSignedUrl(bucket, videoUrl, 86400)
 
   // Determine the actual video URL to use
-  const actualVideoUrl = isStoragePath
+  const actualVideoUrl = shouldFetchSignedUrl
     ? signedUrlQuery.data
     : videoUrl
 
@@ -396,7 +400,7 @@ export function VideoPlayer({
 
       {/* Loading Spinner */}
 
-      {(isBuffering || (isStoragePath && signedUrlQuery.isLoading)) && !videoError && (
+      {(isBuffering || (shouldFetchSignedUrl && signedUrlQuery.isLoading)) && !videoError && (
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
 
@@ -406,7 +410,7 @@ export function VideoPlayer({
 
       )}
 
-      {(videoError || (isStoragePath && signedUrlQuery.error)) && (
+      {(videoError || (shouldFetchSignedUrl && signedUrlQuery.error)) && (
 
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
 
@@ -422,7 +426,7 @@ export function VideoPlayer({
 
             <p className="text-white/70 mb-6">
               {videoError ||
-               (signedUrlQuery.error instanceof Error ? signedUrlQuery.error.message : 'Failed to load video URL')}
+                (signedUrlQuery.error instanceof Error ? signedUrlQuery.error.message : 'Failed to load video URL')}
             </p>
 
             <Button
@@ -430,7 +434,7 @@ export function VideoPlayer({
               onClick={() => {
                 setVideoError(null)
                 // Refetch signed URL if that's the error
-                if (isStoragePath && signedUrlQuery.error) {
+                if (shouldFetchSignedUrl && signedUrlQuery.error) {
                   signedUrlQuery.refetch()
                 }
               }}
@@ -441,7 +445,7 @@ export function VideoPlayer({
 
             >
 
-              {isStoragePath && signedUrlQuery.error ? 'Retry Loading' : 'Try Another Video'}
+              {shouldFetchSignedUrl && signedUrlQuery.error ? 'Retry Loading' : 'Try Another Video'}
 
             </Button>
 
@@ -479,11 +483,9 @@ export function VideoPlayer({
 
         <div
 
-          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent px-4 pt-3 pb-2 transition-all duration-300 ${
+          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent px-4 pt-3 pb-2 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
 
-            showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-
-          }`}
+            }`}
 
           onClick={(e) => e.stopPropagation()}
 
@@ -537,11 +539,9 @@ export function VideoPlayer({
 
                   <div
 
-                    className={`overflow-hidden transition-all duration-300 ${
+                    className={`overflow-hidden transition-all duration-300 ${showVolumeSlider ? "w-20 opacity-100" : "w-0 opacity-0"
 
-                      showVolumeSlider ? "w-20 opacity-100" : "w-0 opacity-0"
-
-                    }`}
+                      }`}
 
                   >
 
