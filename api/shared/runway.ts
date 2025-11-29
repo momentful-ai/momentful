@@ -68,6 +68,7 @@ export async function createVideoTask(input: {
   model?: string;
   ratio?: string;
   duration?: number;
+  audio?: boolean;
 }) {
   // Check if API key is available
   if (!apiKey) {
@@ -82,7 +83,8 @@ export async function createVideoTask(input: {
       promptText: input.promptText,
       ratio: (input.ratio as RunwayML.ImageToVideoCreateParams['ratio']) || defaultVideoRatio,
       duration: (input.duration as RunwayML.ImageToVideoCreateParams['duration']) || defaultVideoDuration,
-    });
+      audio: false,
+    } as RunwayML.ImageToVideoCreateParams & { audio?: boolean });
   }
 
   throw new Error(`Unsupported mode: ${input.mode}`);

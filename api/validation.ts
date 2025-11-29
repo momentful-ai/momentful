@@ -10,6 +10,7 @@ export const createJobSchema = z
     model: z.string().optional(),
     ratio: z.string().optional(),
     duration: z.number().optional(),
+    audio: z.boolean().optional(),
   })
   .refine(
     (data) => {

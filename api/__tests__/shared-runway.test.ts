@@ -63,6 +63,7 @@ describe('Shared Runway Module', () => {
         promptText: 'Optional prompt',
         ratio: runwayModule.defaultVideoRatio,
         duration: runwayModule.defaultVideoDuration,
+        audio: false,
       });
       expect(result).toEqual(mockTask);
     });
