@@ -178,8 +178,7 @@ export function GeneratedVideosView({
                 {video.name}
               </p>
             )}
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{video.ai_model}</span>
+            <div className="flex items-center justify-end text-xs text-muted-foreground">
               <span>{formatDate(video.created_at)}</span>
             </div>
           </div>

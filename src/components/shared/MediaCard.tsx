@@ -49,7 +49,6 @@ export function MediaCard({
   let width: number | undefined;
   let height: number | undefined;
   let prompt: string | undefined;
-  let aiModel: string | undefined;
   let createdAt: string;
   let typeLabel: string | undefined;
   let editTarget: MediaAsset | EditedImage | undefined;
@@ -81,7 +80,6 @@ export function MediaCard({
     width = item.width;
     height = item.height;
     prompt = item.prompt;
-    aiModel = item.ai_model;
     createdAt = item.created_at;
     typeLabel = showTypeLabel ? 'Edited' : undefined;
     editTarget = item;
@@ -247,7 +245,7 @@ export function MediaCard({
               {prompt}
             </p>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              {aiModel && <Badge variant="secondary">{aiModel}</Badge>}
+              {width && height && <span>{width} × {height}</span>}
               <span>{formatDate(createdAt)}</span>
             </div>
           </>
