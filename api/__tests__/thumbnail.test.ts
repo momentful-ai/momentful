@@ -1,15 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
-
-// Set environment variables for API imports
+// Set environment variables before any imports that might use them
 process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
 process.env.SUPABASE_URL = 'https://test.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-// Mock all external dependencies
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock all external dependencies BEFORE any imports
 vi.mock('fluent-ffmpeg');
 vi.mock('ffmpeg-static', () => ({ default: '/usr/bin/ffmpeg' }));
 vi.mock('fs');
 vi.mock('@supabase/supabase-js');
+
+// Mock the supabase module to prevent it from throwing during import
+vi.mock('../shared/supabase', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn().mockResolvedValue({ data: 'mock-data', error: null }),
+      })),
+    },
+  },
+}));
 
 // Import after mocks are set up
 import { generateAndUploadThumbnail } from '../shared/thumbnail';
