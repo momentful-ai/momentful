@@ -11,5 +11,16 @@
     { "source": "/app", "destination": "/app.html" },
     { "source": "/app/(.*)", "destination": "/app.html" },
     { "source": "/((?!api|app|.*\\..*).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://static.hotjar.com https://script.hotjar.com 'unsafe-inline'; style-src 'self' https://static.hotjar.com https://script.hotjar.com 'unsafe-inline'; img-src 'self' https://static.hotjar.com https://script.hotjar.com https://survey-images.hotjar.com data:; connect-src 'self' https://*.hotjar.com https://*.hotjar.io wss://*.hotjar.com; font-src 'self' https://script.hotjar.com;"
+        }
+      ]
+    }
   ]
 }
