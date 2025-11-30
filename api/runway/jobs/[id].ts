@@ -46,7 +46,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               videoRecord.project_id,
               'video'
             );
-
+            console.log('UPLOAD of Video was SUCCESSFUL. STORAGE PATH:', uploadResult.storagePath);
+            console.log('UPLOAD of Video was SUCCESSFUL. uploadResult:', uploadResult);
             // Generate and upload thumbnail
             let thumbnailStoragePath: string | null = null;
             try {
@@ -56,6 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 videoRecord.project_id,
                 videoRecord.id
               );
+              console.log('GENERATE and UPLOAD of Thumbnail was SUCCESSFUL. STORAGE PATH:', thumbnailStoragePath);
             } catch (thumbnailError) {
               console.error('Failed to generate thumbnail, continuing without it:', thumbnailError);
               // Continue without thumbnail - don't fail the entire video upload

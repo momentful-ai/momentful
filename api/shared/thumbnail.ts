@@ -1,4 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg';
+import { supabase } from './supabase.js';
 
 // Set ffmpeg path to the static binary for serverless environments
 // Import ffmpeg-static synchronously and handle type casting
@@ -39,8 +40,8 @@ export async function generateAndUploadThumbnail(
   videoId: string
 ): Promise<string> {
   const timestamp = Date.now();
-  const tempFileName = `thumbnail-${videoId}-${timestamp}.jpg`;
-  const tempFilePath = `/tmp/${tempFileName}`; // Use /tmp for Vercel serverless functions
+  const fileName = `thumbnail-${videoId}-${timestamp}.jpg`;
+  const tempFilePath = `/tmp/${fileName}`; // Use /tmp for Vercel serverless functions
 
   try {
     // Extract thumbnail from video
@@ -51,29 +52,16 @@ export async function generateAndUploadThumbnail(
     const fs = await import('fs');
     const fileBuffer = fs.readFileSync(tempFilePath);
 
-    // Upload using service role client (similar to how videos are uploaded)
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseService = createClient(
-      process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
+    const storagePath = `${userId}/${projectId}/${fileName}`;
 
-    const storagePath = `${userId}/${projectId}/thumbnail-${videoId}-${timestamp}.jpg`;
-
-    const { data: uploadData, error: uploadError } = await supabaseService.storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('thumbnails')
       .upload(storagePath, fileBuffer, {
         cacheControl: '3600',
         upsert: false,
         contentType: 'image/jpeg',
       });
-
+    console.log('UPLOAD of Thumbnail was SUCCESSFUL. STORAGE PATH:', storagePath);
     if (uploadError) {
       console.error('Error uploading thumbnail:', uploadError);
       throw new Error(`Failed to upload thumbnail: ${uploadError.message}`);
